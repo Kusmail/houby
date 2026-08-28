@@ -167,6 +167,18 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .kamlok td:last-child{text-align:right;color:var(--ink)}
 .kamlok .akce{display:flex;gap:6px;margin-top:9px}
 .mbox .kamlok .akce button{width:auto;flex:1;padding:9px 6px;font-size:12px;margin:0}
+.kamstat{font-size:11.5px;color:var(--muted);margin:0 0 10px}
+.znacka{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;
+  vertical-align:1px;margin-right:4px}
+.znacka.over{background:#2e5c3a;color:#fff}
+.znacka.mapa{background:#e7e2d6;color:#6b6560}
+.filtry{border-top:1px solid var(--line);padding-top:10px;margin-bottom:4px}
+.filtry .fr{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px}
+.filtry .fr > span{font-size:11px;color:var(--muted);width:62px;flex:none;padding-top:6px;font-weight:650}
+.filtry .fr > div{display:flex;flex-wrap:wrap;gap:4px;flex:1}
+.mbox .fchip{width:auto;margin:0;padding:6px 9px;font-size:11px;border-radius:20px;
+  background:#f3f1ec;color:var(--ink);font-weight:600;border:1.5px solid transparent}
+.mbox .fchip.on{background:var(--green);border-color:var(--green);color:#fff}
 .kamsucho{background:#fdf3e3;border-left:3px solid #d99327;padding:11px 12px;border-radius:9px;
   font-size:12.5px;line-height:1.5;margin-bottom:12px}
 #kamObsah .pozn{font-size:11.5px;color:var(--muted);line-height:1.45;margin:2px 0 12px}
@@ -751,8 +763,12 @@ function pinIcon(cls, txt, size){
 L.marker(HOME, {icon: pinIcon('home','⌂',28), zIndexOffset:500}).addTo(map)
  .bindPopup('<div class="pop"><h3>Domov</h3><div class="sub">Stodolní 411, 250 63 Mratín</div></div>', POPOPT);
 
-const v1 = L.layerGroup().addTo(map);
-const v2 = L.layerGroup().addTo(map);
+/* Varianta 1 a Varianta 2 byly dělení z první verze appky – „blízko domova"
+   a „do sta kilometrů". Nahradil je filtr na dojezd, který umí totéž lépe
+   a pro celou republiku. Šestnáct ručně sepsaných míst zůstává jako
+   ověřené tipy: mají poznámky, které se z map vyčíst nedají. */
+const overeneTipy = L.layerGroup().addTo(map);
+const mistaVrstva = L.layerGroup().addTo(map);
 
 function popupHTML(d, index){
   const parkBox = d.park_ok === 'ok'
@@ -761,7 +777,7 @@ function popupHTML(d, index){
   const [la, lo] = d.park;
   return `<div class="pop">
     <h3>${d.rank}. ${d.name}</h3>
-    <div class="sub"><span class="badge ${d.v===1?'b1':'b2'}">Varianta ${d.v}</span> &nbsp;${d.dist}</div>
+    <div class="sub"><span class="badge b1">Ověřený tip</span> &nbsp;${d.dist}</div>
     ${d.top ? `<div class="ok"><b>★</b> ${d.top}</div>` : ''}
     <table>
       <tr><td>GPS</td><td>${la.toFixed(4)}, ${lo.toFixed(4)}</td></tr>
@@ -783,7 +799,7 @@ function popupHTML(d, index){
 }
 
 LOC.forEach((d, idx) => {
-  const g = d.v === 1 ? v1 : v2;
+  const g = overeneTipy;
   L.polygon(d.poly, {color:'#2e8b45', weight:2.5, opacity:.95, fillColor:'#2e8b45', fillOpacity:.22})
    .bindPopup(() => popupHTML(d, idx), POPOPT).addTo(g);
   L.polyline(d.route, {color:'#7a4b18', weight:2.5, opacity:.75, dashArray:'7,7'}).addTo(g);
@@ -791,8 +807,8 @@ LOC.forEach((d, idx) => {
 });
 
 L.control.layers(null, {
-  '<b>Varianta 1</b> – do 20 km': v1,
-  '<b>Varianta 2</b> – do 100 km': v2
+  '<b>Ověřené tipy</b> – 16 popsaných míst': overeneTipy,
+  '<b>Místa z map</b> – celá ČR podle filtrů': mistaVrstva
 }, {collapsed:true}).addTo(map);
 
 map.fitBounds(L.latLngBounds(LOC.map(d=>d.park).concat([HOME])).pad(0.08));
@@ -2346,31 +2362,180 @@ function vPolygonu(bod, poly){
   return uvnitr;
 }
 
-function spoctiSance(pocasi){
-  const mesic = new Date().getMonth() + 1;
-  return LOC.map((l, i) => {
-    const p = rozborPocasi(pocasi[i] ? pocasi[i].daily : pocasi[0].daily);
-    // vlhkost: 25 mm vážených srážek už je slušný základ
-    const vlhkost = Math.max(0, Math.min(1, p.vazene / 25));
-    const bedlove = /bedla/i.test(l.druh || '');
-    const sez = faktorSezony(mesic, bedlove);
-    // porost: bedly na listnaté a louky, hřiby a klouzky na jehličnaté a smíšené
-    const pd = l.porostData || {jehl:50, list:50};
-    const porost = bedlove
-      ? 0.5 + 0.5 * Math.min(1, pd.list / 60)
-      : 0.5 + 0.5 * Math.min(1, pd.jehl / 60);
-    const n = nalezyVPlose(l);
-    const nalezBonus = Math.min(0.6, n.skore * 0.2);
-    const obl = jeOblibene('lok:' + i) ? 0.15 : 0;
-    const dojezd = 1 - Math.min(0.35, minutyDojezdu(l) / 300);
-    const pocasiSrazka = (p.horko >= 4 ? 0.75 : 1) * (p.zima >= 3 ? 0.6 : 1);
-
-    const zaklad = vlhkost * sez * porost * pocasiSrazka;
-    const sance = Math.max(0, Math.min(1, zaklad * (1 + nalezBonus + obl) * dojezd));
-    return {i, l, p, vlhkost, sez, porost, n, obl: obl > 0, dojezd, sance};
-  }).sort((a,b) => b.sance - a.sance);
+/* Nálezy do 700 m od bodu – u míst z map žádný polygon nemáme. */
+function nalezyOkolo(lat, lng, r){
+  let skore=0, pocet=0, posledni=0;
+  Object.keys(state.finds || {}).forEach(uid => {
+    const sk = state.finds[uid] || {};
+    Object.keys(sk).forEach(id => {
+      const z = sk[id];
+      if (!z || typeof z.lat !== 'number') return;
+      if (distM([lat,lng],[z.lat,z.lng]) > (r||700)) return;
+      pocet++; skore += vahaStari(z.ts);
+      if ((z.ts||0) > posledni) posledni = z.ts;
+    });
+  });
+  return {skore, pocet, posledni};
 }
 
+/* Jedno místo, jedno počasí, jedno skóre. Používá se stejně pro ověřený
+   tip i pro místo vygenerované z map – jen u toho druhého nemáme ruční
+   poznámky a je to na obrazovce vidět. */
+function skoreMista(m, den){
+  const mesic = new Date().getMonth() + 1;
+  const p = rozborPocasi(den);
+  const vlhkost = Math.max(0, Math.min(1, p.vazene / 25));
+  const bedlove = FILTR.druh === 'bedly' ||
+                  (FILTR.druh === 'vse' && m.overene && /bedla/i.test(m.loc && m.loc.druh || ''));
+  const sez = faktorSezony(mesic, bedlove);
+  const porost = bedlove
+    ? 0.5 + 0.5 * Math.min(1, m.list / 60)
+    : 0.5 + 0.5 * Math.min(1, m.jehl / 60);
+  const n = m.overene && m.loc ? nalezyVPlose(m.loc) : nalezyOkolo(m.lat, m.lng);
+  const nalezBonus = Math.min(0.6, n.skore * 0.2);
+  const obl = jeOblibene(m.overene ? ('lok:' + m.locIndex) : ('bod:' + m.id)) ? 0.15 : 0;
+  const dojezd = 1 - Math.min(0.35, (m.minuty || 60) / 300);
+  const teplo = (p.horko >= 4 ? 0.75 : 1) * (p.zima >= 3 ? 0.6 : 1);
+  // ověřený tip má ruční popis a prověřenou plochu, tak mu věříme o něco víc
+  const duvera = m.overene ? 1.1 : 1.0;
+  const sance = Math.max(0, Math.min(1, vlhkost * sez * porost * teplo * duvera * (1 + nalezBonus + obl) * dojezd));
+  return {m, p, vlhkost, sez, porost, n, obl: obl > 0, dojezd, sance};
+}
+
+
+
+
+/* ============================================================
+   MÍSTA PRO CELOU ČR
+
+   Doteď appka nabízela šestnáct ručně sepsaných míst. Tohle je jejich
+   náhrada pro zbytek republiky: vychází se z evidovaných parkovišť
+   ZABAGED, protože otázka „kam můžu přijet a vejít do lesa" má stejnou
+   odpověď jako „kde je parkoviště u lesa". Lesních ploch je v ČR přes
+   tři a půl milionu a do telefonu se nikdy nevejdou; parkovišť je
+   čtrnáct tisíc a u každého se dá dopředu spočítat, jaký je kolem
+   porost a jestli tam vede lesní cesta.
+
+   Soubor se stahuje až ve chvíli, kdy si o místa řekneš – kdo appku
+   používá jen na auto a polohu, nestáhne ani bajt navíc.
+   ============================================================ */
+const MISTA_URL = 'mista.json';
+let MISTA = null, mistaNacitam = null;
+
+async function nactiMista(){
+  if (MISTA) return MISTA;
+  if (mistaNacitam) return mistaNacitam;
+  mistaNacitam = (async () => {
+    const r = await fetch(MISTA_URL);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    // [lat*1e4, lng*1e4, jehl%, list%, cest]
+    MISTA = d.m.map((a, i) => ({
+      id: 'm' + i,
+      lat: a[0] / 1e4, lng: a[1] / 1e4,
+      jehl: a[2], list: a[3], cest: a[4],
+      overene: false
+    }));
+    return MISTA;
+  })();
+  return mistaNacitam;
+}
+
+/* ---------- filtry ---------- */
+const FILTR = LS.get('filtr', {druh:'vse', minuty:60, chranena:true, porost:'vse'});
+function ulozFiltr(){ LS.set('filtr', FILTR); }
+
+function sedíPorost(m){
+  if (FILTR.porost === 'vse') return true;
+  if (FILTR.porost === 'jehlicnate') return m.jehl >= 55;
+  if (FILTR.porost === 'listnate')   return m.list >= 55;
+  return m.jehl >= 30 && m.list >= 30;      // smíšené
+}
+function sedíDruh(m){
+  if (FILTR.druh === 'vse') return true;
+  if (FILTR.druh === 'bedly') return m.list >= 45;      // listnaté a louky
+  return m.jehl >= 40;                                   // hřiby, klouzky
+}
+
+/* Vzdušná čára je jen předfiltr, ať neposíláme na router tisíce bodů.
+   Skutečné minuty za volantem se počítají až pro to, co projde. */
+function odhadMinut(m){
+  const km = distM([HOME[0], HOME[1]], [m.lat, m.lng]) / 1000;
+  return km * 1.35 / (km < 15 ? 0.55 : km < 50 ? 0.85 : 1.15);   // km/min
+}
+
+async function skutecneMinuty(mista){
+  if (!mista.length) return;
+  const cast = mista.slice(0, 200);      // ověřeno: router zvládne 250 cílů jedním dotazem
+  const sou = [HOME[1].toFixed(5) + ',' + HOME[0].toFixed(5)]
+    .concat(cast.map(m => m.lng.toFixed(5) + ',' + m.lat.toFixed(5))).join(';');
+  const u = 'https://router.project-osrm.org/table/v1/driving/' + sou +
+            '?sources=0&annotations=duration,distance';
+  try {
+    const r = await fetch(u);
+    const d = await r.json();
+    if (d.code !== 'Ok') throw new Error(d.code);
+    const du = d.durations[0], di = d.distances[0];
+    cast.forEach((m, i) => {
+      m.minuty = Math.round(du[i+1] / 60);
+      m.km = Math.round(di[i+1] / 1000);
+      m.presnyDojezd = true;
+    });
+  } catch(e){
+    cast.forEach(m => { if (m.minuty == null) m.minuty = Math.round(odhadMinut(m)); });
+  }
+}
+
+/* Chráněná území: appka je umí kreslit, ale jestli konkrétní bod leží
+   uvnitř rezervace, musí říct server AOPK. Ptáme se jen na to, co
+   projde ostatními filtry, a po dávkách. */
+const AOPK_ID = 'https://gis.nature.cz/arcgis/rest/services/UzemniOchrana/ChranUzemi/MapServer/identify';
+async function oznacChranena(mista){
+  const dav = mista.slice(0, 40);
+  await Promise.all(dav.map(async m => {
+    if (m.chranene !== undefined) return;
+    try {
+      const q = new URLSearchParams({
+        geometry: m.lng + ',' + m.lat, geometryType: 'esriGeometryPoint',
+        sr: '4326', layers: 'all:0,7', tolerance: '0', returnGeometry: 'false',
+        mapExtent: (m.lng-0.01)+','+(m.lat-0.01)+','+(m.lng+0.01)+','+(m.lat+0.01),
+        imageDisplay: '400,400,96', f: 'json'
+      });
+      const r = await fetch(AOPK_ID + '?' + q.toString());
+      const d = await r.json();
+      const nal = (d.results || []);
+      m.chranene = nal.length ? (nal[0].value || nal[0].layerName || 'chráněné území') : null;
+    } catch(e){ m.chranene = undefined; }
+  }));
+}
+
+/* ---------- výběr míst podle filtrů ---------- */
+async function najdiMista(limit){   // limit = kolik míst pošleme na router
+  const vse = await nactiMista();
+  const tipy = LOC.map((l, i) => ({
+    id: 'lok:' + i, lat: l.park[0], lng: l.park[1],
+    jehl: l.porostData ? l.porostData.jehl : 50,
+    list: l.porostData ? l.porostData.list : 50,
+    cest: 9, overene: true, loc: l, locIndex: i,
+    minuty: minutyDojezdu(l), km: parseInt((l.dist||'').match(/(\d+)\s*km/)?.[1] || '0', 10),
+    presnyDojezd: false
+  }));
+
+  const kandidati = tipy.concat(vse)
+    .filter(m => m.overene || m.cest >= 1)           // musí tam vést cesta
+    .filter(sedíPorost).filter(sedíDruh)
+    .filter(m => (m.minuty != null ? m.minuty : odhadMinut(m)) <= FILTR.minuty * 1.25)
+    .sort((a,b) => (a.minuty != null ? a.minuty : odhadMinut(a)) - (b.minuty != null ? b.minuty : odhadMinut(b)));
+
+  const vybrane = kandidati.slice(0, limit || 200);
+  await skutecneMinuty(vybrane.filter(m => !m.presnyDojezd));
+  let vysl = vybrane.filter(m => (m.minuty || 999) <= FILTR.minuty);
+  if (FILTR.chranena){
+    await oznacChranena(vysl);
+    vysl = vysl.filter(m => !m.chranene);
+  }
+  return {vysl, celkem: kandidati.length};
+}
 
 /* ---------- oblíbená místa ----------
    Ukládají se ke svému uživateli do databáze, takže je vidí celá rodina.
@@ -2419,27 +2584,6 @@ function slovniSance(s){
   return {t:'mizivá', c:'#8a3b1c'};
 }
 
-function duvod(x){
-  const p = x.p;
-  const kusy = [];
-  kusy.push('<tr><td>Déšť za 21 dní</td><td><b>' + Math.round(p.celkem21) + ' mm</b></td></tr>');
-  kusy.push('<tr><td>Poslední vydatný déšť</td><td>' +
-    (p.poslednivetsi === null ? '<b>žádný</b> za 21 dní' :
-     (p.poslednivetsi === 0 ? '<b>dnes</b>' : '<b>před ' + sklonuj(p.poslednivetsi,'dnem','dny','dny') + '</b>')) +
-    '</td></tr>');
-  kusy.push('<tr><td>Porost</td><td>' + (x.l.porostData
-    ? (x.l.porostData.jehl >= x.l.porostData.list ? 'spíš jehličnatý' : 'spíš listnatý') +
-      ' (' + x.l.porostData.ploch + ' ploch ZABAGED)'
-    : 'neznámý') + '</td></tr>');
-  kusy.push('<tr><td>Naše nálezy tady</td><td>' + (x.n.pocet
-    ? '<b>' + sklonuj(x.n.pocet,'nález','nálezy','nálezů') + '</b>, naposledy ' + fmtTime(x.n.posledni)
-    : 'zatím žádné') + '</td></tr>');
-  kusy.push('<tr><td>Dojezd</td><td>' + (x.l.dist || '?') + '</td></tr>');
-  if (x.obl) kusy.push('<tr><td>Oblíbené</td><td>★ ano</td></tr>');
-  if (p.horko >= 4) kusy.push('<tr><td>Pozor</td><td>' + p.horko + ' horkých dnů nad 28 °C</td></tr>');
-  if (p.zima >= 3) kusy.push('<tr><td>Pozor</td><td>' + p.zima + ' mrazivých nocí</td></tr>');
-  return '<table>' + kusy.join('') + '</table>';
-}
 
 function kdyMaCenu(nej){
   // najdi v předpovědi den, po kterém se vyplatí jet
@@ -2458,50 +2602,157 @@ function kdyMaCenu(nej){
          Math.round(nej.p.destVyhled) + ' mm). Nemá cenu nikam jezdit – počkej, až se to zlomí.';
 }
 
+
+/* ---------- počasí pro libovolná místa ---------- */
+async function nactiPocasiPro(mista){
+  const lat = mista.map(m => m.lat.toFixed(3)).join(',');
+  const lon = mista.map(m => m.lng.toFixed(3)).join(',');
+  const u = METEO + '?latitude=' + lat + '&longitude=' + lon +
+    '&daily=precipitation_sum,temperature_2m_max,temperature_2m_min' +
+    '&past_days=21&forecast_days=7&timezone=Europe%2FPrague';
+  const r = await fetch(u);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  let d = await r.json();
+  if (!Array.isArray(d)) d = [d];
+  return d;
+}
+
+function duvodMista(x){
+  const p = x.p, m = x.m;
+  const k = [];
+  k.push('<tr><td>Déšť za 21 dní</td><td><b>' + Math.round(p.celkem21) + ' mm</b></td></tr>');
+  k.push('<tr><td>Poslední vydatný déšť</td><td>' +
+    (p.poslednivetsi === null ? '<b>žádný</b> za 21 dní' :
+     (p.poslednivetsi === 0 ? '<b>dnes</b>' : '<b>před ' + sklonuj(p.poslednivetsi,'dnem','dny','dny') + '</b>')) + '</td></tr>');
+  k.push('<tr><td>Porost do 400 m</td><td>' +
+    (m.jehl >= m.list ? 'spíš jehličnatý' : 'spíš listnatý') + ' (' + m.jehl + ' / ' + m.list + ')</td></tr>');
+  if (!m.overene) k.push('<tr><td>Lesních cest</td><td>' + m.cest + ' v okolí</td></tr>');
+  k.push('<tr><td>Naše nálezy</td><td>' + (x.n.pocet
+    ? '<b>' + sklonuj(x.n.pocet,'nález','nálezy','nálezů') + '</b>, naposledy ' + fmtTime(x.n.posledni)
+    : 'zatím žádné') + '</td></tr>');
+  k.push('<tr><td>Dojezd</td><td>' + (m.minuty != null ? m.minuty + ' min' : '?') +
+    (m.km ? ' · ' + m.km + ' km' : '') + (m.presnyDojezd ? '' : ' <i>(odhad)</i>') + '</td></tr>');
+  if (x.obl) k.push('<tr><td>Oblíbené</td><td>★ ano</td></tr>');
+  if (m.chranene) k.push('<tr><td>Pozor</td><td>' + m.chranene + '</td></tr>');
+  return '<table>' + k.join('') + '</table>';
+}
+
+/* ---------- filtry v dialogu ---------- */
+function filtryHTML(){
+  const chip = (skup, hod, popis) =>
+    '<button class="fchip' + (FILTR[skup] === hod ? ' on' : '') + '" data-f="' + skup + '" data-v="' + hod + '">' + popis + '</button>';
+  return '<div class="filtry">' +
+    '<div class="fr"><span>Houba</span><div>' +
+      chip('druh','vse','Vše') + chip('druh','bedly','Bedly') + chip('druh','hriby','Hřiby a klouzky') +
+    '</div></div>' +
+    '<div class="fr"><span>Porost</span><div>' +
+      chip('porost','vse','Vše') + chip('porost','listnate','Listnatý') +
+      chip('porost','smisene','Smíšený') + chip('porost','jehlicnate','Jehličnatý') +
+    '</div></div>' +
+    '<div class="fr"><span>Dojezd</span><div>' +
+      [20,45,60,90,150].map(v => '<button class="fchip' + (FILTR.minuty === v ? ' on' : '') +
+        '" data-f="minuty" data-v="' + v + '">do ' + v + ' min</button>').join('') +
+    '</div></div>' +
+    '<div class="fr"><span>Chráněná</span><div>' +
+      '<button class="fchip' + (FILTR.chranena ? ' on' : '') + '" data-f="chranena" data-v="1">Vynechat rezervace</button>' +
+      '<button class="fchip' + (!FILTR.chranena ? ' on' : '') + '" data-f="chranena" data-v="0">Je mi to jedno</button>' +
+    '</div></div></div>';
+}
+
+function pripojFiltry(){
+  $('kamObsah').querySelectorAll('.fchip').forEach(b => b.onclick = () => {
+    const f = b.dataset.f, v = b.dataset.v;
+    FILTR[f] = (f === 'minuty') ? +v : (f === 'chranena') ? v === '1' : v;
+    ulozFiltr();
+    kamDnes();
+  });
+}
+
+/* ---------- místa na mapě ---------- */
+function ukazMista(mista){
+  mistaVrstva.clearLayers();
+  mista.filter(m => !m.overene).slice(0, 300).forEach(m => {
+    L.circleMarker([m.lat, m.lng], {radius:6, color:'#7a5ea8', weight:2, opacity:.9,
+      fillColor:'#a98fd0', fillOpacity:.75})
+     .bindPopup('<div class="pop"><h3>Místo z map</h3>' +
+       '<div class="sub"><span class="znacka mapa">nikdy jsme tam nebyli</span></div>' +
+       '<table><tr><td>Porost do 400 m</td><td>' + (m.jehl >= m.list ? 'spíš jehličnatý' : 'spíš listnatý') +
+       ' (' + m.jehl + ' / ' + m.list + ')</td></tr>' +
+       '<tr><td>Lesních cest</td><td>' + m.cest + '</td></tr>' +
+       '<tr><td>Dojezd</td><td>' + (m.minuty != null ? m.minuty + ' min' : '?') + '</td></tr>' +
+       '<tr><td>GPS</td><td>' + m.lat.toFixed(5) + ', ' + m.lng.toFixed(5) + '</td></tr></table>' +
+       '<div class="nav"><a class="alt" target="_blank" rel="noopener" ' +
+       'href="https://www.google.com/maps/dir/?api=1&destination=' + m.lat + ',' + m.lng + '">Navigovat sem</a></div>' +
+       '</div>', POPOPT)
+     .addTo(mistaVrstva);
+  });
+}
+
 async function kamDnes(){
   const b = $('btnKam');
-  b.disabled = true; b.innerHTML = '⏳ &nbsp;Počítám…';
+  b.disabled = true; b.innerHTML = '⏳ &nbsp;Hledám v celé ČR…';
   try {
-    const pocasi = await nactiPocasi();
-    const poradi = spoctiSance(pocasi);
+    const {vysl, celkem} = await najdiMista(200);
+    if (!vysl.length){
+      $('kamObsah').innerHTML = '<div class="kamsucho"><b>Filtry nepustily nic.</b> ' +
+        'V okruhu ' + FILTR.minuty + ' minut jsem s tímhle nastavením nenašel jediné místo. ' +
+        'Zkus povolit delší dojezd nebo jiný porost.</div>' + filtryHTML();
+      $('kamModal').classList.add('show');
+      pripojFiltry();
+      return;
+    }
+    // počasí jen pro to, co prošlo filtry – ne pro čtrnáct tisíc bodů
+    const top = vysl.slice(0, 30);
+    const pocasi = await nactiPocasiPro(top);
+    const poradi = top.map((m, i) => skoreMista(m, pocasi[i].daily)).sort((a,b) => b.sance - a.sance);
     const nej = poradi[0];
     const sl = slovniSance(nej.sance);
     const sucho = nej.sance < 0.15;
 
-    let html = '';
+    let html = '<div class="kamstat">Prohledáno <b>' + celkem + '</b> míst v celé ČR, ' +
+               'filtry prošlo <b>' + vysl.length + '</b>, počasí spočítáno pro <b>' + top.length + '</b>.</div>';
     if (sucho){
       html += '<div class="kamsucho"><b>Dnes nikam.</b> Ani na nejlepším z našich míst nejsou podmínky ' +
               'na to, aby houby rostly. Nebudu ti vymýšlet doporučení, které by nesedělo.<br><br>' +
               kdyMaCenu(nej) + '</div>';
     }
-    poradi.slice(0, 3).forEach((x, poradi_i) => {
+    poradi.slice(0, 4).forEach((x, poradi_i) => {
       const s = slovniSance(x.sance);
+      const m = x.m;
+      const jmeno = m.overene ? m.loc.name : ('Místo u parkoviště ' + m.lat.toFixed(3) + ', ' + m.lng.toFixed(3));
       html += '<div class="kamlok' + (poradi_i === 0 && !sucho ? ' prvni' : '') + '">' +
-        '<div class="hl"><b>' + x.l.name + '</b>' +
+        '<div class="hl"><b>' + jmeno + '</b>' +
         '<span class="sance" style="background:' + s.c + '">' + s.t + '</span></div>' +
-        '<div class="sub">' + (x.l.druh || '').replace(/<[^>]+>/g,'') + '</div>' +
-        duvod(x) +
+        '<div class="sub">' + (m.overene
+          ? '<span class="znacka over">ověřený tip</span> ' + (m.loc.druh || '').replace(/<[^>]+>/g,'')
+          : '<span class="znacka mapa">z map, nikdy jsme tam nebyli</span>') + '</div>' +
+        duvodMista(x) +
         '<div class="akce">' +
-        '<button data-jed="' + x.i + '">Ukázat na mapě</button>' +
-        '<button class="ghost" data-obl="' + x.i + '">' + (x.obl ? '★ Oblíbené' : '☆ Do oblíbených') + '</button>' +
+        '<button data-jed="' + poradi_i + '">Ukázat na mapě</button>' +
+        '<button class="ghost" data-obl="' + poradi_i + '">' + (x.obl ? '★ Oblíbené' : '☆ Do oblíbených') + '</button>' +
         '</div></div>';
     });
 
     html += '<p class="pozn"><b>Tohle není jistota, je to počasí a statistika.</b> ' +
             'Počítá se hlavně déšť z okna před 6 až 18 dny – tou dobou po dešti plodnice vylézají. ' +
-            'Do lesa se odsud nevidím: co tam opravdu roste, zjistíš, až tam dojedeš.</p>';
+            'Místa označená <b>„z map"</b> vznikla strojově z evidovaných parkovišť a porostních dat – ' +
+            'nikdo z nás tam nikdy nebyl. Do lesa se odsud nevidím.</p>';
+    html += filtryHTML();
 
     $('kamObsah').innerHTML = html;
     $('kamModal').classList.add('show');
+    pripojFiltry();
 
     $('kamObsah').querySelectorAll('[data-jed]').forEach(bt => bt.onclick = () => {
-      const l = LOC[+bt.dataset.jed];
+      const x = poradi[+bt.dataset.jed];
       $('kamModal').classList.remove('show');
-      map.setView(l.park, 14);
+      map.setView([x.m.lat, x.m.lng], 14);
+      ukazMista(poradi.map(y => y.m));
     });
     $('kamObsah').querySelectorAll('[data-obl]').forEach(bt => bt.onclick = async () => {
-      const i = +bt.dataset.obl;
-      const je = await prepniOblibene('lok:' + i, LOC[i].name);
+      const x = poradi[+bt.dataset.obl];
+      const klic = x.m.overene ? ('lok:' + x.m.locIndex) : ('bod:' + x.m.id);
+      const je = await prepniOblibene(klic, x.m.overene ? x.m.loc.name : 'Místo z map', x.m.lat, x.m.lng);
       bt.textContent = je ? '★ Oblíbené' : '☆ Do oblíbených';
     });
   } catch(e){

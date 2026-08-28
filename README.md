@@ -11,7 +11,8 @@ Otevírá se v prohlížeči, přidá se na plochu telefonu jako ikona. Žádný
 |---|---|
 | **Doporučení „Kam dnes na houby"** | ✅ Podle srážek posledních 21 dní, se signálem |
 | **Oblíbená místa** | ✅ Sdílená v rodině, vstupují do doporučování |
-| Mapa 16 houbařských lokalit | ✅ Vždy, i bez signálu (pokud sis oblast stáhla) |
+| **Místa pro celou ČR** | ✅ 7 656 míst z map, filtry na druh, porost, dojezd a chráněná území |
+| 16 ověřených tipů s poznámkami | ✅ Vždy, i bez signálu (pokud sis oblast stáhla) |
 | **Lesy celé ČR podle typu porostu** | ✅ Oficiální data ČÚZK, se signálem |
 | **Chráněná území** | ✅ Oficiální data AOPK, se signálem |
 | **Označení zaparkovaného auta** | ✅ Spolehlivě. Jeden zápis, druhý to vidí do sekundy |
@@ -228,9 +229,28 @@ Poloha se sdílí **jen když je přepínač *Sdílím polohu* zapnutý**. Po za
 
 ---
 
+## Místa pro celou ČR
+
+Appka už není šestnáct míst kolem Mratína. **Varianta 1 a Varianta 2 jsou zrušené** — nahradil je filtr na dojezd, který umí totéž a pro celou republiku.
+
+Celostátní vrstva vychází z **evidovaných parkovišť ZABAGED**: otázka „kam můžu přijet a vejít do lesa" má stejnou odpověď jako „kde je parkoviště u lesa". Ze 16 545 parkovišť v ČR zbylo po vyřazení těch bez lesa a bez lesní cesty v okolí **7 656 míst**, u každého je předpočítané složení porostu do 400 m a počet lesních cest.
+
+Soubor s místy váží 181 kB (komprimovaně 69 kB) a **stahuje se až ve chvíli, kdy si o místa řekneš**. Kdo appku používá jen na auto a polohu, nestáhne ani bajt navíc.
+
+**Šestnáct původních míst zůstalo** jako **ověřené tipy** — mají ručně psané poznámky, kde přesně hledat a jaká je tam konkurence, což z map vyčíst nejde. V nabídce jsou označené zeleným štítkem; místa z map mají šedý štítek **„z map, nikdy jsme tam nebyli"**.
+
+## Filtry
+
+V dialogu „Kam dnes" dole. Jdou kombinovat a platí i pro doporučování, ne jen pro mapu:
+
+- **Houba** — vše / bedly / hřiby a klouzky
+- **Porost** — vše / listnatý / smíšený / jehličnatý
+- **Dojezd** — do 20, 45, 60, 90 nebo 150 minut. **Skutečné minuty za volantem**, ne vzdušná čára — počítá je router OSRM.
+- **Chráněná území** — vynechat rezervace a klidová území národních parků, nebo je nechat být
+
 ## Kam dnes na houby
 
-Velké zelené tlačítko nahoře v panelu. Appka stáhne srážky za posledních 21 dní a předpověď na týden pro všech 16 lokalit, spočítá šanci a ukáže tři nejlepší.
+Velké zelené tlačítko nahoře v panelu. Appka projde místa v celé ČR, prožene je filtry, na to co projde spočítá skutečný dojezd a pro třicet nejlepších stáhne srážky za 21 dní i předpověď na týden.
 
 **Jak to počítá.** Houby nerostou z mapy, ale z deště. Podhoubí potřebuje vodu a pak zhruba týden až dva, než vyleze plodnice. Proto se počítá hlavně s deštěm **z okna před 6 až 18 dny**, s vrcholem kolem 10–14 dnů. Déšť z posledních dnů má menší váhu — udrží, co roste, ale sám nic nevykouzlí. Do výsledku dál vstupuje roční doba, typ porostu podle ZABAGED (bedly jinam než hřiby), vaše vlastní nálezy v té ploše, dojezd z Mratína a to, jestli je místo mezi oblíbenými.
 
