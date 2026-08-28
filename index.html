@@ -1681,6 +1681,12 @@ map.on('popupopen', async e => {
     const je = await prepniOblibene('lok:' + i, LOC[i].name);
     obl.textContent = je ? '★ Oblíbené' : '☆ Přidat do oblíbených';
   };
+  const oblB = el2 && el2.querySelector('[data-obl-bod]');
+  if (oblB) oblB.onclick = async () => {
+    const je = await prepniOblibene('bod:' + oblB.dataset.oblBod, 'Místo z map',
+                                    +oblB.dataset.la, +oblB.dataset.ln);
+    oblB.textContent = je ? '★ Oblíbené' : '☆ Přidat do oblíbených';
+  };
   const zrus = el2 && el2.querySelector('.smazOblibene');
   if (zrus) zrus.onclick = async () => {
     await prepniOblibene(zrus.dataset.k);
@@ -2717,10 +2723,14 @@ function ukazMista(mista){
        '<table><tr><td>Porost do 400 m</td><td>' + (m.jehl >= m.list ? 'spíš jehličnatý' : 'spíš listnatý') +
        ' (' + m.jehl + ' / ' + m.list + ')</td></tr>' +
        '<tr><td>Lesních cest</td><td>' + m.cest + '</td></tr>' +
-       '<tr><td>Dojezd</td><td>' + (m.minuty != null ? m.minuty + ' min' : '?') + '</td></tr>' +
+       '<tr><td>Dojezd</td><td>' + (m.minuty != null
+          ? m.minuty + ' min' + (m.presnyDojezd ? '' : ' <i>(odhad)</i>')
+          : Math.round(odhadMinut(m)) + ' min <i>(odhad ze vzdušné čáry)</i>') + '</td></tr>' +
        '<tr><td>GPS</td><td>' + m.lat.toFixed(5) + ', ' + m.lng.toFixed(5) + '</td></tr></table>' +
        '<div class="nav"><a class="alt" target="_blank" rel="noopener" ' +
        'href="https://www.google.com/maps/dir/?api=1&destination=' + m.lat + ',' + m.lng + '">Navigovat sem</a></div>' +
+       '<button class="oblTlac" data-obl-bod="' + m.id + '" data-la="' + m.lat + '" data-ln="' + m.lng + '">' +
+       (jeOblibene('bod:' + m.id) ? '★ Oblíbené' : '☆ Přidat do oblíbených') + '</button>' +
        '</div>', POPOPT)
      .addTo(mistaVrstva);
   });
