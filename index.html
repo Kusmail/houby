@@ -226,13 +226,16 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 }
 .updbar.show{display:flex}
 .recbar{
-  position:absolute;top:calc(var(--safe-t) + 56px + var(--updH,0px));left:8px;right:8px;z-index:1240;
+  position:absolute;top:calc(var(--safe-t) + 56px + var(--updH,0px) + var(--bannerOnlyH,0px));
+  left:8px;right:8px;z-index:1240;
   background:#fdece9;border:1px solid #e8a9a3;border-left:4px solid var(--danger);
   border-radius:10px;padding:8px 11px;font-size:12.5px;font-weight:600;display:none;align-items:center;gap:8px
 }
 .recbar.show{display:flex}
 .mistabar{
-  position:absolute;top:calc(var(--safe-t) + 56px + var(--updH,0px));left:8px;right:56px;z-index:1230;
+  position:absolute;
+  top:calc(var(--safe-t) + 56px + var(--updH,0px) + var(--bannerOnlyH,0px) + var(--recH,0px));
+  left:8px;right:56px;z-index:1230;
   background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 10px;
   font-size:12px;line-height:1.35;display:none;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(0,0,0,.10)
 }
@@ -240,7 +243,8 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .mistabar span.t{flex:1;min-width:0}
 .mistabar button{
   flex:0 0 auto;background:var(--card);border:1px solid var(--line);border-radius:999px;
-  padding:5px 11px;font-size:12px;font-weight:700;font-family:inherit;color:inherit;cursor:pointer
+  min-height:44px;min-width:64px;padding:6px 14px;font-size:13px;font-weight:700;
+  font-family:inherit;color:inherit;cursor:pointer
 }
 .recbar .tecka{width:10px;height:10px;border-radius:50%;background:var(--danger);flex:0 0 10px;
   animation:bliknuti 1.6s infinite}
@@ -390,12 +394,20 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
       <button data-d="Jiné">Jiné</button>
     </div>
 
-    <label class="fotobtn" id="fotoBtn">📷 &nbsp;Vyfotit (nepovinné)
+    <p class="pozn" style="margin:2px 0 6px">Kolik jich bylo?</p>
+    <div class="druhy" id="mnozstvi">
+      <button data-q="1">1</button>
+      <button data-q="3">pár <small>2–5</small></button>
+      <button data-q="12">košík <small>6–20</small></button>
+      <button data-q="40">žně <small>víc než 20</small></button>
+    </div>
+
+    <label class="fotobtn">📷 &nbsp;Vyfotit (nepovinné)
       <input type="file" id="fotoInput" accept="image/*" capture="environment" hidden>
     </label>
     <div id="fotoNahled"></div>
 
-    <p class="pozn" id="findPozn">Poloha se vezme automaticky.</p>
+    <p class="pozn" id="findPozn">Poloha a porost se doplní automaticky.</p>
     <button id="findSave">Uložit nález</button>
     <button class="ghost" id="findClose">Zrušit</button>
   </div>
@@ -428,7 +440,12 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
       <div class="sw" aria-hidden="true"><i></i></div>
       <div class="lbl">Ukázat trasu ostatním<small>Uvidí v mapě, kudy jsi šel. Živou polohu to nezapíná.</small></div>
     </div>
+    <div class="toggle on" id="tgUplna" role="switch" tabindex="0" aria-checked="true" aria-label="Zapsal jsem všechno" style="margin-bottom:14px">
+      <div class="sw" aria-hidden="true"><i></i></div>
+      <div class="lbl">Zapsal jsem všechno, co jsem našel<small>Bez tohohle se z „nic jsem nenašel" nedá nic spočítat.</small></div>
+    </div>
     <button id="trackSave">Uložit trasu</button>
+    <button class="ghost" id="trackNic">Nic jsem nenašel</button>
     <button class="ghost" id="trackDrop">Zahodit</button>
   </div>
 </div>
@@ -720,12 +737,22 @@ const LS = {
 
 /* ---------- bannery ---------- */
 let bannerTimer = null;
+/* Audit 3: hláška, lišta záznamu trasy a lišta míst seděly všechny na
+   souřadnici 56 px. Hláška má vyšší vrstvu, takže překryla tlačítko
+   „Filtr" a dokud svítila, nešlo na něj klepnout. Teď se lišty skládají
+   pod sebe: každá si změří výšku a posune tu následující. */
 function bannerOffset(){
-  const b = $('banner');
-  const u = $('updBar');
-  const hu = u.classList.contains('show') ? (u.offsetHeight + 8) : 0;
-  const h = (b.classList.contains('show') ? (b.offsetHeight + 8) : 0) + hu;
-  document.documentElement.style.setProperty('--bannerH', h + 'px');
+  const st = document.documentElement.style;
+  const vyska = (el) => (el && el.classList.contains('show')) ? (el.offsetHeight + 8) : 0;
+  const hu  = vyska($('updBar'));
+  const hb  = vyska($('banner'));
+  const hr  = vyska($('recBar'));
+  st.setProperty('--updH', hu + 'px');
+  st.setProperty('--bannerOnlyH', hb + 'px');
+  st.setProperty('--recH', hr + 'px');
+  /* ovládání mapy vpravo musí uhnout všem lištám i liště míst */
+  const hm = vyska($('mistaBar'));
+  st.setProperty('--bannerH', (hu + hb + hr + hm) + 'px');
 }
 function hideBanner(){ $('banner').classList.remove('show'); bannerOffset(); }
 function banner(html, isErr, autoHide){
@@ -820,14 +847,18 @@ function popupHTML(d, index){
       <a target="_blank" rel="noopener" href="https://mapy.cz/turisticka?y=${la}&x=${lo}&z=16&source=coor&id=${lo}%2C${la}">Mapy.cz</a>
       <a class="alt" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${la},${lo}">Navigovat</a>
     </div>
+    <button class="oblTlac" data-plocha-lok="${index}">🌲 &nbsp;Ukázat, kde hledat</button>
     <button class="oblTlac" data-obl-lok="${index}">${jeOblibene('lok:'+index) ? '★ Oblíbené' : '☆ Přidat do oblíbených'}</button>
   </div>`;
 }
 
+/* Audit 3: tady se kreslily ručně nakreslené okruhy „kde hledat".
+   Přeměřeno proti lesní vrstvě ZABAGED měly průměrně 43 % lesa, medián
+   2 288 ha a jeden z nich vedl přes pole a obec s nulou procent lesa.
+   Plocha se teď odvozuje z dat až na vyžádání – tlačítkem v bublině
+   nebo z doporučení „Kam dnes". Na mapě zůstává parkoviště a trasa. */
 LOC.forEach((d, idx) => {
   const g = overeneTipy;
-  L.polygon(d.poly, {color:'#2e8b45', weight:2.5, opacity:.95, fillColor:'#2e8b45', fillOpacity:.22})
-   .bindPopup(() => popupHTML(d, idx), POPOPT).addTo(g);
   L.polyline(d.route, {color:'#7a4b18', weight:2.5, opacity:.75, dashArray:'7,7'}).addTo(g);
   L.marker(d.park, {icon: pinIcon('park','P')}).bindPopup(() => popupHTML(d, idx), POPOPT).addTo(g);
 });
@@ -1349,6 +1380,7 @@ window.addEventListener('orientationchange', () => setTimeout(()=>{ measureSheet
    odpověď pak dává nástroj, který si vybral, ne tahle appka.
    ============================================================ */
 let vybranyDruh = null;
+let vybraneMnozstvi = 3;      // tri = "par", nejcastejsi volba, at se neklepe zbytecne
 let fotoSoubor  = null;      // původní soubor z fotoaparátu (na sdílení)
 let fotoNahledData = null;   // zmenšený náhled, který se ukládá do databáze
 
@@ -1370,13 +1402,21 @@ function otevriNalez(){
     banner('Nálezy si můžeš zapisovat, až ti někdo z rodiny pošle odkaz s kódem.', false, 8000);
     return;
   }
-  vybranyDruh = null; fotoSoubor = null; fotoNahledData = null;
+  vybranyDruh = null; fotoSoubor = null; fotoNahledData = null; vybraneMnozstvi = 3;
   document.querySelectorAll('#druhy button').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('#mnozstvi button').forEach(b =>
+    b.classList.toggle('on', b.dataset.q === '3'));
   $('fotoNahled').classList.remove('show'); $('fotoNahled').innerHTML = '';
-  $('findPozn').textContent = 'Poloha se vezme automaticky.';
+  $('findPozn').textContent = 'Poloha a porost se doplní automaticky.';
   $('findSave').disabled = false; $('findSave').textContent = 'Uložit nález';
   $('findModal').classList.add('show');
 }
+
+document.querySelectorAll('#mnozstvi button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#mnozstvi button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  vybraneMnozstvi = +b.dataset.q;
+});
 
 document.querySelectorAll('#druhy button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#druhy button').forEach(x => x.classList.remove('on'));
@@ -1436,10 +1476,24 @@ $('findSave').onclick = async () => {
     const pos = await getPositionOnce();
     const zaznam = {
       druh: vybranyDruh,
+      pocet: vybraneMnozstvi,          // 1 / 3 / 12 / 40 - trida, ne presny pocet
       lat: pos.lat, lng: pos.lng, acc: pos.acc,
       kdo: state.name || 'Bez jména',
       ts: Date.now()
     };
+    /* Porost pod nalezem appka zna z map, tak at se neklepe rucne.
+       Kdyz zrovna neni signal, nalez se ulozi i bez nej. */
+    try {
+      let nej = null, nejD = 2500;      // dál už porost o tomhle místě nic neříká
+      (MISTA || []).forEach(z => {
+        const d = distM([pos.lat, pos.lng], [z.lat, z.lng]);
+        if (d < nejD){ nejD = d; nej = z; }
+      });
+      if (nej && (nej.jehl || nej.list)){
+        zaznam.porost = nej.jehl >= nej.list ? 'jehličnatý' : 'listnatý';
+        zaznam.porostM = Math.round(nejD);   // z jaké dálky ten údaj je, ať se to nepřehání
+      }
+    } catch(err){}
     if (fotoNahledData) zaznam.foto = fotoNahledData;
     const odeslano = await ulozNalez(zaznam);
     $('findModal').classList.remove('show');
@@ -1544,12 +1598,16 @@ function bunkaProBod(lat, lng){
   };
 }
 
-/* Čerstvost: nález starý rok váží polovinu, pětiletý tři procenta.
-   Houby rostou tam, kde rostly – ale les se mění a paseka zarůstá. */
+/* Audit 3: poločas byl jeden rok, takže po dvou suchých sezónách appka
+   odepsala místo, kde mycelium roste padesát let. Měření z dlouhých řad
+   ukazují, že mezi roky kolísá výnos (v jedné dvanáctileté řadě 155×),
+   ale místo samo vydrží desítky let; čarodějné kruhy rostou staletí.
+   Poločas je proto šest let a nález nikdy neklesne pod 15 % váhy –
+   pod tou hranicí by musel les zmizet, a to appka z nálezů nepozná. */
 function vahaStari(ts){
   const dny = (Date.now() - (ts || 0)) / 86400000;
   if (dny < 0) return 1;
-  return Math.pow(0.5, dny / 365);
+  return Math.max(0.15, Math.pow(0.5, dny / (365 * 6)));
 }
 
 function vsechnyNalezy(){
@@ -1687,6 +1745,19 @@ map.on('popupopen', async e => {
     const je = await prepniOblibene('lok:' + i, LOC[i].name);
     obl.textContent = je ? '★ Oblíbené' : '☆ Přidat do oblíbených';
   };
+  const plL = el2 && el2.querySelector('[data-plocha-lok]');
+  if (plL) plL.onclick = () => {
+    const i = +plL.dataset.plochaLok;
+    map.closePopup();
+    ukazPlochu(mistoZTipu(i), LOC[i].name);
+  };
+  const plB = el2 && el2.querySelector('[data-plocha-bod]');
+  if (plB) plB.onclick = () => {
+    const id = plB.dataset.plochaBod;
+    const m = (MISTA || []).find(z => z.id === id);
+    map.closePopup();
+    if (m) ukazPlochu(m, 'parkoviště ' + m.lat.toFixed(3) + ', ' + m.lng.toFixed(3));
+  };
   const oblB = el2 && el2.querySelector('[data-obl-bod]');
   if (oblB) oblB.onclick = async () => {
     const je = await prepniOblibene('bod:' + oblB.dataset.oblBod, 'Parkoviště u lesa',
@@ -1765,6 +1836,21 @@ let historieZap = LS.get('historie', false);
    viz komentář u tgShare. Tohle je jednorázové rozhodnutí o jedné
    dokončené vycházce, takže volbu si zapamatovat můžeme. */
 let sdiletTrasu = LS.get('sdiletTrasy', false);
+let uplnaVychazka = true;     // výchozí zapnuto – kdo nic nezapsal, obvykle nic nenašel
+
+/* Kolik nálezů vzniklo během téhle vycházky. Když je nula a vycházka je
+   označená jako úplná, je to plnohodnotná informace „tady dnes nic". */
+function pocetNalezuVOkne(od, do_){
+  let n = 0;
+  Object.keys(state.finds || {}).forEach(uid => {
+    const sk = state.finds[uid] || {};
+    Object.keys(sk).forEach(id => {
+      const z = sk[id];
+      if (z && z.ts >= od && z.ts <= do_ && (!state.uid || uid === state.uid)) n++;
+    });
+  });
+  return n;
+}
 
 function ulozeneTrasy(){ return LS.get('trasy', []); }
 function trasaDoBodu(b){ return b.map(x => ({lat:x.a, lng:x.o, mezera:!!x.m})); }
@@ -1876,7 +1962,7 @@ function zjednodus(body, tol){
 function spustZaznam(){
   REC.aktivni = true; REC.body = []; REC.start = Date.now();
   REC.zaznamenanoMs = 0; REC.poslednitS = Date.now();
-  $('recBar').classList.add('show');
+  $('recBar').classList.add('show'); bannerOffset();
   $('btnTrasa').classList.add('rec');
   $('btnTrasa').innerHTML = '<b>⏹</b>Ukončit';
   startWatch();
@@ -1885,7 +1971,7 @@ function spustZaznam(){
 
 function ukonciZaznam(){
   REC.aktivni = false;
-  $('recBar').classList.remove('show');
+  $('recBar').classList.remove('show'); bannerOffset();
   $('btnTrasa').classList.remove('rec');
   $('btnTrasa').innerHTML = '<b>⏺</b>Trasa';
   if (!state.sharing) stopWatch();
@@ -1909,14 +1995,26 @@ function ukonciZaznam(){
        ' Ty úseky jsou v mapě tečkované, protože nevíme, kudy jsi tam šel.</div>') : '');
   $('tgSdilet').classList.toggle('on', sdiletTrasu);
   $('tgSdilet').setAttribute('aria-checked', sdiletTrasu ? 'true' : 'false');
+  uplnaVychazka = true;
+  $('tgUplna').classList.add('on');
+  $('tgUplna').setAttribute('aria-checked', 'true');
   $('trackModal').classList.add('show');
 }
+
+$('tgUplna').onclick = () => {
+  uplnaVychazka = !uplnaVychazka;
+  $('tgUplna').classList.toggle('on', uplnaVychazka);
+  $('tgUplna').setAttribute('aria-checked', uplnaVychazka ? 'true' : 'false');
+};
 
 $('tgSdilet').onclick = () => {
   sdiletTrasu = !sdiletTrasu;
   LS.set('sdiletTrasy', sdiletTrasu);
   $('tgSdilet').classList.toggle('on', sdiletTrasu);
   $('tgSdilet').setAttribute('aria-checked', sdiletTrasu ? 'true' : 'false');
+  uplnaVychazka = true;
+  $('tgUplna').classList.add('on');
+  $('tgUplna').setAttribute('aria-checked', 'true');
 };
 
 $('btnTrasa').onclick = () => REC.aktivni ? ukonciZaznam() : spustZaznam();
@@ -1949,6 +2047,11 @@ $('trackSave').onclick = () => {
                                  : {a:+b.lat.toFixed(5), o:+b.lng.toFixed(5)})
   };
   t.sdilena = sdiletTrasu;
+  /* Audit 3: bez záznamu „prošel jsem to a nic tam nebylo" nejde poznat,
+     jestli tam houby nejsou, nebo jsme tam jen nebyli. Přepínač je stejný
+     nápad jako „úplný seznam" u eBirdu – jedno klepnutí za vycházku. */
+  t.uplna = uplnaVychazka;
+  t.nalezu = pocetNalezuVOkne(REC.start, Date.now());
   const vse = ulozeneTrasy(); vse.push(t);
   const vysledek = ulozTrasy(vse.slice(-30));   // víc než třicet vycházek si pamatovat nemusíme
   if (sdiletTrasu) posliTrasu(t);
@@ -1969,6 +2072,15 @@ $('trackSave').onclick = () => {
          (vysledek.zahozeno ? ' <b>Došlo místo, tak jsem zahodil ' +
             sklonuj(vysledek.zahozeno, 'nejstarší nesdílenou vycházku', 'nejstarší nesdílené vycházky', 'nejstarších nesdílených vycházek') + '.</b>' : ''),
          false, vysledek.zahozeno ? 12000 : 8000);
+};
+
+$('trackNic').onclick = () => {
+  uplnaVychazka = true;
+  $('tgUplna').classList.add('on');
+  $('trackSave').click();
+  banner('Uložil jsem to jako <b>vycházku bez nálezu</b>. ' +
+         'Je to stejně cenná informace jako plný košík – appka teď ví, ' +
+         'že tam někdo byl a nic nenašel.', false, 9000);
 };
 
 $('trackDrop').onclick = () => {
@@ -2167,16 +2279,22 @@ const lesDynamicky = JSON.stringify([{
 
 let lesVrstva = null, chranVrstva = null, lesTypyVrstva = null;
 
+/* Audit 3: rastrové dlaždice lesa se stahovaly i nad zoomem 14, kde je
+   stejně hned překryje a odstraní podrobná vektorová vrstva. Deset
+   zahozených dlaždic na každý posun mapy, a každá z nich ukousla 7 MB
+   z kvóty. Nad zoomem pro vektor se rastr proto vůbec nezapíná. */
 function zapniLes(){
   if (!lesVrstva){
     lesVrstva = new ArcDlazdice('', {
       base: CUZK_EXPORT, dynamicLayers: lesDynamicky,
-      minZoom: LES_MIN_Z, maxZoom: 18, opacity: 1, errorTileUrl: PRAZDNA_DLAZDICE,
-      attribution: '&copy; ČÚZK ZABAGED'
+      minZoom: LES_MIN_Z, maxZoom: LES_TYP_Z - 1, opacity: 1,
+      errorTileUrl: PRAZDNA_DLAZDICE, attribution: '&copy; ČÚZK ZABAGED'
     });
   }
-  if (!map.hasLayer(lesVrstva)) lesVrstva.addTo(map);
-  if (lesVrstva.bringToFront) lesVrstva.bringToFront();
+  if (map.getZoom() < LES_TYP_Z){
+    if (!map.hasLayer(lesVrstva)) lesVrstva.addTo(map);
+    if (lesVrstva.bringToFront) lesVrstva.bringToFront();
+  }
   nactiTypyLesa();
 }
 
@@ -2215,7 +2333,7 @@ async function nactiTypyLesaHned(){
   const z = map.getZoom();
   if (z < LES_TYP_Z){
     if (lesTypyVrstva){ map.removeLayer(lesTypyVrstva); lesTypyVrstva = null; }
-    if (lesVrstva && !map.hasLayer(lesVrstva) && z >= LES_MIN_Z) lesVrstva.addTo(map);
+    if (lesVrstva && !map.hasLayer(lesVrstva) && z >= LES_MIN_Z && z < LES_TYP_Z) lesVrstva.addTo(map);
     return;
   }
 
@@ -2277,7 +2395,7 @@ async function nactiTypyLesaHned(){
   } catch(e){
     if (e.name === 'AbortError') return;
     // bez signálu se prostě nic nedokreslí, zelený podklad zůstane
-    if (lesVrstva && !map.hasLayer(lesVrstva) && map.getZoom() >= LES_MIN_Z) lesVrstva.addTo(map);
+    if (lesVrstva && !map.hasLayer(lesVrstva) && map.getZoom() >= LES_MIN_Z && map.getZoom() < LES_TYP_Z) lesVrstva.addTo(map);
   }
 }
 
@@ -2305,23 +2423,13 @@ if (chranZap) zapniChranena();
    podmínky mizerné, appka to řekne rovnou místo aby něco vymyslela.
    ============================================================ */
 const METEO = 'https://api.open-meteo.com/v1/forecast';
-let pocasiCache = null;           // {ts, data}
+let pocasiCache = null;           // {klic, ts, data} – platí 3 hodiny
 const POCASI_PLATNOST = 3*3600*1000;
 
-async function nactiPocasi(){
-  if (pocasiCache && Date.now() - pocasiCache.ts < POCASI_PLATNOST) return pocasiCache.data;
-  const lat = LOC.map(l => l.park[0].toFixed(3)).join(',');
-  const lon = LOC.map(l => l.park[1].toFixed(3)).join(',');
-  const u = METEO + '?latitude=' + lat + '&longitude=' + lon +
-    '&daily=precipitation_sum,temperature_2m_max,temperature_2m_min' +
-    '&past_days=21&forecast_days=7&timezone=Europe%2FPrague';
-  const r = await fetch(u);
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  let d = await r.json();
-  if (!Array.isArray(d)) d = [d];
-  pocasiCache = {ts: Date.now(), data: d};
-  return d;
-}
+/* Audit 3: tady byla funkce nactiPocasi(), kterou nikdo nevolal – a
+   s ní i tříhodinová cache. Nástupce nactiPocasiPro() ji neměl, takže
+   se srážky stahovaly znovu při každém stisku „Kam dnes". Cache je teď
+   u té funkce, která se opravdu používá, a klíčem jsou souřadnice. */
 
 /* Váha deště podle toho, jak je starý. Vrchol na 10–14 dnech –
    tou dobou se objevují plodnice po vydatném dešti. */
@@ -2432,10 +2540,20 @@ function skoreMista(m, den){
   const obl = jeOblibene(m.overene ? ('lok:' + m.locIndex) : ('bod:' + m.id)) ? 0.15 : 0;
   const dojezd = 1 - Math.min(0.35, (m.minuty || 60) / 300);
   const teplo = (p.horko >= 4 ? 0.75 : 1) * (p.zima >= 3 ? 0.6 : 1);
-  // ověřený tip má ruční popis a prověřenou plochu, tak mu věříme o něco víc
-  const duvera = m.overene ? 1.1 : 1.0;
-  const sance = Math.max(0, Math.min(1, vlhkost * sez * porost * teplo * duvera * (1 + nalezBonus + obl) * dojezd));
-  return {m, p, vlhkost, sez, porost, n, obl: obl > 0, dojezd, sance};
+
+  /* Audit 3: ověřené tipy dostávaly plošný bonus 1,1 jen za to, že jsou
+     ověřené. Držel je nahoře bez ohledu na filtr a vypadalo to, že filtr
+     nefunguje. Bonus je pryč – výhoda ověřeného místa je ta, že u něj
+     máme nálezy a poznámky, a to se počítá zvlášť.
+
+     Skóre se navíc dělí na dvě čísla, protože každé stárne jinak rychle:
+     MÍSTO (porost, naše nálezy, dojezd) se mění v řádu let,
+     POČASÍ (déšť, sezóna, teplota) se mění v řádu dní. Dohromady dávají
+     pořadí, ale na kartě jsou vidět obě, aby bylo poznat, co se změnilo. */
+  const sMisto  = Math.max(0, Math.min(1, porost * (1 + nalezBonus + obl) * dojezd));
+  const sPocasi = Math.max(0, Math.min(1, vlhkost * sez * teplo));
+  const sance   = Math.max(0, Math.min(1, sMisto * sPocasi));
+  return {m, p, vlhkost, sez, porost, n, obl: obl > 0, dojezd, sMisto, sPocasi, sance};
 }
 
 
@@ -2548,14 +2666,19 @@ async function oznacChranena(mista){
 /* ---------- výběr míst podle filtrů ---------- */
 async function najdiMista(limit){   // limit = kolik míst pošleme na router
   const vse = await nactiMista();
-  const tipy = LOC.map((l, i) => ({
-    id: 'lok:' + i, lat: l.park[0], lng: l.park[1],
-    jehl: l.porostData ? l.porostData.jehl : 50,
-    list: l.porostData ? l.porostData.list : 50,
-    cest: 9, overene: true, loc: l, locIndex: i,
-    minuty: minutyDojezdu(l), km: parseInt((l.dist||'').match(/(\d+)\s*km/)?.[1] || '0', 10),
-    presnyDojezd: false
-  }));
+  /* Audit 3: tipy se stavěly znovu při každém spuštění, takže se ztratilo
+     i to, co už appka zjistila o chráněných územích – a ptala se AOPK
+     pokaždé znovu na těch samých čtrnáct bodů. Teď se drží. */
+  if (!TIPY){
+    TIPY = LOC.map((l, i) => {
+      const m = mistoZTipu(i);
+      m.minuty = minutyDojezdu(l);
+      m.km = parseInt((l.dist||'').match(/(\d+)\s*km/)?.[1] || '0', 10);
+      m.presnyDojezd = false;
+      return m;
+    });
+  }
+  const tipy = TIPY;
 
   const kandidati = tipy.concat(vse)
     .filter(m => m.overene || m.cest >= 1)           // musí tam vést cesta
@@ -2646,6 +2769,9 @@ function kdyMaCenu(nej){
 async function nactiPocasiPro(mista){
   const lat = mista.map(m => m.lat.toFixed(3)).join(',');
   const lon = mista.map(m => m.lng.toFixed(3)).join(',');
+  const klic = lat + '|' + lon;
+  if (pocasiCache && pocasiCache.klic === klic &&
+      Date.now() - pocasiCache.ts < POCASI_PLATNOST) return pocasiCache.data;
   const u = METEO + '?latitude=' + lat + '&longitude=' + lon +
     '&daily=precipitation_sum,temperature_2m_max,temperature_2m_min' +
     '&past_days=21&forecast_days=7&timezone=Europe%2FPrague';
@@ -2653,6 +2779,7 @@ async function nactiPocasiPro(mista){
   if (!r.ok) throw new Error('HTTP ' + r.status);
   let d = await r.json();
   if (!Array.isArray(d)) d = [d];
+  pocasiCache = {klic, ts: Date.now(), data: d};
   return d;
 }
 
@@ -2670,6 +2797,11 @@ function duvodMista(x){
     : 'zatím žádné') + '</td></tr>');
   k.push('<tr><td>Dojezd</td><td>' + (m.minuty != null ? m.minuty + ' min' : '?') +
     (m.km ? ' · ' + m.km + ' km' : '') + (m.presnyDojezd ? '' : ' <i>(odhad)</i>') + '</td></tr>');
+  const proc = (v) => Math.round(v * 100) + ' %';
+  k.push('<tr><td>Hodnocení místa</td><td><b>' + proc(x.sMisto) + '</b> ' +
+    '<small>porost, nálezy, dojezd – mění se v letech</small></td></tr>');
+  k.push('<tr><td>Podmínky teď</td><td><b>' + proc(x.sPocasi) + '</b> ' +
+    '<small>déšť, sezóna, teplota – mění se ve dnech</small></td></tr>');
   k.push('<tr class="oblRadek"' + (x.obl ? '' : ' style="display:none"') + '><td>Oblíbené</td><td>★ ano</td></tr>');
   if (m.chranene) k.push('<tr><td>Pozor</td><td>' + m.chranene + '</td></tr>');
   return '<table>' + k.join('') + '</table>';
@@ -2758,12 +2890,265 @@ function ukazMista(mista){
        '<tr><td>GPS</td><td>' + m.lat.toFixed(5) + ', ' + m.lng.toFixed(5) + '</td></tr></table>' +
        '<div class="nav"><a class="alt" target="_blank" rel="noopener" ' +
        'href="https://www.google.com/maps/dir/?api=1&destination=' + m.lat + ',' + m.lng + '">Navigovat sem</a></div>' +
+       '<button class="oblTlac" data-plocha-bod="' + m.id + '">🌲 &nbsp;Ukázat, kde hledat</button>' +
        '<button class="oblTlac" data-obl-bod="' + m.id + '" data-la="' + m.lat + '" data-ln="' + m.lng + '">' +
        (jeOblibene('bod:' + m.id) ? '★ Oblíbené' : '☆ Přidat do oblíbených') + '</button>' +
        '</div>', POPOPT);
     zn.addTo(mistaVrstva);
     mistaNaMape.set(m.id, zn);
   });
+}
+
+/* ============================================================
+   PLOCHA K PROHLEDÁNÍ
+
+   Do téhle verze byly „okruhy, kde hledat" u šestnácti lokalit
+   nakreslené od oka. Přeměřeno proti lesní vrstvě ZABAGED: průměrně
+   43 % plochy byl les, pět lokalit mělo pod 20 % a jedna nula. Medián
+   plochy 2 288 hektarů – čtverec 4,8 × 4,8 km. Za dopoledne se projdou
+   tři až pět kilometrů cesty, ne pět kilometrů čtverečních.
+
+   Teď se plocha odvozuje z dat: porost správného druhu, do vycházkové
+   vzdálenosti od auta, napojený na lesní cestu nebo průsek. Do vsi ani
+   na pole se dostat nemůže, protože tam ta vrstva nic nemá.
+
+   Stahuje se až ve chvíli, kdy si o konkrétní místo řekneš.
+   Naměřeno: 29 kB a 2,3 s u Dřís, 111 kB a 4,0 s na Šumavě.
+   ============================================================ */
+const OKRUH_M      = 900;    // vycházkový dosah od auta; obvod zhruba 3 km
+const K_CESTE_M    = 250;    // dál od cesty už se plocha neprohledává
+const ZABAGED      = 'https://ags.cuzk.gov.cz/arcgis/rest/services/ZABAGED_POLOHOPIS/MapServer/';
+const V_LES        = 144;    // lesní půda se stromy kategorizovaná
+const V_CESTA      = 83;
+const V_PRUSEK     = 16;
+const V_NELES      = [139, 135, 140];   // travní porost, sady a zahrady, křoviny
+
+const plochaCache  = new Map();          // klíč místa -> {ha, kusy, polygony, bajtu}
+let plochaVrstva   = null;
+let plochaProbiha  = null;
+
+/* Lokalita v podobě, jakou čeká plocha k prohledání i doporučování. */
+let TIPY = null;
+function mistoZTipu(i){
+  const l = LOC[i];
+  return {
+    id: 'lok:' + i, lat: l.park[0], lng: l.park[1],
+    jehl: l.porostData ? l.porostData.jehl : 50,
+    list: l.porostData ? l.porostData.list : 50,
+    cest: 9, overene: true, loc: l, locIndex: i
+  };
+}
+
+function jeNeles(m){
+  return !!(m.overene && m.loc && /^Není les/i.test(m.loc.porost || ''));
+}
+
+/* Který porost hledáme. Filtr má přednost, jinak se to vezme z popisu
+   lokality – u Dřís „borové monokultury", u Klecan „dubohabřina". */
+function druhyProMisto(m){
+  if (FILTR.porost === 'listnate')   return ['listnaté'];
+  if (FILTR.porost === 'jehlicnate') return ['jehličnaté'];
+  if (FILTR.porost === 'smisene')    return ['smíšené'];
+  if (FILTR.druh === 'bedly')  return ['listnaté', 'smíšené'];
+  if (FILTR.druh === 'hriby')  return ['jehličnaté', 'smíšené'];
+  const t = (m.overene && m.loc ? m.loc.porost : '') || '';
+  if (/borov|smrk|jehlič/i.test(t) && !/dub|buk|habr/i.test(t)) return ['jehličnaté', 'smíšené'];
+  if (/dub|buk|habr|lípa|jasan/i.test(t) && !/borov|smrk/i.test(t)) return ['listnaté', 'smíšené'];
+  return ['listnaté', 'jehličnaté', 'smíšené'];
+}
+
+function mercXY(lat, lng){
+  const p = L.CRS.EPSG3857.project(L.latLng(lat, lng));
+  return [p.x, p.y];
+}
+function mercLatLng(x, y){
+  const p = L.CRS.EPSG3857.unproject(L.point(x, y));
+  return [p.lat, p.lng];
+}
+function stredRingu(r){
+  let x = 0, y = 0;
+  r.forEach(b => { x += b[0]; y += b[1]; });
+  return [x / r.length, y / r.length];
+}
+function plochaRingu(r){
+  let a = 0;
+  for (let i = 0; i < r.length; i++){
+    const [x1, y1] = r[i], [x2, y2] = r[(i + 1) % r.length];
+    a += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(a) / 2;
+}
+function kLinii(px, py, cesty){
+  let best = Infinity;
+  for (const paths of cesty) for (const path of paths){
+    for (let i = 0; i < path.length - 1; i++){
+      const [ax, ay] = path[i], [bx, by] = path[i + 1];
+      const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+      const t = L2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2));
+      const d = Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+      if (d < best) best = d;
+    }
+  }
+  return best;
+}
+
+async function zabaged(vrstva, x, y, r, pole){
+  const q = new URLSearchParams({
+    geometry: [x - r, y - r, x + r, y + r].join(','), geometryType: 'esriGeometryEnvelope',
+    inSR: '3857', outSR: '3857', spatialRel: 'esriSpatialRelIntersects',
+    outFields: pole, returnGeometry: 'true', maxAllowableOffset: '8', f: 'json'
+  });
+  const res = await fetch(ZABAGED + vrstva + '/query?' + q.toString());
+  if (!res.ok) throw new Error('ČÚZK HTTP ' + res.status);
+  const txt = await res.text();
+  return {data: JSON.parse(txt), bajtu: txt.length};
+}
+
+/* Lesní typ z ÚHÚL (mapy oblastních plánů rozvoje lesa). Kóduje půdu,
+   vláhu i vegetační stupeň jedním kódem – u Dřís vrací „1M chudá borová
+   doubrava", což je přesně ta borová písčina z ruční poznámky.
+
+   Ověřeno: služba posílá access-control-allow-origin, takže na ni appka
+   dosáhne. Je ale pomalá a občas neodpoví vůbec (jeden ze tří pokusů
+   spadl na časový limit), takže je to bonus – nikdy se na ni nečeká
+   a bez ní appka funguje dál. */
+const UHUL_WMS = 'https://geoportal.uhul.cz/wms_oprl/service.svc/get';
+const sltCache = new Map();
+
+async function lesniTyp(lat, lng){
+  const klic = lat.toFixed(4) + ',' + lng.toFixed(4);
+  if (sltCache.has(klic)) return sltCache.get(klic);
+  const p = L.CRS.EPSG3857.project(L.latLng(lat, lng));
+  const d = 60;
+  const q = new URLSearchParams({
+    service: 'WMS', version: '1.3.0', request: 'GetFeatureInfo', styles: '',
+    layers: 'Lesnicka_typologie_query', query_layers: 'Lesnicka_typologie_query',
+    crs: 'EPSG:3857', bbox: [p.x - d, p.y - d, p.x + d, p.y + d].join(','),
+    width: '512', height: '512', i: '256', j: '256', info_format: 'application/json'
+  });
+  const stop = new AbortController();
+  const cas = setTimeout(() => stop.abort(), 8000);
+  try {
+    const r = await fetch(UHUL_WMS + '?' + q.toString(), {signal: stop.signal});
+    const j = await r.json();
+    const f = (j.features || []).find(x => x.layerName === 'Lesni_typ');
+    const out = f ? {kod: f.properties.LT, nazev: f.properties['Lesní typ'],
+                     slt: f.properties.SLT} : null;
+    sltCache.set(klic, out);
+    return out;
+  } catch(e){
+    return null;                       // nevadí, je to bonus
+  } finally { clearTimeout(cas); }
+}
+
+async function plochaKProhledani(m){
+  const klic = m.overene ? ('lok:' + m.locIndex) : ('bod:' + m.id);
+  if (plochaCache.has(klic)) return plochaCache.get(klic);
+
+  const [x, y] = mercXY(m.lat, m.lng);
+  const neles  = jeNeles(m);
+  const chci   = druhyProMisto(m);
+  let bajtu = 0;
+
+  const dotazy = neles
+    ? V_NELES.map(v => zabaged(v, x, y, OKRUH_M, 'OBJECTID'))
+    : [zabaged(V_LES, x, y, OKRUH_M, 'druh_p,vyska_p')];
+  dotazy.push(zabaged(V_CESTA, x, y, OKRUH_M, 'typcesty_p'));
+  dotazy.push(zabaged(V_PRUSEK, x, y, OKRUH_M, 'OBJECTID'));
+
+  const odpovedi = await Promise.all(dotazy);
+  odpovedi.forEach(o => { bajtu += o.bajtu; });
+
+  const prusek = odpovedi.pop(), cesta = odpovedi.pop();
+  const cesty = [];
+  [cesta, prusek].forEach(o => (o.data.features || []).forEach(f => {
+    if (f.geometry && f.geometry.paths) cesty.push(f.geometry.paths);
+  }));
+
+  const kusy = [];
+  odpovedi.forEach(o => (o.data.features || []).forEach(f => {
+    const a = f.attributes || {}, rings = (f.geometry && f.geometry.rings) || [];
+    if (!rings.length) return;
+    if (!neles){
+      if (chci.indexOf(a.druh_p) < 0) return;
+      if (a.vyska_p === 'do 2,5 m') return;         // holina, tam se nechodí
+    }
+    const [cx, cy] = stredRingu(rings[0]);
+    if (Math.hypot(cx - x, cy - y) > OKRUH_M) return;
+    const d = cesty.length ? kLinii(cx, cy, cesty) : Infinity;
+    if (d > K_CESTE_M) return;
+    kusy.push({
+      ha: plochaRingu(rings[0]) / 10000,
+      kCeste: Math.round(d),
+      druh: a.druh_p || null,
+      vyska: a.vyska_p || null,
+      body: rings[0].map(b => mercLatLng(b[0], b[1]))
+    });
+  }));
+
+  kusy.sort((a, b) => b.ha - a.ha);
+  const vysl = {
+    ha: kusy.reduce((s, k) => s + k.ha, 0),
+    kusy: kusy.slice(0, 40),
+    bajtu, neles
+  };
+  plochaCache.set(klic, vysl);
+  return vysl;
+}
+
+function zrusPlochu(){
+  if (plochaVrstva){ map.removeLayer(plochaVrstva); plochaVrstva = null; }
+}
+
+async function ukazPlochu(m, jmeno){
+  if (plochaProbiha) return;
+  plochaProbiha = true;
+  banner('Počítám plochu k prohledání kolem <b>' + jmeno + '</b>…', false, 20000);
+  try {
+    const v = await plochaKProhledani(m);
+    zrusPlochu();
+    if (!v.kusy.length){
+      banner('<b>Kolem ' + jmeno + ' nemám co vyznačit.</b> ' +
+             (v.neles ? 'Do ' + OKRUH_M + ' m nejsou v mapách žádné louky, sady ani remízky.'
+                      : 'Do ' + OKRUH_M + ' m není žádný porost hledaného druhu napojený na cestu.') +
+             ' Zkus jiný filtr porostu.', true, 12000);
+      return;
+    }
+    plochaVrstva = L.layerGroup();
+    v.kusy.forEach(k => {
+      L.polygon(k.body, {color:'#2e8b45', weight:2, opacity:.95,
+                         fillColor:'#2e8b45', fillOpacity:.30})
+       .bindPopup('<div class="pop"><h3>Kde hledat</h3>' +
+         '<div class="sub"><span class="znacka mapa">odvozeno z map ČÚZK</span></div>' +
+         '<table><tr><td>Plocha</td><td><b>' + k.ha.toFixed(1) + ' ha</b></td></tr>' +
+         (k.druh  ? '<tr><td>Porost</td><td>' + k.druh + '</td></tr>' : '') +
+         (k.vyska ? '<tr><td>Výška stromů</td><td>' + k.vyska + '</td></tr>' : '') +
+         '<tr><td>K nejbližší cestě</td><td>' + k.kCeste + ' m</td></tr></table></div>', POPOPT)
+       .addTo(plochaVrstva);
+    });
+    plochaVrstva.addTo(map);
+    const b = L.latLngBounds([]);
+    v.kusy.forEach(k => k.body.forEach(p => b.extend(p)));
+    b.extend([m.lat, m.lng]);
+    map.fitBounds(b.pad(0.15));
+    banner('<b>' + jmeno + ':</b> ' + v.ha.toFixed(1) + ' ha k prohledání ve ' +
+           sklonuj(v.kusy.length, 'kusu', 'kusech', 'kusech') + '. ' +
+           (v.neles ? 'Louky, sady a remízky' : 'Porost') +
+           ' do ' + OKRUH_M + ' m od auta, napojený na cestu. ' +
+           '<small>Staženo ' + Math.round(v.bajtu / 1024) + ' kB z ČÚZK.</small>', false, 12000);
+    /* lesní typ dorazí, když dorazí – hláška se doplní za běhu */
+    lesniTyp(m.lat, m.lng).then(t => {
+      if (!t || !$('banner').classList.contains('show')) return;
+      $('bannerTxt').innerHTML += '<br><b>Lesní typ ' + t.kod + ':</b> ' +
+        (t.nazev || '').toLowerCase() + ' <small>(ÚHÚL)</small>';
+      bannerOffset();
+    });
+  } catch(e){
+    banner('<b>Plochu se nepodařilo spočítat.</b> ČÚZK neodpověděl (' + e.message + '). ' +
+           'Zkus to, až budeš mít signál.', true, 10000);
+  } finally {
+    plochaProbiha = false;
+  }
 }
 
 /* ============================================================
@@ -2790,10 +3175,10 @@ async function prekresliMista(){
   const bar = $('mistaBar'), txt = $('mistaTxt');
   if (!map.hasLayer(mistaVrstva)){
     mistaVrstva.clearLayers(); mistaNaMape.clear();
-    bar.classList.remove('show');
+    bar.classList.remove('show'); bannerOffset();
     return;
   }
-  bar.classList.add('show');
+  bar.classList.add('show'); bannerOffset();
 
   if (map.getZoom() < ZOOM_MISTA){
     mistaVrstva.clearLayers(); mistaNaMape.clear();
@@ -2903,6 +3288,9 @@ async function kamDnes(){
       $('kamModal').classList.remove('show');
       map.setView([x.m.lat, x.m.lng], 14);
       ukazMista(poradi.map(y => y.m));
+      const jm = x.m.overene ? x.m.loc.name
+               : ('parkoviště ' + x.m.lat.toFixed(3) + ', ' + x.m.lng.toFixed(3));
+      ukazPlochu(x.m, jm);          // rovnou ukaž, kde tam hledat
     });
     $('kamObsah').querySelectorAll('[data-obl]').forEach(bt => bt.onclick = async () => {
       const x = poradi[+bt.dataset.obl];
@@ -3223,9 +3611,14 @@ function refreshNastroje(){
   odhadUloziste().then(u => {
     const el = $('mistoTxt');
     if (!el || !u) return;
-    el.innerHTML = 'Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.<br>' +
-      'Uložená data zabírají <b>' + fmtMB(u.pouzito) + '</b> z ' + fmtMB(u.kvota) +
-      (u.podil > 0.8 ? ' – <b style="color:#b4451f">začíná být plno</b>.' : '.');
+    limitDlazdic().then(lim => {
+      el.innerHTML = 'Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.<br>' +
+        'Mapa má u prohlížeče naúčtováno <b>' + fmtMB(u.pouzito) + '</b> z ' + fmtMB(u.kvota) +
+        (u.podil > 0.8 ? ' – <b style="color:#b4451f">začíná být plno</b>.' : '.') +
+        '<br><small>Dlaždice jsou z cizích serverů, takže si je prohlížeč účtuje paušálem ' +
+        'zhruba 7 MB za kus, i když má každá jen pár desítek kilobajtů. ' +
+        'Teď se sem vejde ještě <b>' + sklonuj(lim, 'dlaždice', 'dlaždice', 'dlaždic') + '</b>.</small>';
+    });
   });
   $('tgHistorie').onclick = () => {
     historieZap = !historieZap; LS.set('historie', historieZap);
@@ -3248,7 +3641,9 @@ function refreshPomoc(){
     'sedm tisíc bodů přes celou republiku by byla jen kaše. Lišta nad mapou vždycky říká, ' +
     'kolik jich ve výřezu je a kolik jich schoval filtr.<br><br>' +
     '<b>Filtr</b> (tlačítko v té liště) nastavuje houbu, porost, dojezd a rezervace. ' +
-    'Platí zároveň pro mapu i pro doporučení.<br><br>' +
+    'Houba a porost platí pro mapu i pro doporučení; <b>dojezd a rezervace jen pro ' +
+    'doporučení</b> – na dojezd se musí ptát navigace a na rezervace server AOPK, ' +
+    'bod po bodu, a při posouvání mapy by to znamenalo tisíce dotazů.<br><br>' +
     '<b>Kam dnes na houby</b> projede celou republiku, přidá k tomu srážky posledních tří týdnů ' +
     'i předpověď a vybere pár nejlepších míst. Odtud se dá skočit na mapu.</p></details>' +
     '<details class="napoveda"><summary>Co která barva na mapě znamená</summary>' +
@@ -3349,8 +3744,20 @@ $('whoChip').onclick = askName;
    Respektuje OSM tile usage policy: jen aktuální výřez + 2 úrovně
    zoomu, s limitem a prodlevou mezi požadavky. Žádné hromadné stahování.
    ============================================================ */
-const TILE_LIMIT = 400;
-const ODHAD_NA_DLAZDICI = 30 * 1024;   // opaque odpovědi se do kvóty počítají s přirážkou
+/* Audit 3: tady byl odhad 30 kB na dlaždici. Naměřeno na živé appce je to
+   7,0 MB – prohlížeč si neprůhledné odpovědi z cizích domén účtuje paušálem,
+   protože nezná jejich velikost. Odhad se pletl 223× a kontrola „vešlo by se
+   to?" proto nikdy nevyskočila. Limit počtu dlaždic se teď navíc odvozuje
+   z toho, kolik místa prohlížeč opravdu nabízí. */
+const ODHAD_NA_DLAZDICI = 7 * 1024 * 1024;
+const TILE_LIMIT_ABS = 400;            // strop kvůli slušnosti k OSM, ne kvůli místu
+
+async function limitDlazdic(){
+  const u = await odhadUloziste();
+  if (!u) return 150;
+  const zbyva = Math.max(0, u.kvota * 0.5 - u.pouzito);
+  return Math.max(0, Math.min(TILE_LIMIT_ABS, Math.floor(zbyva / ODHAD_NA_DLAZDICI)));
+}
 
 /* Audit 5: cache dlaždic může narazit na kvótu prohlížeče a Safari ji pak
    umí odstřihnout celou naráz – i to, co sis pracně stáhl doma. Radši
@@ -3378,23 +3785,26 @@ async function stahniVyrez(){
       for (let y = nw.y; y <= se.y; y++)
         list.push(`https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`);
   }
-  if (list.length > TILE_LIMIT){
+  const limit = await limitDlazdic();
+  if (list.length > TILE_LIMIT_ABS){
     banner('Výřez je moc velký (' + list.length + ' dlaždic). <b>Přibliž mapu</b> na oblast, kam jedete, a zkus to znovu.', false, 9000);
     return;
   }
-
-  const u = await odhadUloziste();
-  if (u){
-    const potreba = list.length * ODHAD_NA_DLAZDICI;
-    if (u.pouzito + potreba > u.kvota * 0.9){
-      banner('<b>Došlo by místo.</b> Prohlížeč ti na uložená data dává ' + fmtMB(u.kvota) +
-             ' a ' + fmtMB(u.pouzito) + ' už je zabraných. Stáhni menší výřez, ' +
-             'nebo v ℹ️ smaž staré mapy a stáhni jen tu oblast, kam opravdu jedete.', true, 14000);
-      return;
-    }
+  if (limit <= 0){
+    banner('<b>Není kam ukládat.</b> Prohlížeč už ti na uložená data nedává místo. ' +
+           'V ℹ️ smaž staré mapy a stáhni jen tu oblast, kam opravdu jedete.', true, 14000);
+    return;
+  }
+  if (list.length > limit){
+    banner('<b>Tolik se jich nevejde.</b> Výřez má ' + list.length + ' dlaždic, ' +
+           'do zbývajícího místa se jich vejde <b>' + limit + '</b>. ' +
+           'Přibliž mapu na menší oblast, nebo v ℹ️ smaž staré mapy.', true, 14000);
+    return;
   }
 
-  banner('Stahuju ' + list.length + ' dlaždic. <b>Udělej to na Wi-Fi doma</b>, ne v lese na datech.', false, 6000);
+  banner('Stahuju ' + list.length + ' dlaždic (zabere to zhruba ' +
+         fmtMB(list.length * ODHAD_NA_DLAZDICI) + ' z místa, které ti prohlížeč dává). ' +
+         '<b>Udělej to na Wi-Fi doma</b>, ne v lese na datech.', false, 8000);
   let done = 0, fail = 0;
   for (const u of list){
     try { await fetch(u, {mode:'no-cors', cache:'reload'}); done++; }
@@ -3687,7 +4097,6 @@ function nabidniAktualizaci(reg){
   // hlášení a uživatel by se o nové verzi už nedozvěděl
   const bar = $('updBar');
   bar.classList.add('show');
-  document.documentElement.style.setProperty('--updH', (bar.offsetHeight + 8) + 'px');
   bannerOffset();
   const btn = $('btnUpdate');
   btn.disabled = false; btn.textContent = 'Načíst';

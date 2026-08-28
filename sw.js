@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v24';
+const VER        = 'houby-v25';
 const SHELL      = VER + '-shell';
 
 /* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
@@ -14,7 +14,19 @@ const SHELL      = VER + '-shell';
    opravě překlepu. Dlaždice proto verzi nemají a maže je jen uživatel
    tlačítkem „Smazat uložené mapy". */
 const TILES      = 'houby-tiles';
-const TILE_MAX   = 4000;          // strop uložených dlaždic (OSM + lesy + chráněná území)
+
+/* Audit 3: strop byl 4 000 dlaždic a počítal se v KUSECH. Jenže dlaždice
+   jsou z cizích domén, ukládají se jako neprůhledné odpovědi (opaque) a
+   prohlížeč u nich neví, jak jsou velké – do kvóty si je proto účtuje
+   paušálem. Naměřeno na živé appce: 3 073 620 430 bajtů na 439 položek,
+   tedy 7,0 MB na dlaždici, která má ve skutečnosti 24 kB. Strop 4 000
+   tak znamenal 27 GB kvóty, zatímco prohlížeč jich dává 13 – a na
+   telefonu mnohem míň. Teď se strop odvozuje z kvóty, kterou prohlížeč
+   opravdu nabízí, a dlaždicím se z ní dá nejvýš polovina. */
+const TILE_UCTOVANO = 7 * 1024 * 1024;   // co si prohlížeč naúčtuje za jednu opaque dlaždici
+const TILE_PODIL    = 0.5;               // kolik z kvóty smí zabrat mapa
+const TILE_MIN      = 150;               // ať appka funguje i na skoro plném telefonu
+const TILE_MAX_ABS  = 1500;              // ~10 GB kvóty, přes to nejdeme ani na počítači
 
 const SHELL_FILES = [
   './',
@@ -79,14 +91,42 @@ function isTile(url){
       || /gis\.nature\.cz\/arcgis\/rest\/services\/.*\/export\?/.test(url);
 }
 
-async function trimTiles(){
-  const c = await caches.open(TILES);
-  const keys = await c.keys();
-  if (keys.length > TILE_MAX){
-    // smaž nejstarší přebytek
-    for (let i = 0; i < keys.length - TILE_MAX; i++) await c.delete(keys[i]);
-  }
+async function stropDlazdic(){
+  try {
+    const e = await navigator.storage.estimate();
+    if (e && e.quota){
+      const n = Math.floor(e.quota * TILE_PODIL / TILE_UCTOVANO);
+      return Math.max(TILE_MIN, Math.min(TILE_MAX_ABS, n));
+    }
+  } catch(err){}
+  return 400;                             // když se kvóta zjistit nedá, buďme opatrní
 }
+
+let trimBezi = false;
+async function trimTiles(){
+  if (trimBezi) return;
+  trimBezi = true;
+  try {
+    const c = await caches.open(TILES);
+    const keys = await c.keys();
+    const strop = await stropDlazdic();
+    if (keys.length > strop){
+      for (let i = 0; i < keys.length - strop; i++) await c.delete(keys[i]);
+    }
+  } catch(err){} finally { trimBezi = false; }
+}
+
+/* Appka se ptá, kolik místa mapa doopravdy zabírá – v účtované, ne
+   ve skutečné velikosti, protože prohlížeč hlídá tu účtovanou. */
+self.addEventListener('message', async e => {
+  if (e.data !== 'kolik-map' || !e.source) return;
+  try {
+    const c = await caches.open(TILES);
+    const n = (await c.keys()).length;
+    e.source.postMessage({typ:'kolik-map', dlazdic:n, uctovano:n * TILE_UCTOVANO,
+                          strop: await stropDlazdic(), naDlazdici: TILE_UCTOVANO});
+  } catch(err){}
+});
 
 self.addEventListener('fetch', e => {
   const req = e.request;
