@@ -1798,11 +1798,14 @@ const AOPK_EXPORT = 'https://gis.nature.cz/arcgis/rest/services/UzemniOchrana/Ch
 const LES_MIN_Z = 11;   // pod tím server nic nenakreslí a stejně by to bylo k ničemu
 const LES_TYP_Z = 14;   // od tohohle přiblížení rozlišujeme druh porostu
 
+/* Barvy musí být rozeznatelné přes zelený podklad OSM, jinak je celá
+   vrstva k ničemu. Proto jdou od žlutozelené po tmavě modrozelenou –
+   ne tři odstíny téhož. */
 const BARVY_LESA = {
-  'listnaté':   '#7fa94a',
-  'smíšené':    '#4f9068',
-  'jehličnaté': '#2f6f57',
-  'bez určení': '#9aa58c'
+  'listnaté':   '#a8c93a',
+  'smíšené':    '#2f9e6b',
+  'jehličnaté': '#15564a',
+  'bez určení': '#9a9c88'
 };
 
 let lesZap    = LS.get('les', false);
@@ -1923,8 +1926,8 @@ async function nactiTypyLesaHned(){
       filter: f => !lesDruh || (f.properties && f.properties.druh_p === lesDruh),
       style: f => {
         const d = (f.properties && f.properties.druh_p) || 'bez určení';
-        return {color: BARVY_LESA[d] || BARVY_LESA['bez určení'], weight: 1,
-                opacity: .55, fillColor: BARVY_LESA[d] || BARVY_LESA['bez určení'], fillOpacity: .45};
+        const c = BARVY_LESA[d] || BARVY_LESA['bez určení'];
+        return {color: c, weight: 1, opacity: .9, fillColor: c, fillOpacity: .62};
       },
       onEachFeature: (f, l) => {
         const d = (f.properties && f.properties.druh_p) || 'bez určení';
@@ -1936,6 +1939,15 @@ async function nactiTypyLesaHned(){
 
     // podkladová zelená by pod barevnými typy jen špinila barvy
     if (lesVrstva && map.hasLayer(lesVrstva)) map.removeLayer(lesVrstva);
+    map.attributionControl.addAttribution('&copy; ČÚZK ZABAGED');
+
+    /* Server pošle nejvýš 1500 ploch. Když jich je přesně tolik, skoro
+       jistě jsme o nějaké přišli – a mlčky useknutá mapa lesa je horší
+       než žádná, protože vypadá úplně stejně důvěryhodně. */
+    if (g.features.length >= 1500){
+      banner('<b>Porostů je tu tolik, že se do jedné odpovědi nevešly.</b> ' +
+             'Kreslím jen část – přibliž mapu, ať vidíš úplný obraz.', false, 9000);
+    }
     refreshNastroje();
   } catch(e){
     if (e.name === 'AbortError') return;

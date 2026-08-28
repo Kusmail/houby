@@ -223,9 +223,10 @@ Poloha se sdílí **jen když je přepínač *Sdílím polohu* zapnutý**. Po za
 ℹ️ → **Lesy**. Zelené plochy jsou lesní půda se stromy ze ZABAGED, tedy z oficiální databáze ČÚZK. Pokrývá to celou republiku, ne jen našich 16 lokalit.
 
 - Kreslí se **od přiblížení asi na okres**. Nad tím ti server nic nepošle a stejně by z toho nic nepoznal.
-- **Od přiblížení asi na obec** se les rozliší podle porostu: světle zelená listnaté, střední smíšené, tmavá jehličnaté, šedozelená neurčeno. Nahoře se objeví čtyři tlačítka, kterými si necháš jen jeden druh.
+- **Od přiblížení asi na obec** se les rozliší podle porostu: žlutozelená listnaté, zelená smíšené, tmavě modrozelená jehličnaté, šedá neurčeno. Objeví se čtyři tlačítka, kterými si necháš jen jeden druh.
 - **Bedly** hledej v listnatém a na okrajích luk, **hřiby a klouzky** v jehličnatém a smíšeném.
 - Klepnutím do plochy zjistíš, co je to za porost.
+- Když je porostů v jednom výřezu moc, server pošle jen část a appka to napíše — pak přibliž víc. Mlčky useknutá mapa lesa je horší než žádná, protože vypadá stejně důvěryhodně.
 
 Zelený podklad se ukládá do telefonu stejně jako mapa, takže funguje offline. **Rozlišení podle porostu se neukládá** — jedna odpověď má i sto kilobajtů a během jedné vycházky by to sežralo místo, které jinde hlídáme. Bez signálu tedy zůstane zelený podklad bez rozlišení.
 
