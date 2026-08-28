@@ -307,7 +307,8 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
   <div class="mbox">
     <h2>Jak ti máme říkat?</h2>
     <p>Jméno uvidí druhý na mapě u tvojí polohy. Uloží se jen do tohohle telefonu.</p>
-    <input id="nameInput" type="text" placeholder="např. Matěj" maxlength="20" autocomplete="off">
+    <input id="nameInput" type="text" placeholder="např. Matěj" maxlength="24" autocomplete="off">
+    <p class="pozn" id="namePozn"></p>
     <button id="nameSave">Uložit</button>
   </div>
 </div>
@@ -655,10 +656,37 @@ $('bannerClose').onclick = hideBanner;
 const map = L.map('map', {zoomControl:true, tap:false}).setView(HOME, 10);
 const POPOPT = {maxWidth:280, autoPanPaddingTopLeft:L.point(16,110), autoPanPaddingBottomRight:L.point(16,240)};
 
+/* Audit 4: dokud tu nebylo tohle, byla mapa mimo stažený výřez prostě bílá
+   a nic to nevysvětlilo. Šrafovaná dlaždice je vidět na první pohled –
+   „tady nic nemám" vypadá jinak než „tady nic není". */
+const PRAZDNA_DLAZDICE = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">' +
+  '<rect width="256" height="256" fill="#e9e5dd"/>' +
+  '<path d="M-64 192L192-64M0 256L256 0M64 320L320 64" stroke="#dcd6ca" stroke-width="12"/>' +
+  '</svg>');
+
 const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 18, attribution: '&copy; OpenStreetMap'
+  maxZoom: 18, attribution: '&copy; OpenStreetMap',
+  errorTileUrl: PRAZDNA_DLAZDICE
 });
 tiles.addTo(map);
+
+/* Jedna chybějící dlaždice je běžná. Když jich naprší víc najednou,
+   je to celý kus mapy a stojí za to říct proč. Jednou za spuštění. */
+let chybejiciDlazdice = 0, reklJsemOdlazdicich = false, dlazdiceTimer = null;
+tiles.on('tileerror', () => {
+  chybejiciDlazdice++;
+  clearTimeout(dlazdiceTimer);
+  dlazdiceTimer = setTimeout(() => {
+    if (reklJsemOdlazdicich || chybejiciDlazdice < 6) { chybejiciDlazdice = 0; return; }
+    reklJsemOdlazdicich = true;
+    banner(navigator.onLine
+      ? '<b>Šrafovaná místa se nepodařilo načíst.</b> Server s mapou zrovna neodpovídá – zkus to za chvíli, nebo si výřez stáhni doma na Wi-Fi.'
+      : '<b>Tuhle oblast nemáš staženou.</b> Jsi bez signálu a šrafovaná místa v telefonu nejsou. Poloha, auto i trasa fungují dál – jen pod nimi není mapa.',
+      false, 12000);
+    chybejiciDlazdice = 0;
+  }, 1200);
+});
 L.control.scale({imperial:false}).addTo(map);
 
 function pinIcon(cls, txt, size){
@@ -1872,7 +1900,8 @@ function refreshNastroje(){
   el.innerHTML =
     '<h3>Mapa</h3>' +
     '<button class="ghost" id="btnOffline2" style="margin-bottom:8px">⬇︎ &nbsp;Stáhnout tenhle výřez na offline</button>' +
-    '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.</p>' +
+    '<p style="font-size:11.5px;color:var(--muted);margin:0 0 8px" id="mistoTxt">Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.</p>' +
+    '<button class="ghost" id="btnSmazMapy" style="margin-bottom:12px">Smazat uložené mapy</button>' +
     '<div class="toggle' + (historieZap ? ' on' : '') + '" id="tgHistorie" role="switch" tabindex="0" aria-checked="' +
       historieZap + '" aria-label="Kde jsme už hledali" style="margin-bottom:12px">' +
       '<div class="sw" aria-hidden="true"><i></i></div><div class="lbl">Kde jsme už hledali<small>' +
@@ -1893,6 +1922,23 @@ function refreshNastroje(){
     kresliNejlepsi(); refreshNastroje();
   });
   $('btnOffline2').onclick = () => { $('legendModal').classList.remove('show'); stahniVyrez(); };
+  $('btnSmazMapy').onclick = () => {
+    const b = $('btnSmazMapy');
+    if (b.dataset.jistota !== '1'){
+      b.dataset.jistota = '1';
+      b.textContent = 'Opravdu smazat? Klepni znovu';
+      setTimeout(() => { if (b){ b.dataset.jistota = ''; b.textContent = 'Smazat uložené mapy'; } }, 6000);
+      return;
+    }
+    smazMapy();
+  };
+  odhadUloziste().then(u => {
+    const el = $('mistoTxt');
+    if (!el || !u) return;
+    el.innerHTML = 'Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.<br>' +
+      'Uložená data zabírají <b>' + fmtMB(u.pouzito) + '</b> z ' + fmtMB(u.kvota) +
+      (u.podil > 0.8 ? ' – <b style="color:#b4451f">začíná být plno</b>.' : '.');
+  });
   $('tgHistorie').onclick = () => {
     historieZap = !historieZap; LS.set('historie', historieZap);
     if (historieZap) sledujCiziTrasy(); else prestanSledovatTrasy();
@@ -1918,13 +1964,56 @@ $('btnLegend').onclick = () => {
 };
 $('legendClose').onclick = () => $('legendModal').classList.remove('show');
 
-/* ---------- jméno ---------- */
+/* ---------- jméno ----------
+   Audit 9: UID patří prohlížeči, ne člověku. Kdo si appku otevře na
+   iPhonu i na MacBooku, je pro databázi dva lidé se stejným jménem
+   a ve spodní liště pak svítí dvakrát „Matěj". Nepřejmenováváme nikoho
+   za zády – jen navrhneme rozlišení a člověk to odklepne. */
+function typZarizeni(){
+  const u = navigator.userAgent || '';
+  if (/iPhone/i.test(u)) return 'iPhone';
+  if (/iPad/i.test(u)) return 'iPad';
+  if (/Android/i.test(u)) return 'Android';
+  if (/Macintosh|Mac OS X/i.test(u)) return 'MacBook';
+  if (/Windows/i.test(u)) return 'počítač';
+  return 'jinde';
+}
+
+/* Návrh se musí vejít do políčka, ale nesmí se useknout uprostřed slova –
+   „Matěj – druhé zaříze" vypadá jako chyba, ne jako nabídka. */
+function navrhniJmeno(v, max){
+  const stroj = typZarizeni();
+  const zbyva = max - stroj.length - 3;          // 3 = ' – '
+  const zaklad = zbyva >= 3 ? v.slice(0, zbyva).trim() : v.slice(0, 3);
+  return zaklad + ' – ' + stroj;
+}
+
+function jmenoUzMa(v){
+  const cizi = state.others || {};
+  return Object.keys(cizi).some(uid =>
+    uid !== state.uid && cizi[uid] && (cizi[uid].name || '').trim().toLowerCase() === v.toLowerCase());
+}
+
 function askName(){
   $('nameModal').classList.add('show');
   $('nameInput').value = state.name || '';
+  const pozn = $('namePozn');
+  if (pozn) pozn.textContent = '';
   $('nameSave').onclick = () => {
-    const v = ($('nameInput').value || '').trim().slice(0,20);
+    const v = ($('nameInput').value || '').trim().slice(0,24);
     if (!v) return;
+
+    const b = $('nameSave');
+    if (jmenoUzMa(v) && b.dataset.potvrzeno !== v){
+      const navrh = navrhniJmeno(v, 24);
+      b.dataset.potvrzeno = v;
+      $('nameInput').value = navrh;
+      if (pozn) pozn.innerHTML = '<b>Tohle jméno už používá jiné zařízení.</b> Navrhuju „' + navrh +
+        '", ať se v liště nepletete. Klidně to přepiš – nebo klepni na Uložit ještě jednou a nech původní.';
+      return;
+    }
+    b.dataset.potvrzeno = '';
+
     state.name = v; LS.set('name', v);
     $('nameModal').classList.remove('show');
     $('whoTxt').textContent = v;
@@ -1940,6 +2029,24 @@ $('whoChip').onclick = askName;
    zoomu, s limitem a prodlevou mezi požadavky. Žádné hromadné stahování.
    ============================================================ */
 const TILE_LIMIT = 400;
+const ODHAD_NA_DLAZDICI = 30 * 1024;   // opaque odpovědi se do kvóty počítají s přirážkou
+
+/* Audit 5: cache dlaždic může narazit na kvótu prohlížeče a Safari ji pak
+   umí odstřihnout celou naráz – i to, co sis pracně stáhl doma. Radši
+   počítáme dopředu a řekneme to, než aby mapa jednou v lese prostě zmizela. */
+async function odhadUloziste(){
+  try {
+    if (!navigator.storage || !navigator.storage.estimate) return null;
+    const e = await navigator.storage.estimate();
+    if (!e || !e.quota) return null;
+    return {pouzito: e.usage || 0, kvota: e.quota, podil: (e.usage || 0) / e.quota};
+  } catch(err){ return null; }
+}
+
+function fmtMB(b){
+  const mb = b / (1024*1024);
+  return (mb >= 100 ? Math.round(mb) : mb.toFixed(1)) + ' MB';
+}
 async function stahniVyrez(){
   const b = $('btnTrasa');   // ukazatel průběhu dáme na nejbližší tlačítko
   const z0 = map.getZoom(), bb = map.getBounds();
@@ -1954,6 +2061,18 @@ async function stahniVyrez(){
     banner('Výřez je moc velký (' + list.length + ' dlaždic). <b>Přibliž mapu</b> na oblast, kam jedete, a zkus to znovu.', false, 9000);
     return;
   }
+
+  const u = await odhadUloziste();
+  if (u){
+    const potreba = list.length * ODHAD_NA_DLAZDICI;
+    if (u.pouzito + potreba > u.kvota * 0.9){
+      banner('<b>Došlo by místo.</b> Prohlížeč ti na uložená data dává ' + fmtMB(u.kvota) +
+             ' a ' + fmtMB(u.pouzito) + ' už je zabraných. Stáhni menší výřez, ' +
+             'nebo v ℹ️ smaž staré mapy a stáhni jen tu oblast, kam opravdu jedete.', true, 14000);
+      return;
+    }
+  }
+
   banner('Stahuju ' + list.length + ' dlaždic. <b>Udělej to na Wi-Fi doma</b>, ne v lese na datech.', false, 6000);
   let done = 0, fail = 0;
   for (const u of list){
@@ -1965,6 +2084,27 @@ async function stahniVyrez(){
   b.innerHTML = REC.aktivni ? '<b>⏹</b>Ukončit' : '<b>⏺</b>Trasa';
   banner(fail ? ('Uloženo ' + done + ' dlaždic, ' + fail + ' se nepovedlo (asi slabý signál).')
               : ('Hotovo – ' + done + ' dlaždic je uložených. Tenhle výřez teď funguje i bez signálu.'), false, 8000);
+
+  const po = await odhadUloziste();
+  if (po && po.podil > 0.8){
+    banner('<b>Uložená data zabírají ' + Math.round(po.podil*100) + ' % z toho, co ti prohlížeč dovolí</b> (' +
+           fmtMB(po.pouzito) + ' z ' + fmtMB(po.kvota) + '). Až bude plno, prohlížeč začne mazat sám a může vzít i mapy, ' +
+           'které potřebuješ. V ℹ️ je tlačítko na smazání starých map.', true, 14000);
+  }
+  refreshNastroje();
+}
+
+/* Smazání uložených map. Skořápku appky necháváme – jinak by se z toho
+   stalo „appka po klepnutí přestala fungovat offline". */
+async function smazMapy(){
+  try {
+    const jmena = await caches.keys();
+    for (const k of jmena) if (/-tiles$/.test(k)) await caches.delete(k);
+    banner('Uložené mapy jsou smazané. Appka funguje dál, jen si výřez budeš muset stáhnout znovu.', false, 9000);
+    refreshNastroje();
+  } catch(e){
+    banner('Smazat mapy se nepovedlo: ' + e.message, true, 9000);
+  }
 }
 function project(latlng, z){
   const p = map.project(latlng, z), s = 256;

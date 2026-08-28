@@ -237,8 +237,14 @@ Pozici auta má v ruce ten, kdo klepl naposledy. Když ji někdo přepíše nebo
 **Ovládání bez dotyku**
 Všechny přepínače a tlačítka jdou projít tabulátorem a zapnout mezerníkem nebo Enterem, mají popisky pro VoiceOver a Escape zavírá otevřené okno.
 
-**Mapa je prázdná / šedá**
-Nemáš signál a tenhle výřez není stažený offline. Doma na Wi-Fi otevři appku, najdi oblast a klepni **Offline**. Mimo stažený výřez mapa prostě nebude — je to omezení pravidel OpenStreetMap, hromadné stahování map není povolené.
+**Mapa je šrafovaná**
+Šrafovaná plocha znamená „tuhle dlaždici nemám" — buď jsi bez signálu a oblast není stažená, nebo server s mapou zrovna neodpovídá. Appka ti napíše, který z těch dvou případů to je. Doma na Wi-Fi otevři appku, najdi oblast a klepni **Offline**. Mimo stažený výřez mapa prostě nebude — hromadné stahování map pravidla OpenStreetMap nedovolují.
+
+**Došlo místo na uložené mapy**
+V ℹ️ je napsané, kolik uložená data zabírají a kolik ti prohlížeč dovolí. Když se blíží strop, appka to řekne — a je tam tlačítko **Smazat uložené mapy**. Samotná appka funguje offline dál, jen si výřez budeš muset stáhnout znovu. Neřešit to se nevyplácí: až bude plno, začne prohlížeč mazat sám a může vzít i mapu, kterou máš zítra potřebovat.
+
+**Ve spodní liště jsem dvakrát**
+Každý prohlížeč má vlastní UID, takže iPhone a MacBook jsou dva různí uživatelé. Když zadáš jméno, které už někdo používá, appka navrhne rozlišení („Matěj – iPhone"). Můžeš ho přepsat nebo klepnout na Uložit znovu a nechat původní.
 
 **Nevidím svoji polohu**
 Zkontroluj tři věci: (1) přepínač *Sdílím polohu* je zapnutý, (2) Nastavení → Ochrana soukromí → Polohové služby je zapnuté, (3) Nastavení → Safari → Poloha je *Zeptat se* nebo *Povolit*. V hustém lese může první GPS fix trvat i minutu — vyjdi na světlejší místo.
