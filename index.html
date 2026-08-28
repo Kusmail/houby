@@ -1650,9 +1650,10 @@ function spoctiBunky(){
   vsechnyNalezy().forEach(z => {
     if (nejlepsiDruh && z.druh !== nejlepsiDruh) return;
     const b = bunkaProBod(z.lat, z.lng);
-    if (!bunky[b.klic]) bunky[b.klic] = {ramec:b, skore:0, pocet:0, posledni:0, druhy:{}};
+    if (!bunky[b.klic]) bunky[b.klic] = {ramec:b, skore:0, pocet:0, kusy:0, posledni:0, druhy:{}};
     const c = bunky[b.klic];
-    c.skore += vahaStari(z.ts);
+    c.skore += vahaStari(z.ts) * vahaMnozstvi(z.pocet);
+    c.kusy  += vahaMnozstvi(z.pocet);
     c.pocet += 1;
     if ((z.ts || 0) > c.posledni) c.posledni = z.ts || 0;
     c.druhy[z.druh || 'Jiné'] = (c.druhy[z.druh || 'Jiné'] || 0) + 1;
@@ -1686,7 +1687,8 @@ function kresliNejlepsi(){
                      .map(d => d + ' ×' + c.druhy[d]).join(', ');
     obd.bindPopup('<div class="pop"><h3>Nálezové místo</h3>' +
       '<div class="sub">čtverec 500 × 500 m</div><table>' +
-      '<tr><td>Nálezů</td><td>' + c.pocet + '</td></tr>' +
+      '<tr><td>Nálezů</td><td>' + c.pocet +
+      (c.kusy >= c.pocet * 1.6 ? ' <small>(vydatných)</small>' : '') + '</td></tr>' +
       '<tr><td>Naposledy</td><td>' + fmtTime(c.posledni) + '</td></tr>' +
       '<tr><td>Co tu bylo</td><td>' + seznam + '</td></tr></table></div>', POPOPT);
     obd.addTo(v);
@@ -2505,19 +2507,27 @@ function minutyDojezdu(l){
   return m ? +m[1] : 60;
 }
 
+/* Množství, které se u nálezu zapíše (1 / pár / košík / žně), se do
+   hodnocení počítá logaritmicky. Košík není dvanáctkrát lepší než jedna
+   plodnice – je to lepší zpráva, ne dvanáctkrát lepší místo. */
+function vahaMnozstvi(pocet){
+  const n = (typeof pocet === 'number' && pocet > 0) ? pocet : 3;   // starší nálezy množství nemají
+  return Math.min(3.5, 1 + Math.log2(n) / 2);
+}
+
 function nalezyVPlose(l){
-  let skore = 0, pocet = 0, posledni = 0;
+  let skore = 0, pocet = 0, posledni = 0, kusy = 0;
   Object.keys(state.finds || {}).forEach(uid => {
     const sk = state.finds[uid] || {};
     Object.keys(sk).forEach(id => {
       const z = sk[id];
       if (!z || typeof z.lat !== 'number') return;
       if (!vPolygonu([z.lat, z.lng], l.poly)) return;
-      pocet++; skore += vahaStari(z.ts);
+      pocet++; kusy += vahaMnozstvi(z.pocet); skore += vahaStari(z.ts) * vahaMnozstvi(z.pocet);
       if ((z.ts||0) > posledni) posledni = z.ts;
     });
   });
-  return {skore, pocet, posledni};
+  return {skore, pocet, posledni, kusy};
 }
 
 function vPolygonu(bod, poly){
@@ -2529,20 +2539,53 @@ function vPolygonu(bod, poly){
   return uvnitr;
 }
 
+/* Vycházky, které kolem místa prošly. Trasa označená jako úplná
+   („zapsal jsem všechno") a bez jediného nálezu je plnohodnotná zpráva:
+   někdo tam byl a nic nenašel. Bez toho by appka nikdy nerozlišila
+   „tam houby nejsou" od „tam jsme nebyli".
+
+   Bere se vlastní historie i sdílené trasy ostatních – u nich se úplnost
+   nepředpokládá, pokud si ji ten druhý neoznačil. */
+function vychazkyOkolo(lat, lng, r){
+  const dosah = r || 700;
+  let prosli = 0, naprazdno = 0, posledniPrazdna = 0;
+  const zpracuj = (t) => {
+    if (!t || !Array.isArray(t.body) || !t.body.length) return;
+    const blizko = t.body.some(b => {
+      const la = (typeof b.a === 'number') ? b.a : b.lat;
+      const lo = (typeof b.o === 'number') ? b.o : b.lng;
+      return typeof la === 'number' && distM([lat, lng], [la, lo]) <= dosah;
+    });
+    if (!blizko) return;
+    prosli++;
+    if (t.uplna === true && (t.nalezu || 0) === 0){
+      naprazdno++;
+      if ((t.ts || 0) > posledniPrazdna) posledniPrazdna = t.ts || 0;
+    }
+  };
+  ulozeneTrasy().forEach(zpracuj);
+  const ciz = state.tracks || {};
+  Object.keys(ciz).forEach(uid => {
+    if (uid === state.uid) return;                    // vlastní už máme z telefonu
+    Object.keys(ciz[uid] || {}).forEach(id => zpracuj(ciz[uid][id]));
+  });
+  return {prosli, naprazdno, posledniPrazdna};
+}
+
 /* Nálezy do 700 m od bodu – u míst z map žádný polygon nemáme. */
 function nalezyOkolo(lat, lng, r){
-  let skore=0, pocet=0, posledni=0;
+  let skore=0, pocet=0, posledni=0, kusy=0;
   Object.keys(state.finds || {}).forEach(uid => {
     const sk = state.finds[uid] || {};
     Object.keys(sk).forEach(id => {
       const z = sk[id];
       if (!z || typeof z.lat !== 'number') return;
       if (distM([lat,lng],[z.lat,z.lng]) > (r||700)) return;
-      pocet++; skore += vahaStari(z.ts);
+      pocet++; kusy += vahaMnozstvi(z.pocet); skore += vahaStari(z.ts) * vahaMnozstvi(z.pocet);
       if ((z.ts||0) > posledni) posledni = z.ts;
     });
   });
-  return {skore, pocet, posledni};
+  return {skore, pocet, posledni, kusy};
 }
 
 /* Jedno místo, jedno počasí, jedno skóre. Používá se stejně pro ověřený
@@ -2567,6 +2610,15 @@ function skoreMista(m, den){
   const cesty = m.overene ? 1.0 : (0.7 + 0.3 * Math.min(1, (m.cest || 0) / 8));
   const n = m.overene && m.loc ? nalezyVPlose(m.loc) : nalezyOkolo(m.lat, m.lng);
   const nalezBonus = Math.min(0.6, n.skore * 0.2);
+
+  /* Prošli jsme to a nic. Jedna prázdná vycházka nic neznamená – houby
+     nerostou pořád. Tři a víc už něco říká, ale ani ty místo nezabijí:
+     nejvýš mu seberou pětinu. Jakmile tam někdo něco najde, sráží to
+     přestává platit. */
+  const v = vychazkyOkolo(m.lat, m.lng, m.overene ? 1200 : 700);
+  const prazdno = (n.pocet === 0 && v.naprazdno >= 2)
+    ? 1 - Math.min(0.2, (v.naprazdno - 1) * 0.07)
+    : 1;
   const obl = jeOblibene(m.overene ? ('lok:' + m.locIndex) : ('bod:' + m.id)) ? 0.15 : 0;
   const dojezd = 1 - Math.min(0.55, (m.minuty || 60) / 180);
   const teplo = (p.horko >= 4 ? 0.75 : 1) * (p.zima >= 3 ? 0.6 : 1);
@@ -2580,10 +2632,10 @@ function skoreMista(m, den){
      MÍSTO (porost, naše nálezy, dojezd) se mění v řádu let,
      POČASÍ (déšť, sezóna, teplota) se mění v řádu dní. Dohromady dávají
      pořadí, ale na kartě jsou vidět obě, aby bylo poznat, co se změnilo. */
-  const sMisto  = Math.max(0, Math.min(1, porost * cesty * (1 + nalezBonus + obl) * dojezd));
+  const sMisto  = Math.max(0, Math.min(1, porost * cesty * prazdno * (1 + nalezBonus + obl) * dojezd));
   const sPocasi = Math.max(0, Math.min(1, vlhkost * sez * teplo));
   const sance   = Math.max(0, Math.min(1, sMisto * sPocasi));
-  return {m, p, vlhkost, sez, porost, n, obl: obl > 0, dojezd, sMisto, sPocasi, sance};
+  return {m, p, vlhkost, sez, porost, n, v, obl: obl > 0, dojezd, sMisto, sPocasi, sance};
 }
 
 
@@ -2840,8 +2892,19 @@ function duvodMista(x){
   k.push('<tr><td>Porost do 400 m</td><td>' + popisPorostu(m) + '</td></tr>');
   if (!m.overene) k.push('<tr><td>Lesních cest</td><td>' + m.cest + ' v okolí</td></tr>');
   k.push('<tr><td>Naše nálezy</td><td>' + (x.n.pocet
-    ? '<b>' + sklonuj(x.n.pocet,'nález','nálezy','nálezů') + '</b>, naposledy ' + fmtTime(x.n.posledni)
+    ? '<b>' + sklonuj(x.n.pocet,'nález','nálezy','nálezů') + '</b>' +
+      (x.n.kusy >= x.n.pocet * 1.6 ? ' <small>(a byly vydatné)</small>' : '') +
+      ', naposledy ' + fmtTime(x.n.posledni)
     : 'zatím žádné') + '</td></tr>');
+  /* Nulová vycházka je stejně cenná zpráva jako plný košík – ať je vidět. */
+  if (x.v && x.v.prosli){
+    k.push('<tr><td>Byli jsme tam</td><td>' +
+      sklonuj(x.v.prosli, 'vycházka', 'vycházky', 'vycházek').replace(/^(\d+)/, '<b>$1</b>') +
+      (x.v.naprazdno
+        ? ', z toho <b>' + x.v.naprazdno + '×</b> naprázdno' +
+          (x.v.posledniPrazdna ? ' (naposledy ' + fmtTime(x.v.posledniPrazdna) + ')' : '')
+        : '') + '</td></tr>');
+  }
   k.push('<tr><td>Dojezd</td><td>' + (m.minuty != null ? m.minuty + ' min' : '?') +
     (m.km ? ' · ' + m.km + ' km' : '') + (m.presnyDojezd ? '' : ' <i>(odhad)</i>') + '</td></tr>');
   const proc = (v) => Math.round(v * 100) + ' %';
