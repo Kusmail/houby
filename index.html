@@ -166,6 +166,20 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
   display:none;align-items:center;gap:10px
 }
 .updbar.show{display:flex}
+.recbar{
+  position:absolute;top:calc(var(--safe-t) + 56px + var(--updH,0px));left:8px;right:8px;z-index:1240;
+  background:#fdece9;border:1px solid #e8a9a3;border-left:4px solid var(--danger);
+  border-radius:10px;padding:8px 11px;font-size:12.5px;font-weight:600;display:none;align-items:center;gap:8px
+}
+.recbar.show{display:flex}
+.recbar .tecka{width:10px;height:10px;border-radius:50%;background:var(--danger);flex:0 0 10px;
+  animation:bliknuti 1.6s infinite}
+@keyframes bliknuti{0%,100%{opacity:1}50%{opacity:.25}}
+.mini.rec{background:#fdece9;border-color:#e8a9a3;color:var(--danger)}
+#trackSouhrn{font-size:13.5px;line-height:1.6;margin-bottom:16px}
+#trackSouhrn .cislo{font-size:26px;font-weight:750;letter-spacing:-.02em;display:block}
+#trackSouhrn .warn{background:#fdf3e3;border-left:3px solid #d99327;padding:8px 10px;
+  border-radius:0 5px 5px 0;font-size:12px;margin-top:10px;line-height:1.45}
 .updbar span{flex:1;min-width:0}
 .updbar b{display:block}
 .updbar button{flex:0 0 auto;padding:9px 16px;border:0;border-radius:8px;background:#fff;
@@ -232,6 +246,8 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
   <div class="iconbtn" id="btnLegend" title="Legenda">ℹ️</div>
 </div>
 
+<div class="recbar" id="recBar"><span class="tecka"></span><span id="recTxt">Zaznamenávám trasu</span></div>
+
 <div class="banner" id="banner"><span class="close" id="bannerClose">✕</span><span id="bannerTxt"></span></div>
 
 <div class="updbar" id="updBar">
@@ -273,7 +289,7 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
     <div class="mini" id="btnMe"><b>◎</b>Na mě</div>
     <div class="mini" id="btnCar"><b>🚗</b>Na auto</div>
     <div class="mini" id="btnFind2"><b>🍄</b>Nález</div>
-    <div class="mini" id="btnOffline"><b>⬇︎</b>Offline</div>
+    <div class="mini" id="btnTrasa"><b>⏺</b>Trasa</div>
   </div>
  </div>
 </div>
@@ -307,6 +323,15 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
     <p class="pozn" id="findPozn">Poloha se vezme automaticky.</p>
     <button id="findSave">Uložit nález</button>
     <button class="ghost" id="findClose">Zrušit</button>
+  </div>
+</div>
+
+<div class="modal" id="trackModal">
+  <div class="mbox">
+    <h2>Trasa zaznamenaná</h2>
+    <div id="trackSouhrn"></div>
+    <button id="trackSave">Uložit trasu</button>
+    <button class="ghost" id="trackDrop">Zahodit</button>
   </div>
 </div>
 
@@ -865,6 +890,7 @@ function stopWatch(){
 }
 function onPos(p){
   state.me = {lat:p.coords.latitude, lng:p.coords.longitude, acc:p.coords.accuracy, ts:Date.now()};
+  bodDoTrasy(state.me);
   renderPeople();
   if (state.car) updateCarNav();
   if (state.sharing && Date.now() - lastPush > 10000){   // max 1× za 10 s
@@ -966,7 +992,7 @@ function setShare(on){
   // Kdyby sem někdy někdo doplnil ukládání, rozbije tím to nejdůležitější
   // soukromé pravidlo celé appky.
   if (on){ startWatch(); }
-  else { stopWatch(); state.me = null;
+  else { if (!REC.aktivni) stopWatch(); state.me = null;
          if (meMarker){ map.removeLayer(meMarker); map.removeLayer(meCircle); meMarker = null; meCircle = null; } }
   pushMyPosition();
   renderPeopleList();
@@ -1018,6 +1044,10 @@ document.addEventListener('visibilitychange', async () => {
   // po návratu si hned vyžádat čerstvou pozici, ať se lišta nekouká na starou
   if (state.sharing) startWatch();
 });
+
+function sklonuj(n, jedna, dva, pet){
+  return n + ' ' + (n === 1 ? jedna : (n >= 2 && n <= 4 ? dva : pet));
+}
 
 function fmtTrvani(ms){
   const s = Math.round(ms/1000);
@@ -1251,6 +1281,213 @@ function renderFinds(){
   });
 }
 
+/* ============================================================
+   ZÁZNAM NACHOZENÉ TRASY
+
+   Safari na iOS zastaví sledování polohy, jakmile appka zmizí
+   z displeje. Trasa proto bude mít díry. Rovnou čarou je nepřekreslujeme
+   – to by tvrdilo, že jsme tudy šli. Kreslíme je tečkovaně a k trase
+   napíšeme, kolik z celkového času se opravdu zaznamenalo.
+   ============================================================ */
+const REC = {
+  aktivni: false,
+  body: [],          // {lat,lng,ts,mezera?}
+  start: 0,
+  zaznamenanoMs: 0,  // kolik času appka opravdu nahrávala
+  poslednitS: 0
+};
+const REC_MIN_POSUN = 5;      // metrů – pod tím je to jen šum GPS
+const REC_MAX_PRESNOST = 30;  // metrů – horší bod zahazujeme
+const REC_MEZERA_MS = 30*1000;
+
+let recVrstva = null;         // právě nahrávaná trasa
+let historieVrstva = null;    // starší trasy
+let historieZap = LS.get('historie', false);
+
+function ulozeneTrasy(){ return LS.get('trasy', []); }
+
+function bodDoTrasy(p){
+  if (!REC.aktivni) return;
+  if (p.acc > REC_MAX_PRESNOST) return;
+  const ted = Date.now();
+  const posl = REC.body[REC.body.length - 1];
+  if (posl){
+    const d = distM([posl.lat, posl.lng], [p.lat, p.lng]);
+    const dt = ted - posl.ts;
+    if (d < REC_MIN_POSUN && dt < 60000) return;       // stojíme na místě
+    if (d / (dt/1000) > 30) return;                    // 30 m/s = skok GPS, ne chůze
+    if (dt > REC_MEZERA_MS){
+      // appka byla mezitím na pozadí – tenhle úsek nevíme
+      REC.body.push({lat:p.lat, lng:p.lng, ts:ted, mezera:true});
+      REC.poslednitS = ted;
+      kresliRec();
+      return;
+    }
+    REC.zaznamenanoMs += dt;
+  }
+  REC.body.push({lat:p.lat, lng:p.lng, ts:ted});
+  REC.poslednitS = ted;
+  kresliRec();
+}
+
+function useky(body){
+  // rozdělí trasu na souvislé úseky a mezery
+  const out = []; let cur = [];
+  body.forEach(b => {
+    if (b.mezera){
+      if (cur.length) out.push({typ:'cesta', body:cur});
+      out.push({typ:'mezera', body:[cur.length ? cur[cur.length-1] : b, b]});
+      cur = [b];
+    } else cur.push(b);
+  });
+  if (cur.length) out.push({typ:'cesta', body:cur});
+  return out;
+}
+
+function kresliUseky(body, styl){
+  const v = L.layerGroup();
+  useky(body).forEach(u => {
+    const ll = u.body.map(b => [b.lat, b.lng]);
+    if (ll.length < 2) return;
+    L.polyline(ll, u.typ === 'mezera'
+      ? {color: styl.color, weight: styl.weight, opacity: styl.opacity*0.7, dashArray: '2,9'}
+      : {color: styl.color, weight: styl.weight, opacity: styl.opacity}).addTo(v);
+  });
+  return v;
+}
+
+function kresliRec(){
+  if (recVrstva) map.removeLayer(recVrstva);
+  if (!REC.body.length) return;
+  recVrstva = kresliUseky(REC.body, {color:'#e07b1a', weight:4, opacity:.95}).addTo(map);
+  const d = delkaTrasy(REC.body);
+  $('recTxt').textContent = 'Zaznamenávám trasu · ' + fmtTrvani(Date.now() - REC.start) + ' · ' + fmtDist(d);
+}
+
+function delkaTrasy(body){
+  let d = 0;
+  for (let i = 1; i < body.length; i++){
+    if (body[i].mezera) continue;
+    d += distM([body[i-1].lat, body[i-1].lng], [body[i].lat, body[i].lng]);
+  }
+  return d;
+}
+
+/* Douglas–Peucker: z tisícovky bodů udělá pár stovek beze změny tvaru.
+   Mezery zůstávají netknuté – jinak by se ztratila informace o dírách. */
+function vzdalenostOdUsecky(p, a, b){
+  const x0=p.lng, y0=p.lat, x1=a.lng, y1=a.lat, x2=b.lng, y2=b.lat;
+  const dx=x2-x1, dy=y2-y1;
+  if (dx === 0 && dy === 0) return distM([p.lat,p.lng],[a.lat,a.lng]);
+  const t = Math.max(0, Math.min(1, ((x0-x1)*dx + (y0-y1)*dy) / (dx*dx + dy*dy)));
+  return distM([p.lat, p.lng], [y1 + t*dy, x1 + t*dx]);
+}
+
+function dp(body, tol){
+  if (body.length < 3) return body.slice();
+  let max = 0, idx = 0;
+  for (let i = 1; i < body.length - 1; i++){
+    const d = vzdalenostOdUsecky(body[i], body[0], body[body.length-1]);
+    if (d > max){ max = d; idx = i; }
+  }
+  if (max > tol){
+    const leva  = dp(body.slice(0, idx+1), tol);
+    const prava = dp(body.slice(idx), tol);
+    return leva.slice(0, -1).concat(prava);
+  }
+  return [body[0], body[body.length-1]];
+}
+
+function zjednodus(body, tol){
+  const out = [];
+  let cur = [];
+  const propust = () => { if (cur.length){ out.push(...dp(cur, tol)); cur = []; } };
+  body.forEach(b => {
+    if (b.mezera){ propust(); out.push(b); }
+    else cur.push(b);
+  });
+  propust();
+  return out;
+}
+
+function spustZaznam(){
+  REC.aktivni = true; REC.body = []; REC.start = Date.now();
+  REC.zaznamenanoMs = 0; REC.poslednitS = Date.now();
+  $('recBar').classList.add('show');
+  $('btnTrasa').classList.add('rec');
+  $('btnTrasa').innerHTML = '<b>⏹</b>Ukončit';
+  startWatch();
+  banner('Nahrávám. <b>Trasa se zaznamenává jen dokud máš appku na displeji</b> – když telefon zamkneš, vznikne v trase díra a nakreslí se tečkovaně.', false, 12000);
+}
+
+function ukonciZaznam(){
+  REC.aktivni = false;
+  $('recBar').classList.remove('show');
+  $('btnTrasa').classList.remove('rec');
+  $('btnTrasa').innerHTML = '<b>⏺</b>Trasa';
+  if (!state.sharing) stopWatch();
+
+  const celkem = Date.now() - REC.start;
+  const d = delkaTrasy(REC.body);
+  const podil = celkem > 0 ? Math.round(100 * REC.zaznamenanoMs / celkem) : 0;
+  const mezer = REC.body.filter(b => b.mezera).length;
+
+  if (REC.body.length < 2){
+    banner('Trasa je prázdná – GPS nestihla chytit ani dva body. Nic jsem neuložil.', false, 9000);
+    if (recVrstva){ map.removeLayer(recVrstva); recVrstva = null; }
+    return;
+  }
+
+  $('trackSouhrn').innerHTML =
+    '<span class="cislo">' + fmtDist(d) + '</span>' +
+    'za ' + fmtTrvani(celkem) + ' · ' + sklonuj(REC.body.length, 'bod', 'body', 'bodů') +
+    (mezer ? ('<div class="warn"><b>Zaznamenáno ' + podil + ' % času.</b> ' + mezer +
+       (mezer === 1 ? ' přerušení – appka byla na pozadí.' : ' přerušení – appka byla na pozadí.') +
+       ' Ty úseky jsou v mapě tečkované, protože nevíme, kudy jsi tam šel.</div>') : '');
+  $('trackModal').classList.add('show');
+}
+
+$('btnTrasa').onclick = () => REC.aktivni ? ukonciZaznam() : spustZaznam();
+
+$('trackSave').onclick = () => {
+  const zjed = zjednodus(REC.body, 8);
+  const t = {
+    id: 't' + Date.now().toString(36),
+    ts: REC.start,
+    trvani: Date.now() - REC.start,
+    delka: Math.round(delkaTrasy(REC.body)),
+    body: zjed.map(b => b.mezera ? {a:+b.lat.toFixed(5), o:+b.lng.toFixed(5), m:1}
+                                 : {a:+b.lat.toFixed(5), o:+b.lng.toFixed(5)})
+  };
+  const vse = ulozeneTrasy(); vse.push(t);
+  LS.set('trasy', vse.slice(-30));    // víc než třicet vycházek si pamatovat nemusíme
+  $('trackModal').classList.remove('show');
+  if (recVrstva){ map.removeLayer(recVrstva); recVrstva = null; }
+  REC.body = [];
+  if (!historieZap){ historieZap = true; LS.set('historie', true); }
+  kresliHistorii();
+  banner('Trasa uložena (' + sklonuj(zjed.length, 'bod', 'body', 'bodů') + ' po zjednodušení). Najdeš ji pod „Kde jsme už hledali".', false, 8000);
+};
+
+$('trackDrop').onclick = () => {
+  $('trackModal').classList.remove('show');
+  if (recVrstva){ map.removeLayer(recVrstva); recVrstva = null; }
+  REC.body = [];
+};
+
+function kresliHistorii(){
+  if (historieVrstva){ map.removeLayer(historieVrstva); historieVrstva = null; }
+  if (!historieZap) return;
+  const vse = ulozeneTrasy();
+  if (!vse.length) return;
+  historieVrstva = L.layerGroup();
+  vse.forEach(t => {
+    const body = t.body.map(b => ({lat:b.a, lng:b.o, mezera:!!b.m}));
+    kresliUseky(body, {color:'#6b6560', weight:3, opacity:.45}).addTo(historieVrstva);
+  });
+  historieVrstva.addTo(map);
+}
+
 /* ---------- legenda + UID ---------- */
 function refreshPeopleModal(){
   const box = $('legendModal').querySelector('.mbox');
@@ -1283,6 +1520,31 @@ function refreshPeopleModal(){
   el.querySelectorAll('[data-remove]').forEach(b  => b.onclick = () => removeUser(b.dataset.remove));
 }
 
+function refreshNastroje(){
+  const box = $('legendModal').querySelector('.mbox');
+  let el = box.querySelector('#nastroje');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'nastroje';
+    box.insertBefore(el, box.querySelector('#peopleAdmin') || box.querySelector('#uidBlock') || box.querySelector('#legendClose'));
+  }
+  const pocet = ulozeneTrasy().length;
+  el.innerHTML =
+    '<h3>Mapa</h3>' +
+    '<button class="ghost" id="btnOffline2" style="margin-bottom:8px">⬇︎ &nbsp;Stáhnout tenhle výřez na offline</button>' +
+    '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.</p>' +
+    '<div class="toggle' + (historieZap ? ' on' : '') + '" id="tgHistorie" style="margin-bottom:12px">' +
+      '<div class="sw"><i></i></div><div class="lbl">Kde jsme už hledali<small>' +
+      (pocet ? sklonuj(pocet, 'uložená trasa', 'uložené trasy', 'uložených tras') : 'zatím žádná trasa') +
+      '</small></div></div>';
+
+  $('btnOffline2').onclick = () => { $('legendModal').classList.remove('show'); stahniVyrez(); };
+  $('tgHistorie').onclick = () => {
+    historieZap = !historieZap; LS.set('historie', historieZap);
+    kresliHistorii(); refreshNastroje();
+  };
+}
+
 $('btnLegend').onclick = () => {
   const box = $('legendModal').querySelector('.mbox');
   let uidEl = box.querySelector('#uidBlock');
@@ -1294,6 +1556,7 @@ $('btnLegend').onclick = () => {
   uidEl.innerHTML = '<b style="color:var(--ink)">Tvoje UID</b> (každý prohlížeč a telefon má vlastní):<br>' +
     '<code style="font-size:11px;word-break:break-all;background:#f2efe9;padding:4px 6px;border-radius:5px;display:inline-block;margin-top:4px">' +
     (state.uid || 'není přihlášeno – Firebase není nastavený') + '</code>';
+  refreshNastroje();
   refreshPeopleModal();
   $('legendModal').classList.add('show');
 };
@@ -1321,8 +1584,8 @@ $('whoChip').onclick = askName;
    zoomu, s limitem a prodlevou mezi požadavky. Žádné hromadné stahování.
    ============================================================ */
 const TILE_LIMIT = 400;
-$('btnOffline').onclick = async () => {
-  const b = $('btnOffline');
+async function stahniVyrez(){
+  const b = $('btnTrasa');   // ukazatel průběhu dáme na nejbližší tlačítko
   const z0 = map.getZoom(), bb = map.getBounds();
   const list = [];
   for (let z = z0; z <= Math.min(z0+2, 17); z++){
@@ -1343,10 +1606,10 @@ $('btnOffline').onclick = async () => {
     b.innerHTML = '<b>⬇︎</b>' + Math.round(done*100/list.length) + ' %';
     await new Promise(r => setTimeout(r, 60));   // šetrné tempo k OSM serverům
   }
-  b.innerHTML = '<b>⬇︎</b>Offline';
+  b.innerHTML = REC.aktivni ? '<b>⏹</b>Ukončit' : '<b>⏺</b>Trasa';
   banner(fail ? ('Uloženo ' + done + ' dlaždic, ' + fail + ' se nepovedlo (asi slabý signál).')
               : ('Hotovo – ' + done + ' dlaždic je uložených. Tenhle výřez teď funguje i bez signálu.'), false, 8000);
-};
+}
 function project(latlng, z){
   const p = map.project(latlng, z), s = 256;
   return {x: Math.floor(p.x/s), y: Math.floor(p.y/s)};
@@ -1611,6 +1874,7 @@ if ('serviceWorker' in navigator){
    START
    ============================================================ */
 migrujFrontu();
+kresliHistorii();
 renderCar();
 renderPeopleList();
 measureSheet(); applySheet(false);
