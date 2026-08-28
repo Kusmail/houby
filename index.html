@@ -3676,8 +3676,12 @@ function refreshPomoc(){
   el.dataset.hotovo = '1';
   el.innerHTML =
     '<details class="napoveda" open><summary>Jak se v appce hledají místa</summary>' +
-    '<p><b>Zelené plochy a modrá „P" jsou naše ověřené tipy</b> – šestnáct míst, ' +
-    'ke kterým máme psané poznámky, kde přesně hledat. Ta jsou vidět vždycky.<br><br>' +
+    '<p><b>Modrá „P" jsou naše ověřené tipy</b> – šestnáct míst, ke kterým máme ' +
+    'psané poznámky, kde přesně hledat. Ta jsou vidět vždycky.<br><br>' +
+    '<b>Zelená plocha „kde hledat" se dokresluje na vyžádání</b> – tlačítkem v bublině ' +
+    'místa nebo z doporučení „Kam dnes". Odvodí se z map ČÚZK: porost správného druhu ' +
+    'a stáří do 900 m od auta, napojený na lesní cestu. Dřív tam byly ručně nakreslené ' +
+    'okruhy o velikosti okresu, které vedly i přes pole a obce – ty jsou pryč.<br><br>' +
     '<b>Fialová tečka je evidované parkoviště u lesa</b> – 7 656 jich je v celé ČR, ' +
     'u kterých appka předem spočítala porost a lesní cesty v okolí. Nikdo z nás tam nebyl. ' +
     'Kreslí se podle toho, kam se na mapě zrovna díváš, a to <b>až od přiblížení zhruba na okres</b> – ' +
@@ -3690,7 +3694,8 @@ function refreshPomoc(){
     '<b>Kam dnes na houby</b> projede celou republiku, přidá k tomu srážky posledních tří týdnů ' +
     'i předpověď a vybere pár nejlepších míst. Odtud se dá skočit na mapu.</p></details>' +
     '<details class="napoveda"><summary>Co která barva na mapě znamená</summary>' +
-    '<p>🔴 domov (Mratín) · 🔵 parkoviště lokality · 🟢 plocha kde hledat · hnědá čárkovaná = doporučená trasa<br><br>' +
+    '<p>🔴 domov (Mratín) · 🔵 parkoviště lokality · hnědá čárkovaná = doporučená trasa<br><br>' +
+    '🟢 <b>zelená plocha = kde hledat</b>, dokreslí se až když si o ni řekneš<br><br>' +
     '🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = ostatní<br><br>' +
     '🟣 fialová tečka = <b>evidované parkoviště u lesa</b> z map ČÚZK – ne houby, ale místo, ' +
     'odkud se do lesa vychází<br><br>' +
