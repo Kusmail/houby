@@ -908,6 +908,29 @@ function prectiKod(){
 }
 const PRISTUPOVY_KOD = prectiKod();
 
+/* Safari na iPhonu smaže všechno, co si stránka uloží, když ji člověk
+   týden neotevře – a s tím i přístupový kód, jméno, trasy a stažené mapy.
+   Rodina by se pak dostala jen na veřejnou mapu a nevěděla proč.
+
+   Trvalé úložiště tomu brání, ale prohlížeč ho nemusí dát. Proto se o něj
+   žádá a výsledek se říká nahlas v ℹ️ – a k tomu je tam odkaz s kódem,
+   který se dá uložit do záložek, aby byla cesta zpátky i po smazání. */
+let uloztrvale = null;      // true = máme, false = prohlížeč nedal, null = neví se
+async function zadejOTrvaleUloziste(){
+  try {
+    if (!navigator.storage || !navigator.storage.persist) return null;
+    if (await navigator.storage.persisted()) { uloztrvale = true; return true; }
+    uloztrvale = await navigator.storage.persist();
+    return uloztrvale;
+  } catch(e){ return null; }
+}
+zadejOTrvaleUloziste();
+
+function rodinnyOdkaz(){
+  if (!PRISTUPOVY_KOD) return null;
+  return location.origin + location.pathname + '#k=' + PRISTUPOVY_KOD;
+}
+
 /* Správci – natvrdo, aby vždy existoval někdo, kdo může schvalovat.
    Uzel /owners v databázi funguje navíc, pro pozdější přidání dalšího správce. */
 const OWNER_UIDS = ['SMFzcIPHPDYnH0peeKpPaJi1myf1', 'VRih1jnQQ5SWOBlO0q2p62xEolS2'];
@@ -2532,13 +2555,20 @@ function skoreMista(m, den){
   const bedlove = FILTR.druh === 'bedly' ||
                   (FILTR.druh === 'vse' && m.overene && /bedla/i.test(m.loc && m.loc.druh || ''));
   const sez = faktorSezony(mesic, bedlove);
-  const porost = bedlove
-    ? 0.5 + 0.5 * Math.min(1, m.list / 60)
-    : 0.5 + 0.5 * Math.min(1, m.jehl / 60);
+  /* Porost dřív saturoval na šedesáti procentech, takže místo se 62 %
+     listnatých a místo s 85 % vyšlo stejně. Teď se bere celý rozsah
+     a rozdíly jsou vidět. Nula neznamená „nic tam neroste", ale
+     „tenhle porost pro tuhle houbu nesedí". */
+  const podil = bedlove ? m.list : m.jehl;
+  const porost = 0.25 + 0.75 * Math.min(1, podil / 85);
+
+  /* Kolik lesních cest je v okolí: čím víc, tím víc půdy se dá za dopoledne
+     projít. U ověřených tipů to nevíme, tak jim dáme neutrální střed. */
+  const cesty = m.overene ? 1.0 : (0.7 + 0.3 * Math.min(1, (m.cest || 0) / 8));
   const n = m.overene && m.loc ? nalezyVPlose(m.loc) : nalezyOkolo(m.lat, m.lng);
   const nalezBonus = Math.min(0.6, n.skore * 0.2);
   const obl = jeOblibene(m.overene ? ('lok:' + m.locIndex) : ('bod:' + m.id)) ? 0.15 : 0;
-  const dojezd = 1 - Math.min(0.35, (m.minuty || 60) / 300);
+  const dojezd = 1 - Math.min(0.55, (m.minuty || 60) / 180);
   const teplo = (p.horko >= 4 ? 0.75 : 1) * (p.zima >= 3 ? 0.6 : 1);
 
   /* Audit 3: ověřené tipy dostávaly plošný bonus 1,1 jen za to, že jsou
@@ -2550,7 +2580,7 @@ function skoreMista(m, den){
      MÍSTO (porost, naše nálezy, dojezd) se mění v řádu let,
      POČASÍ (déšť, sezóna, teplota) se mění v řádu dní. Dohromady dávají
      pořadí, ale na kartě jsou vidět obě, aby bylo poznat, co se změnilo. */
-  const sMisto  = Math.max(0, Math.min(1, porost * (1 + nalezBonus + obl) * dojezd));
+  const sMisto  = Math.max(0, Math.min(1, porost * cesty * (1 + nalezBonus + obl) * dojezd));
   const sPocasi = Math.max(0, Math.min(1, vlhkost * sez * teplo));
   const sance   = Math.max(0, Math.min(1, sMisto * sPocasi));
   return {m, p, vlhkost, sez, porost, n, obl: obl > 0, dojezd, sMisto, sPocasi, sance};
@@ -2618,25 +2648,42 @@ function odhadMinut(m){
   return km * 1.35 / (km < 15 ? 0.55 : km < 50 ? 0.85 : 1.15);   // km/min
 }
 
-async function skutecneMinuty(mista){
-  if (!mista.length) return;
-  const cast = mista.slice(0, 200);      // ověřeno: router zvládne 250 cílů jedním dotazem
+/* Kolik cílů router unese v jednom dotazu: přeměřeno proti ostrému
+   serveru. 200 i 400 projde za vteřinu, 500 vrátí „Request-URI Too Large" –
+   limit není v počtu cílů, ale v délce adresy (kolem osmi kilobajtů).
+   Dávka je proto 400 a dávky jsou dvě, takže se dojezd ověří u osmi set
+   nejbližších míst místo dvou set. Jedou za sebou, ne najednou – je to
+   ukázkový server, ne náš. */
+const OSRM_DAVKA = 400;
+const OSRM_DAVEK = 2;
+
+async function davkaMinut(cast){
   const sou = [HOME[1].toFixed(5) + ',' + HOME[0].toFixed(5)]
     .concat(cast.map(m => m.lng.toFixed(5) + ',' + m.lat.toFixed(5))).join(';');
   const u = 'https://router.project-osrm.org/table/v1/driving/' + sou +
             '?sources=0&annotations=duration,distance';
-  try {
-    const r = await fetch(u);
-    const d = await r.json();
-    if (d.code !== 'Ok') throw new Error(d.code);
-    const du = d.durations[0], di = d.distances[0];
-    cast.forEach((m, i) => {
-      m.minuty = Math.round(du[i+1] / 60);
-      m.km = Math.round(di[i+1] / 1000);
-      m.presnyDojezd = true;
-    });
-  } catch(e){
-    cast.forEach(m => { if (m.minuty == null) m.minuty = Math.round(odhadMinut(m)); });
+  const r = await fetch(u);
+  const d = await r.json();
+  if (d.code !== 'Ok') throw new Error(d.code);
+  const du = d.durations[0], di = d.distances[0];
+  cast.forEach((m, i) => {
+    m.minuty = Math.round(du[i+1] / 60);
+    m.km = Math.round(di[i+1] / 1000);
+    m.presnyDojezd = true;
+  });
+}
+
+async function skutecneMinuty(mista){
+  if (!mista.length) return;
+  const cast = mista.slice(0, OSRM_DAVKA * OSRM_DAVEK);
+  for (let i = 0; i < cast.length; i += OSRM_DAVKA){
+    const kus = cast.slice(i, i + OSRM_DAVKA);
+    try {
+      await davkaMinut(kus);
+    } catch(e){
+      // co router nespočítal, dostane odhad ze vzdušné čáry – ať to nespadne celé
+      kus.forEach(m => { if (m.minuty == null) m.minuty = Math.round(odhadMinut(m)); });
+    }
   }
 }
 
@@ -2686,7 +2733,7 @@ async function najdiMista(limit){   // limit = kolik míst pošleme na router
     .filter(m => (m.minuty != null ? m.minuty : odhadMinut(m)) <= FILTR.minuty * 1.25)
     .sort((a,b) => (a.minuty != null ? a.minuty : odhadMinut(a)) - (b.minuty != null ? b.minuty : odhadMinut(b)));
 
-  const strop = limit || 200;
+  const strop = limit || (OSRM_DAVKA * OSRM_DAVEK);
   const vybrane = kandidati.slice(0, strop);
   await skutecneMinuty(vybrane.filter(m => !m.presnyDojezd));
   let vysl = vybrane.filter(m => (m.minuty || 999) <= FILTR.minuty);
@@ -3269,7 +3316,7 @@ async function kamDnes(){
   const b = $('btnKam');
   b.disabled = true; b.innerHTML = '⏳ &nbsp;Hledám v celé ČR…';
   try {
-    const {vysl, celkem, vsech, orezano, strop, poDojezdu} = await najdiMista(200);
+    const {vysl, celkem, vsech, orezano, strop, poDojezdu} = await najdiMista(OSRM_DAVKA * OSRM_DAVEK);
     if (!vysl.length){
       $('kamObsah').innerHTML = '<div class="kamsucho"><b>Filtry nepustily nic.</b> ' +
         'V okruhu ' + FILTR.minuty + ' minut jsem s tímhle nastavením nenašel jediné místo. ' +
@@ -3407,6 +3454,25 @@ async function odejit(){
     b.disabled = false; b.textContent = 'Odejít z rodinné mapy'; b.dataset.jistota = '';
     banner('Odejít se nepovedlo: ' + e.message, true, 9000);
   }
+}
+
+/* Cesta zpátky, když prohlížeč zapomene. Odkaz s kódem se dá uložit
+   do záložek nebo poslat znovu – jinak se po smazání dat nikdo nepřipojí. */
+function blokOdkaz(){
+  const odkaz = rodinnyOdkaz();
+  if (!odkaz) return '';
+  const stav = uloztrvale === true
+    ? '<b style="color:#2e7d4f">Prohlížeč slíbil, že tvoje data nesmaže.</b>'
+    : (uloztrvale === false
+        ? '<b style="color:#b4451f">Prohlížeč trvalé uložení nedal.</b> Když appku týden neotevřeš, ' +
+          'může ti smazat kód, trasy i stažené mapy.'
+        : 'Jestli prohlížeč data udrží, se zatím neví.');
+  return '<h3>Rodinný odkaz</h3>' +
+    '<p style="font-size:12px;color:var(--muted);margin:0 0 8px">' + stav +
+    ' <b>Ulož si tenhle odkaz do záložek</b> – je to jediná cesta zpátky, ' +
+    'kdyby appka zapomněla, kdo jsi.</p>' +
+    '<div class="uid" id="odkazTxt" style="word-break:break-all">' + odkaz + '</div>' +
+    '<button class="ghost" id="btnOdkaz" style="margin:8px 0 14px">📋 &nbsp;Zkopírovat odkaz</button>';
 }
 
 function refreshPeopleModal(){
@@ -3717,9 +3783,20 @@ $('btnLegend').onclick = () => {
     uidEl.id = 'uidBlock';
     box.insertBefore(uidEl, box.querySelector('#pomoc') || box.querySelector('#legendClose'));
   }
-  uidEl.innerHTML = '<b style="color:var(--ink)">Tvoje UID</b> (každý prohlížeč a telefon má vlastní):<br>' +
+  uidEl.innerHTML = blokOdkaz() +
+    '<b style="color:var(--ink)">Tvoje UID</b> (každý prohlížeč a telefon má vlastní):<br>' +
     '<code style="font-size:11px;word-break:break-all;background:#f2efe9;padding:4px 6px;border-radius:5px;display:inline-block;margin-top:4px">' +
     (state.uid || 'není přihlášeno – Firebase není nastavený') + '</code>';
+  const bo = uidEl.querySelector('#btnOdkaz');
+  if (bo) bo.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(rodinnyOdkaz());
+      bo.textContent = '✓ Zkopírováno';
+      setTimeout(() => { bo.innerHTML = '📋 &nbsp;Zkopírovat odkaz'; }, 3000);
+    } catch(e){
+      banner('Zkopírovat to nešlo. Odkaz je vypsaný nad tlačítkem, dá se označit prstem.', false, 8000);
+    }
+  };
   refreshPomoc();
   refreshNastroje();
   refreshPeopleModal();
