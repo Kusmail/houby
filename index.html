@@ -2978,6 +2978,47 @@ function plochaRingu(r){
   }
   return Math.abs(a) / 2;
 }
+/* Ořez plochy na vycházkový okruh. Bez něj by se u velkých lesních
+   celků nakreslilo klidně pět set hektarů – Sutherland–Hodgman proti
+   kružnici nahrazené čtyřiadvacetiúhelníkem to usekne na to, co se dá
+   opravdu projít. Zároveň to řeší past, na kterou jsem naletěl: velký
+   polygon může parkoviště pokrývat, ale mít těžiště kilometry daleko. */
+function orezNaKruh(ring, sx, sy, r){
+  const N = 24;
+  let out = ring.slice();
+  for (let i = 0; i < N && out.length; i++){
+    const uhel = 2 * Math.PI * i / N;
+    const nx = Math.cos(uhel), ny = Math.sin(uhel);       // vnější normála
+    const d0 = sx * nx + sy * ny + r;                     // hranice poloroviny
+    const uvnitr = (p) => (p[0] * nx + p[1] * ny) <= d0;
+    const prusecik = (a, b) => {
+      const da = a[0] * nx + a[1] * ny - d0;
+      const db = b[0] * nx + b[1] * ny - d0;
+      const t = da / (da - db);
+      return [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+    };
+    const nove = [];
+    for (let j = 0; j < out.length; j++){
+      const a = out[j], b = out[(j + 1) % out.length];
+      const ia = uvnitr(a), ib = uvnitr(b);
+      if (ia) nove.push(a);
+      if (ia !== ib) nove.push(prusecik(a, b));
+    }
+    out = nove;
+  }
+  return out;
+}
+
+function kLiniiRing(ring, cesty){
+  let best = Infinity;
+  for (const b of ring){
+    const d = kLinii(b[0], b[1], cesty);
+    if (d < best) best = d;
+    if (best < 25) break;
+  }
+  return best;
+}
+
 function kLinii(px, py, cesty){
   let best = Infinity;
   for (const paths of cesty) for (const path of paths){
@@ -3073,16 +3114,18 @@ async function plochaKProhledani(m){
       if (chci.indexOf(a.druh_p) < 0) return;
       if (a.vyska_p === 'do 2,5 m') return;         // holina, tam se nechodí
     }
-    const [cx, cy] = stredRingu(rings[0]);
-    if (Math.hypot(cx - x, cy - y) > OKRUH_M) return;
-    const d = cesty.length ? kLinii(cx, cy, cesty) : Infinity;
+    const orez = orezNaKruh(rings[0], x, y, OKRUH_M);
+    if (orez.length < 3) return;                       // mimo vycházkový okruh
+    const ha = plochaRingu(orez) / 10000;
+    if (ha < 0.2) return;                              // pod dvacet arů to nemá cenu kreslit
+    const d = cesty.length ? kLiniiRing(orez, cesty) : Infinity;
     if (d > K_CESTE_M) return;
     kusy.push({
-      ha: plochaRingu(rings[0]) / 10000,
+      ha,
       kCeste: Math.round(d),
       druh: a.druh_p || null,
       vyska: a.vyska_p || null,
-      body: rings[0].map(b => mercLatLng(b[0], b[1]))
+      body: orez.map(b => mercLatLng(b[0], b[1]))
     });
   }));
 
