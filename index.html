@@ -135,6 +135,12 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 .mbox .druhy button{width:auto;padding:11px 4px;border-radius:10px;background:#f3f1ec;color:var(--ink);
   font-size:12.5px;font-weight:600;border:1.5px solid transparent}
 .mbox .druhy button.on{background:var(--green);border-color:var(--green);color:#fff}
+.trasy{margin:-4px 0 12px}
+.trasy .r{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:7px 10px;border:1px solid var(--line);border-radius:9px;margin-bottom:5px;
+  font-size:12px;background:#fbfaf7}
+.mbox .trasy .x{width:auto;padding:4px 9px;border-radius:7px;background:#efe7e2;color:#8a3b1c;
+  font-size:11.5px;font-weight:700;flex:none}
 #druhyFiltr{grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:8px}
 .mbox #druhyFiltr button{padding:8px 2px;font-size:11.5px}
 /* Audit 6: dokud tu nebylo nic než dotyk, klávesnice ani VoiceOver
@@ -150,6 +156,8 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 #fotoNahled.show{display:block}
 #fotoNahled img{width:100%;border-radius:11px;display:block;margin-bottom:8px}
 #fotoNahled .urcit{background:#585048}
+#map .pop .smazNalez{width:100%;margin-top:8px;padding:9px;border-radius:9px;border:none;
+  background:#efe7e2;color:#8a3b1c;font-size:12.5px;font-weight:650;cursor:pointer}
 .mbox .pozn{font-size:11.5px;color:var(--muted);margin:0 0 12px;line-height:1.45}
 .mbox h3{font-size:13px;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .person{flex:1;display:flex;align-items:center;gap:6px;padding:7px 9px;border-radius:10px;background:#fbfaf7;border:1px solid var(--line);min-width:0}
@@ -624,9 +632,16 @@ function fmtTime(ts){
 const STALE_MS = 5*60*1000;   // po 5 minutách je cizí poloha „stará"
 
 /* ---------- lokální úložiště ---------- */
+/* Audit 2: tenhle objekt měl u zápisu prázdný catch. To znamenalo, že když
+   se do telefonu nic nevešlo, appka mlčela a tvářila se, že uložila –
+   a člověk po vycházce zjistil, že trasa neexistuje. Teď set() vrací,
+   jestli se to povedlo, a kdo ukládá něco, o co se dá přijít, se musí ptát. */
 const LS = {
   get(k, d){ try { const v = localStorage.getItem('hb_'+k); return v===null?d:JSON.parse(v); } catch(e){ return d; } },
-  set(k, v){ try { localStorage.setItem('hb_'+k, JSON.stringify(v)); } catch(e){} },
+  set(k, v){
+    try { localStorage.setItem('hb_'+k, JSON.stringify(v)); return true; }
+    catch(e){ return false; }
+  },
   del(k){ try { localStorage.removeItem('hb_'+k); } catch(e){} }
 };
 
@@ -882,7 +897,7 @@ function renderPeopleList(){
 
   // já jsem v liště vždycky, ať vidím svůj vlastní stav
   const meStale = state.me && (Date.now() - state.me.ts) > ZAMRZLA_MS;
-  const meTxt = state.approved === false ? 'čekám na schválení'
+  const meTxt = state.approved === false ? 'zatím mimo rodinnou mapu'
               : state.me ? ((meStale ? '⚠ poloha stojí — ' : 'poloha ') + fmtAge(state.me.ts))
               : (state.sharing ? 'čekám na GPS…' : 'nesdílím polohu');
   items.push(`<div class="person"><span class="pd" style="background:var(--me)"></span>
@@ -895,7 +910,7 @@ function renderPeopleList(){
 
   if (!sharing.length){
     items.push(`<div class="person none">${
-      state.approved === false ? 'Až tě Matěj schválí, uvidíš tu ostatní'
+      state.approved === false ? 'Otevři rodinný odkaz s kódem a uvidíš tu ostatní'
       : state.fbReady ? 'Nikdo další teď nesdílí polohu'
       : 'Sdílení není nastavené'}</div>`);
   } else {
@@ -1251,9 +1266,14 @@ let fotoNahledData = null;   // zmenšený náhled, který se ukládá do datab�
 
 const findMarkers = {};      // uid|id -> marker
 
+/* Audit 1: dřív se dialog otevřel, jen když databáze potvrdila členství.
+   Bez signálu ho nepotvrdí nikdy – takže zrovna v lese, kvůli kterému
+   nálezy vznikly, se nedal zapsat ani jeden. Teď blokujeme jen toho,
+   o kom bezpečně víme, že členem není. Zbytek se uloží do telefonu
+   a odešle, až bude signál. */
 function otevriNalez(){
-  if (state.approved !== true){
-    banner('Nálezy můžeš ukládat, až budeš mít přístup přes rodinný odkaz.', false, 8000);
+  if (state.approved === false && !PRISTUPOVY_KOD){
+    banner('Nálezy si můžeš zapisovat, až ti někdo z rodiny pošle odkaz s kódem.', false, 8000);
     return;
   }
   vybranyDruh = null; fotoSoubor = null; fotoNahledData = null;
@@ -1327,10 +1347,11 @@ $('findSave').onclick = async () => {
       ts: Date.now()
     };
     if (fotoNahledData) zaznam.foto = fotoNahledData;
-    await ulozNalez(zaznam);
+    const odeslano = await ulozNalez(zaznam);
     $('findModal').classList.remove('show');
     banner('Nález uložen: <b>' + vybranyDruh + '</b>' +
-           (pos.acc > 25 ? ' (GPS byla nepřesná, ±' + Math.round(pos.acc) + ' m)' : ''), false, 7000);
+           (pos.acc > 25 ? ' (GPS byla nepřesná, ±' + Math.round(pos.acc) + ' m)' : '') +
+           (odeslano ? '' : ' <br>Zatím jen v telefonu – <b>odešlu ho ostatním, až bude signál.</b>'), false, 9000);
   } catch(e){
     $('findPozn').textContent = 'Nepodařilo se zaměřit polohu. Zkus to na otevřenějším místě.';
   } finally {
@@ -1344,13 +1365,14 @@ $('btnFind2').onclick = otevriNalez;
 async function ulozNalez(z){
   const id = 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
   // hned vykreslit, ať je vidět výsledek i bez signálu
-  if (!state.finds[state.uid || 'ja']) state.finds[state.uid || 'ja'] = {};
-  state.finds[state.uid || 'ja'][id] = z;
+  const klic = state.uid || 'ja';
+  if (!state.finds[klic]) state.finds[klic] = {};
+  state.finds[klic][id] = z;
   renderFinds();
   kresliNejlepsi();
-  if (!dbRefs){ queue('find', {id, z}); return; }
-  try { await dbRefs.set(dbRefs.ref(dbRefs.db, 'finds/' + state.uid + '/' + id), z); }
-  catch(e){ queue('find', {id, z}); }
+  if (!dbRefs || state.approved !== true){ queue('find', {id, z}); return false; }
+  try { await dbRefs.set(dbRefs.ref(dbRefs.db, 'finds/' + state.uid + '/' + id), z); return true; }
+  catch(e){ queue('find', {id, z}); return false; }
 }
 
 /* ============================================================
@@ -1454,25 +1476,81 @@ function kresliNejlepsi(){
   if (map.getPane('overlayPane')) nejlepsiVrstva.eachLayer(l => l.bringToBack && l.bringToBack());
 }
 
+/* Audit 5, 6 a 7: dřív se piny jen přidávaly a klíčovaly se dvojicí
+   „kdo + id". Smazaný nález tak zůstal viset v mapě až do načtení appky
+   a nález uložený bez signálu se po přihlášení objevil dvakrát –
+   jednou pod náhradním klíčem a jednou pod skutečným UID.
+   Klíčem je teď samo id nálezu, co v datech není, z mapy zmizí,
+   a u vlastního nálezu je v bublině tlačítko na smazání. */
 function renderFinds(){
+  const zive = {};
   Object.keys(state.finds).forEach(uid => {
     const skupina = state.finds[uid] || {};
     Object.keys(skupina).forEach(id => {
-      const klic = uid + '|' + id;
-      if (findMarkers[klic]) return;
       const z = skupina[id];
-      if (typeof z.lat !== 'number') return;
-      const m = L.marker([z.lat, z.lng], {icon: pinIcon('find','🍄',22), zIndexOffset:600}).addTo(map);
-      m.bindPopup('<div class="pop"><h3>🍄 ' + (z.druh || 'Nález') + '</h3>' +
-        '<div class="sub">' + (z.kdo || '') + ' · ' + fmtTime(z.ts) + '</div>' +
-        (z.foto ? '<img src="' + z.foto + '" style="width:100%;border-radius:8px;margin:6px 0">' : '') +
-        '<table><tr><td>GPS</td><td>' + z.lat.toFixed(5) + ', ' + z.lng.toFixed(5) + '</td></tr>' +
-        (z.acc ? '<tr><td>Přesnost</td><td>±' + Math.round(z.acc) + ' m</td></tr>' : '') + '</table>' +
-        '<div class="nav"><a class="alt" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' +
-        z.lat + ',' + z.lng + '">Navigovat sem</a></div></div>', POPOPT);
-      findMarkers[klic] = m;
+      if (z && typeof z.lat === 'number') zive[id] = {uid, z};
     });
   });
+
+  Object.keys(findMarkers).forEach(id => {
+    if (!zive[id]){ map.removeLayer(findMarkers[id]); delete findMarkers[id]; }
+  });
+
+  Object.keys(zive).forEach(id => {
+    if (findMarkers[id]) return;
+    const uid = zive[id].uid, z = zive[id].z;
+    const moje = (uid === state.uid) || (uid === 'ja');
+    const m = L.marker([z.lat, z.lng], {icon: pinIcon('find','🍄',22), zIndexOffset:600}).addTo(map);
+    m.bindPopup('<div class="pop"><h3>🍄 ' + (z.druh || 'Nález') + '</h3>' +
+      '<div class="sub">' + (z.kdo || '') + ' · ' + fmtTime(z.ts) + '</div>' +
+      (z.foto ? '<img src="' + z.foto + '" style="width:100%;border-radius:8px;margin:6px 0">' : '') +
+      '<table><tr><td>GPS</td><td>' + z.lat.toFixed(5) + ', ' + z.lng.toFixed(5) + '</td></tr>' +
+      (z.acc ? '<tr><td>Přesnost</td><td>±' + Math.round(z.acc) + ' m</td></tr>' : '') + '</table>' +
+      '<div class="nav"><a class="alt" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' +
+      z.lat + ',' + z.lng + '">Navigovat sem</a></div>' +
+      (moje ? '<button class="smazNalez" data-id="' + id + '" data-uid="' + uid + '">Smazat nález</button>' : '') +
+      '</div>', POPOPT);
+    findMarkers[id] = m;
+  });
+}
+
+/* Mazání vlastního nálezu. Dvě klepnutí, ať se to nestane omylem palcem
+   v rukavici. Mazat po jednom je jediná cesta, kterou pravidla databáze
+   dovolují – celý uzel najednou smazat nesmí ani jeho vlastník. */
+map.on('popupopen', e => {
+  const b = e.popup.getElement() && e.popup.getElement().querySelector('.smazNalez');
+  if (!b) return;
+  b.onclick = async () => {
+    if (b.dataset.jistota !== '1'){
+      b.dataset.jistota = '1';
+      b.textContent = 'Opravdu smazat? Klepni znovu';
+      setTimeout(() => { if (b){ b.dataset.jistota=''; b.textContent='Smazat nález'; } }, 6000);
+      return;
+    }
+    const id = b.dataset.id, uid = b.dataset.uid;
+    b.disabled = true; b.textContent = 'Mažu…';
+    const hotovo = await smazNalez(uid, id);
+    if (hotovo){
+      map.closePopup();
+      banner('Nález smazaný.', false, 5000);
+    } else {
+      b.disabled = false; b.textContent = 'Smazat nález';
+    }
+  };
+});
+
+async function smazNalez(uid, id){
+  // ať zmizí z mapy hned, i kdyby databáze byla mimo dosah
+  Object.keys(state.finds).forEach(u => { if (state.finds[u]) delete state.finds[u][id]; });
+  renderFinds(); kresliNejlepsi(); refreshNastroje();
+  if (!dbRefs || state.approved !== true || uid === 'ja') return true;
+  try {
+    await dbRefs.remove(dbRefs.ref(dbRefs.db, 'finds/' + uid + '/' + id));
+    return true;
+  } catch(e){
+    banner('Nález zmizel z tvojí mapy, ale <b>z databáze se ho smazat nepodařilo</b> (' + e.message + '). Zkus to znovu, až bude signál.', true, 11000);
+    return false;
+  }
 }
 
 /* ============================================================
@@ -1659,6 +1737,23 @@ $('tgSdilet').onclick = () => {
 
 $('btnTrasa').onclick = () => REC.aktivni ? ukonciZaznam() : spustZaznam();
 
+/* Audit 2 a 9: uložení musí umět selhat nahlas. Když se do telefonu
+   trasa nevejde, zkusíme uvolnit místo zahozením nejstarších NESDÍLENÝCH
+   vycházek – sdílené držíme, protože jen podle nich poznáme, co máme
+   v databázi. Když ani to nepomůže, řekneme to rovnou. */
+function ulozTrasy(vse){
+  if (LS.set('trasy', vse)) return {ok:true, zahozeno:0};
+  let zahozeno = 0;
+  const kopie = vse.slice();
+  while (kopie.length > 1){
+    const i = kopie.findIndex(t => !t.sdilena);
+    if (i < 0) break;
+    kopie.splice(i, 1); zahozeno++;
+    if (LS.set('trasy', kopie)) return {ok:true, zahozeno};
+  }
+  return {ok:false, zahozeno};
+}
+
 $('trackSave').onclick = () => {
   const zjed = zjednodus(REC.body, 8);
   const t = {
@@ -1671,15 +1766,25 @@ $('trackSave').onclick = () => {
   };
   t.sdilena = sdiletTrasu;
   const vse = ulozeneTrasy(); vse.push(t);
-  LS.set('trasy', vse.slice(-30));    // víc než třicet vycházek si pamatovat nemusíme
+  const vysledek = ulozTrasy(vse.slice(-30));   // víc než třicet vycházek si pamatovat nemusíme
   if (sdiletTrasu) posliTrasu(t);
   $('trackModal').classList.remove('show');
   if (recVrstva){ map.removeLayer(recVrstva); recVrstva = null; }
   REC.body = [];
   if (!historieZap){ historieZap = true; LS.set('historie', true); }
   kresliHistorii();
+
+  if (!vysledek.ok){
+    banner('<b>Trasu se nepodařilo uložit – v telefonu není místo.</b> ' +
+           (sdiletTrasu ? 'Ostatním jsem ji poslal, ale u tebe ji nenajdeš. ' : '') +
+           'Uvolni místo v telefonu, nebo v ℹ️ smaž uložené mapy.', true, 0);
+    return;
+  }
   banner('Trasa uložena (' + sklonuj(zjed.length, 'bod', 'body', 'bodů') + ' po zjednodušení)' +
-         (sdiletTrasu ? ' a poslána ostatním' : '') + '. Najdeš ji pod „Kde jsme už hledali".', false, 8000);
+         (sdiletTrasu ? ' a poslána ostatním' : '') + '. Najdeš ji pod „Kde jsme už hledali".' +
+         (vysledek.zahozeno ? ' <b>Došlo místo, tak jsem zahodil ' +
+            sklonuj(vysledek.zahozeno, 'nejstarší nesdílenou vycházku', 'nejstarší nesdílené vycházky', 'nejstarších nesdílených vycházek') + '.</b>' : ''),
+         false, vysledek.zahozeno ? 12000 : 8000);
 };
 
 $('trackDrop').onclick = () => {
@@ -1760,18 +1865,44 @@ async function posliTrasu(t){
   }
 }
 
+/* Audit 4: tohle dřív mazalo celý uzel `tracks/<uid>` – a pravidla to
+   nedovolí ani jeho vlastníkovi, protože právo na zápis je až o patro níž,
+   u jednotlivé trasy. Mazat se proto musí po jedné. Platí to i pro nálezy
+   a je to jediný způsob, jak po sobě člověk může uklidit. */
+async function smazVsechnyMoje(uzel){
+  if (!dbRefs || state.approved !== true || !state.uid) return {smazano:0, chyby:0};
+  let smazano = 0, chyby = 0;
+  let ids = [];
+  try {
+    const snap = await dbRefs.get(dbRefs.ref(dbRefs.db, uzel + '/' + state.uid));
+    const v = snap && snap.val ? snap.val() : null;
+    ids = v ? Object.keys(v) : [];
+  } catch(e){ return {smazano:0, chyby:1}; }
+
+  for (const id of ids){
+    try { await dbRefs.remove(dbRefs.ref(dbRefs.db, uzel + '/' + state.uid + '/' + id)); smazano++; }
+    catch(e){ chyby++; }
+  }
+  return {smazano, chyby};
+}
+
 async function prestanSdiletVse(){
   if (!dbRefs || state.approved !== true) return;
-  try {
-    await dbRefs.remove(dbRefs.ref(dbRefs.db, 'tracks/' + state.uid));
-    const vse = ulozeneTrasy().map(t => { t.sdilena = false; return t; });
-    LS.set('trasy', vse);
-    sdiletTrasu = false; LS.set('sdiletTrasy', false);
-    banner('Tvoje trasy jsem smazal z databáze. V telefonu je máš dál.', false, 8000);
+  const b = $('btnNesdilet');
+  if (b){ b.disabled = true; b.textContent = 'Mažu…'; }
+  const r = await smazVsechnyMoje('tracks');
+  if (b) b.disabled = false;
+  if (r.chyby){
+    banner('Smazat se podařilo ' + r.smazano + ' tras, u ' + r.chyby + ' to neprošlo. Zkus to znovu, až bude signál.', true, 10000);
     refreshNastroje();
-  } catch(e){
-    banner('Nepovedlo se to smazat: ' + e.message, true, 9000);
+    return;
   }
+  const vse = ulozeneTrasy().map(t => { t.sdilena = false; return t; });
+  LS.set('trasy', vse);
+  sdiletTrasu = false; LS.set('sdiletTrasy', false);
+  banner(r.smazano ? ('Smazal jsem z databáze ' + sklonuj(r.smazano, 'trasu', 'trasy', 'tras') + '. V telefonu je máš dál.')
+                   : 'V databázi žádné tvoje trasy nebyly.', false, 8000);
+  refreshNastroje();
 }
 
 
@@ -1990,17 +2121,29 @@ async function odejit(){
     setTimeout(() => { if (b){ b.dataset.jistota = ''; b.textContent = 'Odejít z rodinné mapy'; b.classList.remove('no'); } }, 6000);
     return;
   }
+  b.disabled = true; b.textContent = 'Uklízím po sobě…';
   try {
     // Pořadí je důležité: dokud jsem člen, smím po sobě uklidit.
     // Po odchodu už do databáze nesáhnu – ani na svoje věci.
-    try { await dbRefs.remove(dbRefs.ref(dbRefs.db, 'tracks/' + state.uid)); } catch(e){}
-    try { await dbRefs.remove(dbRefs.ref(dbRefs.db, 'finds/'  + state.uid)); } catch(e){}
+    const tr = await smazVsechnyMoje('tracks');
+    const na = await smazVsechnyMoje('finds');
+    if (tr.chyby || na.chyby){
+      b.disabled = false; b.textContent = 'Odejít z rodinné mapy'; b.dataset.jistota = '';
+      banner('<b>Neodešel jsi.</b> Nepodařilo se smazat všechno, co jsi nasdílel (' +
+             (tr.chyby + na.chyby) + ' položek). Kdybych tě odhlásil teď, zůstaly by tam navždy – ' +
+             'po odchodu už na ně nemáš právo. Zkus to znovu, až bude signál.', true, 0);
+      return;
+    }
     await dbRefs.remove(dbRefs.me);
     await dbRefs.remove(dbRefs.ref(dbRefs.db, 'allowed/' + state.uid));
     LS.del('kod');
-    banner('Odešel jsi z rodinné mapy. Zpátky se dostaneš přes rodinný odkaz s kódem.', false, 12000);
+    banner('Odešel jsi z rodinné mapy. Smazal jsem přitom ' +
+           sklonuj(tr.smazano, 'tvoji trasu', 'tvoje trasy', 'tvých tras') + ' a ' +
+           sklonuj(na.smazano, 'nález', 'nálezy', 'nálezů') +
+           '. Zpátky se dostaneš přes rodinný odkaz s kódem.', false, 14000);
     $('legendModal').classList.remove('show');
   } catch(e){
+    b.disabled = false; b.textContent = 'Odejít z rodinné mapy'; b.dataset.jistota = '';
     banner('Odejít se nepovedlo: ' + e.message, true, 9000);
   }
 }
@@ -2034,6 +2177,38 @@ function refreshPeopleModal(){
 
   el.innerHTML = html;
   el.querySelectorAll('[data-remove]').forEach(b  => b.onclick = () => removeUser(b.dataset.remove));
+}
+
+/* Audit 7: smazat jednu trasu nešlo vůbec. Seznam ukazuje jen pár
+   posledních – kdo chce uklidit třicátou vycházku, ať si nejdřív smaže
+   ty novější, nebo použije „Přestat sdílet". Delší seznam by z panelu
+   udělal nekonečnou stránku. */
+function seznamTrasHTML(){
+  if (!historieZap) return '';
+  const vse = ulozeneTrasy().slice().sort((a,b) => (b.ts||0) - (a.ts||0)).slice(0, 8);
+  if (!vse.length) return '';
+  return '<div class="trasy">' + vse.map(t =>
+    '<div class="r"><span><b>' + fmtDist(t.delka || 0) + '</b> · ' + fmtTime(t.ts) +
+    (t.sdilena ? ' · sdílená' : '') + '</span>' +
+    '<button class="x" data-smaz-trasu="' + t.id + '" aria-label="Smazat trasu">✕</button></div>'
+  ).join('') + '</div>';
+}
+
+async function smazTrasu(id){
+  const vse = ulozeneTrasy();
+  const t = vse.find(x => x.id === id);
+  const zbytek = vse.filter(x => x.id !== id);
+  LS.set('trasy', zbytek);
+  kresliHistorii();
+
+  if (t && t.sdilena && dbRefs && state.approved === true && state.uid){
+    try { await dbRefs.remove(dbRefs.ref(dbRefs.db, 'tracks/' + state.uid + '/' + id)); }
+    catch(e){
+      banner('Trasa zmizela z telefonu, ale <b>z databáze se ji smazat nepodařilo</b>. Ostatní ji zatím pořád vidí.', true, 11000);
+    }
+  }
+  refreshNastroje();
+  banner('Trasa smazaná.', false, 4000);
 }
 
 /* Blok „Lesy" v ℹ️. Chipsy s druhem porostu mají smysl teprve od chvíle,
@@ -2118,7 +2293,13 @@ function refreshNastroje(){
     box.insertBefore(el, box.querySelector('#peopleAdmin') || box.querySelector('#uidBlock') || box.querySelector('#legendClose'));
   }
   const pocet = ulozeneTrasy().length;
-  const mojeSdilene = ulozeneTrasy().filter(t => t.sdilena).length;
+  /* Audit 9: dřív se počítalo z tras v telefonu. Jenže strop třiceti
+     vycházek je z telefonu vyhodí dřív, než zmizí z databáze – a číslo
+     pak bylo menší, než co ostatní doopravdy viděli. Když databázi
+     zrovna posloucháme, věříme jí. */
+  const vDatabazi = (state.tracks && state.uid && state.tracks[state.uid])
+    ? Object.keys(state.tracks[state.uid]).length : null;
+  const mojeSdilene = vDatabazi !== null ? vDatabazi : ulozeneTrasy().filter(t => t.sdilena).length;
   let cizich = 0;
   Object.keys(state.tracks || {}).forEach(u => {
     if (u !== state.uid) cizich += Object.keys(state.tracks[u] || {}).length;
@@ -2140,9 +2321,18 @@ function refreshNastroje(){
     (mojeSdilene
       ? '<button class="ghost" id="btnNesdilet" style="margin-bottom:12px">Přestat sdílet moje trasy (' + mojeSdilene + ')</button>'
       : '') +
+    seznamTrasHTML() +
     nejlepsiHTML();
 
   if ($('btnNesdilet')) $('btnNesdilet').onclick = () => prestanSdiletVse();
+  el.querySelectorAll('[data-smaz-trasu]').forEach(bt => bt.onclick = () => {
+    if (bt.dataset.jistota !== '1'){
+      bt.dataset.jistota = '1'; bt.textContent = 'Opravdu?';
+      setTimeout(() => { if (bt){ bt.dataset.jistota=''; bt.textContent='✕'; } }, 5000);
+      return;
+    }
+    smazTrasu(bt.dataset.smazTrasu);
+  });
   $('tgNejlepsi').onclick = () => {
     nejlepsiZap = !nejlepsiZap; LS.set('nejlepsi', nejlepsiZap);
     kresliNejlepsi(); refreshNastroje();
@@ -2383,7 +2573,7 @@ async function initFirebase(){
   try {
     const V = '10.14.1';
     const [{initializeApp}, {getAuth, signInAnonymously, onAuthStateChanged},
-           {getDatabase, ref, set, update, onValue, remove, onDisconnect}] = await Promise.all([
+           {getDatabase, ref, set, update, onValue, remove, onDisconnect, get}] = await Promise.all([
       import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
       import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`),
       import(`https://www.gstatic.com/firebasejs/${V}/firebase-database.js`)
@@ -2402,7 +2592,7 @@ async function initFirebase(){
       state.isOwner = OWNER_UIDS.indexOf(user.uid) >= 0;
 
       dbRefs = {
-        db, ref, set, update, remove, onValue,
+        db, ref, set, update, remove, onValue, get,
         car:   ref(db, 'car'),
         me:    ref(db, 'users/' + user.uid),
         users: ref(db, 'users')
@@ -2471,7 +2661,7 @@ function subscribeShared(db, onValue){
       banner('<b>Pozici auta někdo smazal.</b> Když je auto pořád na parkovišti, označ ho znovu.', false, 9000);
     }
     predchoziAuto = n;
-  }, err => banner('Nepodařilo se načíst pozici auta – zřejmě ti chybí schválení.', true, 10000));
+  }, err => banner('Nepodařilo se načíst pozici auta – databáze odmítla čtení. Otevři rodinný odkaz s kódem znovu.', true, 10000));
 
   onValue(dbRefs.users, snap => {
     state.others = snap.val() || {};
@@ -2541,9 +2731,18 @@ function migrujFrontu(){
   if (stara){ LS.set('queue', stara); LS.del('pending'); }
 }
 function frontaZapisu(){ return LS.get('queue', []); }
+const FRONTA_MAX = 100;
 function queue(kind, payload){
   const q = frontaZapisu(); q.push({kind, payload, ts:Date.now()});
-  LS.set('queue', q.slice(-20));
+  if (q.length > FRONTA_MAX){
+    // Audit 10: dřív se přebytek zahazoval mlčky. Když už musíme něco
+    // ztratit, ať se to člověk dozví hned, a ne až doma.
+    const pryc = q.length - FRONTA_MAX;
+    banner('<b>Čeká toho na odeslání moc</b> – zahodil jsem ' +
+           sklonuj(pryc, 'nejstarší zápis', 'nejstarší zápisy', 'nejstarších zápisů') +
+           '. Až budeš mít signál, radši appku otevři, ať se zbytek odešle.', true, 12000);
+  }
+  LS.set('queue', q.slice(-FRONTA_MAX));
 }
 async function flushPending(){
   if (!dbRefs) return;

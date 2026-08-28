@@ -5,9 +5,15 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v12';
+const VER        = 'houby-v13';
 const SHELL      = VER + '-shell';
-const TILES      = VER + '-tiles';
+
+/* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
+   aktivaci nové verze smazal i mapy, které si člověk stáhl doma na Wi-Fi.
+   Appka ho k tomu stahování sama vede – a pak mu je vzala při první
+   opravě překlepu. Dlaždice proto verzi nemají a maže je jen uživatel
+   tlačítkem „Smazat uložené mapy". */
+const TILES      = 'houby-tiles';
 const TILE_MAX   = 4000;          // strop uložených dlaždic (OSM + lesy + chráněná území)
 
 const SHELL_FILES = [
@@ -51,7 +57,9 @@ self.addEventListener('message', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => !k.startsWith(VER)).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys
+        .filter(k => k !== TILES && !k.startsWith(VER))
+        .map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });

@@ -16,7 +16,7 @@ Otevírá se v prohlížeči, přidá se na plochu telefonu jako ikona. Žádný
 | Navigace zpět k autu (vzdálenost + šipka) | ✅ Funguje i bez signálu, GPS signál stačí |
 | Poloha ostatních na mapě | ⚠️ **Jen dokud mají appku otevřenou na displeji** |
 | **Záznam nachozené trasy** | ✅ Jen dokud máš appku na displeji — díry v trase se kreslí tečkovaně |
-| **Zápis nálezu s fotkou** | ✅ Fotka zůstane v telefonu i v mapě, určení předá Google Lens |
+| **Zápis nálezu s fotkou** | ✅ Funguje i bez signálu, odešle se, až signál bude |
 | Kolik lidí | Libovolně z rodiny — připojí se každý, kdo dostane rodinný odkaz |
 
 ### Proč to poslední omezení
@@ -167,7 +167,7 @@ Tohle už je běžný provoz, ne nastavení. **Zvládneš to z telefonu v lese.*
 
 Odebrat člověka jde v ℹ️ tlačítkem **Odebrat** u jeho jména. Sám může odejít v ℹ️ → **Odejít z rodinné mapy**.
 
-> ⚠️ **Co po odebraném zůstane:** jeho poslední polohu appka smaže. Trasy a nálezy, které nasdílel, ne — mazat je smí podle pravidel jen on sám (proto to udělá tlačítko **Odejít**, když odchází dobrovolně). Appka ti to při odebrání napíše.
+> ⚠️ **Co po odebraném zůstane:** jeho poslední polohu appka smaže. Trasy a nálezy, které nasdílel, ne — mazat je smí podle pravidel jen on sám. Když odchází dobrovolně tlačítkem **Odejít**, appka mu je smaže po jedné ještě před odhlášením, a **když se to nepovede, odchod neprovede** a řekne proč. Appka ti to při odebrání napíše.
 
 ## Krok 5 — Přidat na plochu iPhonu (2 min, každý zvlášť)
 
@@ -206,6 +206,10 @@ Poloha se sdílí **jen když je přepínač *Sdílím polohu* zapnutý**. Po za
 
 **Nález** se ukládá rovnou do databáze a vidí ho celá rodina. Fotka je v něm zmenšená na 320 px, aby se databáze nezanesla.
 
+**Bez signálu to funguje taky** — nález se uloží do telefonu, hned se objeví v mapě a odešle se ostatním, jakmile budeš mít signál. Appka ti u něj napíše, že zatím čeká.
+
+**Smazat nález** jde klepnutím na jeho pin v mapě → **Smazat nález** (dvě klepnutí, ať se to nestane omylem). Mazat můžeš jen svoje nálezy — cizí ne, stejně jako nikdo nesmaže tvoje.
+
 > 🍄 **Appka neurčuje, co je jedlé.** Nabídne ti Google Lens nebo jinou určovačku, ale rozhodnutí, jestli tu houbu sníš, je jenom tvoje. Žádný obrázkový hledač na světě nemá spolehlivost, na kterou se dá vsadit večeře.
 
 **Trasa** se ukládá **do telefonu**. Ostatním ji ukážeš jen tehdy, když v dialogu po ukončení zapneš **„Ukázat trasu ostatním"**. Volbu si appka pamatuje na příště.
@@ -214,7 +218,8 @@ Poloha se sdílí **jen když je přepínač *Sdílím polohu* zapnutý**. Po za
 - V mapě jsou **tvoje trasy šedé, cizí fialové**. Na cizí se dá klepnout a ukáže, kdo a kdy.
 - Sdílení se dá vzít zpět: ℹ️ → **Přestat sdílet moje trasy**. Z databáze zmizí, v telefonu ti zůstanou.
 - Trasa nahraná v telefonu má **díry, kdykoliv byla appka na pozadí**. Kreslí se tečkovaně a u trasy je napsané, kolik procent času se opravdu zaznamenalo. Rovnou čarou se to schválně nespojuje — netvrdíme, že jsi tudy šel.
-- Appka si pamatuje **posledních 30 vycházek**, starší zahazuje.
+- Appka si pamatuje **posledních 30 vycházek**, starší zahazuje. Když v telefonu dojde místo, zahodí nejstarší **nesdílené** vycházky a napíše ti to. Když se trasa neuloží vůbec, řekne to rovnou — nikdy netvrdí, že uložila, když neuložila.
+- **Smazat jednu trasu** jde v ℹ️ v seznamu pod přepínačem „Kde jsme už hledali", křížkem u řádku. Sdílená trasa se smaže i ostatním.
 
 ---
 
@@ -228,7 +233,7 @@ Poloha se sdílí **jen když je přepínač *Sdílím polohu* zapnutý**. Po za
 - Klepnutím do plochy zjistíš, co je to za porost.
 - Když je porostů v jednom výřezu moc, server pošle jen část a appka to napíše — pak přibliž víc. Mlčky useknutá mapa lesa je horší než žádná, protože vypadá stejně důvěryhodně.
 
-Zelený podklad se ukládá do telefonu stejně jako mapa, takže funguje offline. **Rozlišení podle porostu se neukládá** — jedna odpověď má i sto kilobajtů a během jedné vycházky by to sežralo místo, které jinde hlídáme. Bez signálu tedy zůstane zelený podklad bez rozlišení.
+Zelený podklad se ukládá do telefonu stejně jako mapa, takže funguje offline. **Stažené mapy přežijí aktualizaci appky** — mažou se jen tlačítkem „Smazat uložené mapy". **Rozlišení podle porostu se neukládá** — jedna odpověď má i sto kilobajtů a během jedné vycházky by to sežralo místo, které jinde hlídáme. Bez signálu tedy zůstane zelený podklad bez rozlišení.
 
 ## Chráněná území
 
@@ -261,6 +266,9 @@ Všechny přepínače a tlačítka jdou projít tabulátorem a zapnout mezerník
 
 **Mapa je šrafovaná**
 Šrafovaná plocha znamená „tuhle dlaždici nemám" — buď jsi bez signálu a oblast není stažená, nebo server s mapou zrovna neodpovídá. Appka ti napíše, který z těch dvou případů to je. Doma na Wi-Fi otevři appku, najdi oblast a klepni **Offline**. Mimo stažený výřez mapa prostě nebude — hromadné stahování map pravidla OpenStreetMap nedovolují.
+
+**Přišel jsem o stažené mapy**
+Do verze 12 je smazala každá aktualizace appky. Od verze 13 už ne — zůstávají, dokud je sám nesmažeš. Jednou naposledy zmizely při přechodu na verzi 13; stáhni si výřez znovu a už to nenastane.
 
 **Došlo místo na uložené mapy**
 V ℹ️ je napsané, kolik uložená data zabírají a kolik ti prohlížeč dovolí. Když se blíží strop, appka to řekne — a je tam tlačítko **Smazat uložené mapy**. Samotná appka funguje offline dál, jen si výřez budeš muset stáhnout znovu. Neřešit to se nevyplácí: až bude plno, začne prohlížeč mazat sám a může vzít i mapu, kterou máš zítra potřebovat.
