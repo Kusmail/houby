@@ -181,6 +181,11 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .mbox .fchip.on{background:var(--green);border-color:var(--green);color:#fff}
 .kamsucho{background:#fdf3e3;border-left:3px solid #d99327;padding:11px 12px;border-radius:9px;
   font-size:12.5px;line-height:1.5;margin-bottom:12px}
+.kamsucho button{
+  display:inline-block;margin-top:8px;background:var(--card);border:1px solid var(--line);
+  border-radius:999px;min-height:44px;padding:8px 16px;font-size:14px;font-weight:700;
+  font-family:inherit;color:inherit;cursor:pointer
+}
 #kamObsah .pozn{font-size:11.5px;color:var(--muted);line-height:1.45;margin:2px 0 12px}
 .pin.oblibene{background:#c9a227;color:#fff;border-color:#fff}
 .bigbtn.prepsat{background:#d99327;font-size:13.5px;line-height:1.35}
@@ -2800,9 +2805,13 @@ async function najdiMista(limit){   // limit = kolik míst pošleme na router
   }
   const tipy = TIPY;
 
-  const kandidati = tipy.concat(vse)
-    .filter(m => m.overene || m.cest >= 1)           // musí tam vést cesta
-    .filter(sedíPorost).filter(sedíDruh)
+  /* Audit 5: filtry se řetězily jedním výrazem, takže když nezbylo nic,
+     appka uměla říct jen „zkus něco povolit" a nabídla tři možnosti.
+     Teď se počítá po každém kroku a dá se říct, který filtr to zabil. */
+  const naCeste   = tipy.concat(vse).filter(m => m.overene || m.cest >= 1);
+  const poPorostu = naCeste.filter(sedíPorost);
+  const poDruhu   = poPorostu.filter(sedíDruh);
+  const kandidati = poDruhu
     .filter(m => (m.minuty != null ? m.minuty : odhadMinut(m)) <= FILTR.minuty * 1.25)
     .sort((a,b) => (a.minuty != null ? a.minuty : odhadMinut(a)) - (b.minuty != null ? b.minuty : odhadMinut(b)));
 
@@ -2816,7 +2825,10 @@ async function najdiMista(limit){   // limit = kolik míst pošleme na router
     vysl = vysl.filter(m => !m.chranene);
   }
   return {vysl, celkem: kandidati.length, vsech: vse.length + LOC.length,
-          orezano: kandidati.length > strop, strop, poDojezdu};
+          orezano: kandidati.length > strop, strop, poDojezdu,
+          kroky: {naCeste: naCeste.length, poPorostu: poPorostu.length,
+                  poDruhu: poDruhu.length, poHrubemDojezdu: kandidati.length,
+                  poRezervacich: vysl.length}};
 }
 
 /* ---------- oblíbená místa ----------
@@ -3731,17 +3743,55 @@ map.on('overlayadd', prekresliRustBrzy);
 map.on('overlayremove', prekresliRustBrzy);
 prekresliRustBrzy();
 
+/* Když nezbylo nic, je rozdíl mezi „je to daleko" a „ten porost tu není".
+   Vypíše se, kde přesně místa zmizela, a nabídne se jedním klepnutím
+   povolit ten filtr, který ubral nejvíc. */
+function procNic(k){
+  if (!k) return '<b>Filtry nepustily nic.</b> Zkus povolit delší dojezd nebo jiný porost.';
+  const nazvyPorostu = {jehlicnate:'jehličnatý', listnate:'listnatý', smisene:'smíšený'};
+  const kroky = [
+    {kdo:'porost', zbylo:k.poPorostu, ubralo:k.naCeste - k.poPorostu,
+     text:'Porost <b>' + (nazvyPorostu[FILTR.porost] || FILTR.porost) + '</b>',
+     f:'porost', v:'vse', tlac:'Pustit všechny porosty'},
+    {kdo:'houba', zbylo:k.poDruhu, ubralo:k.poPorostu - k.poDruhu,
+     text:'Filtr houby', f:'druh', v:'vse', tlac:'Pustit všechny houby'},
+    {kdo:'dojezd', zbylo:k.poHrubemDojezdu, ubralo:k.poDruhu - k.poHrubemDojezdu,
+     text:'Dojezd do <b>' + FILTR.minuty + ' minut</b>',
+     f:'minuty', v:String(Math.min(150, FILTR.minuty * 2)),
+     tlac:'Zkusit ' + Math.min(150, FILTR.minuty * 2) + ' minut'},
+    {kdo:'rezervace', zbylo:k.poRezervacich, ubralo:k.poHrubemDojezdu - k.poRezervacich,
+     text:'Vynechání rezervací', f:'chranena', v:'false', tlac:'Pustit i rezervace'}
+  ];
+  /* Viník není ten, kdo ubral nejvíc, ale ten, po kterém nezbylo nic:
+     porost může ubrat sedm tisíc míst a pořád jich pět set nechat –
+     zabije to až dojezd, a povolovat porost by nepomohlo. */
+  const viník = kroky.find(x => x.zbylo === 0 && x.ubralo > 0)
+             || kroky.filter(x => x.ubralo > 0).sort((a,b) => b.ubralo - a.ubralo)[0];
+  let h = '<b>Tímhle nastavením nezbylo nic.</b><br>' +
+    'Míst u lesní cesty: <b>' + k.naCeste + '</b> · po filtru porostu <b>' + k.poPorostu +
+    '</b> · po filtru houby <b>' + k.poDruhu + '</b> · do ' + FILTR.minuty + ' min <b>' +
+    k.poHrubemDojezdu + '</b>' + (FILTR.chranena ? ' · mimo rezervace <b>' + k.poRezervacich + '</b>' : '') + '.';
+  if (viník) h += '<br>' + viník.text +
+    (viník.zbylo === 0 ? ' vzal poslední (<b>−' + viník.ubralo + '</b>) a nezbylo nic. '
+                       : ' ubral nejvíc (<b>−' + viník.ubralo + '</b>). ') +
+    '<button id="uvolniFiltr" data-f="' + viník.f + '" data-v="' + viník.v + '">' + viník.tlac + '</button>';
+  return h;
+}
+
 async function kamDnes(){
   const b = $('btnKam');
   b.disabled = true; b.innerHTML = '⏳ &nbsp;Hledám v celé ČR…';
   try {
-    const {vysl, celkem, vsech, orezano, strop, poDojezdu} = await najdiMista(OSRM_DAVKA * OSRM_DAVEK);
+    const {vysl, celkem, vsech, orezano, strop, poDojezdu, kroky} = await najdiMista(OSRM_DAVKA * OSRM_DAVEK);
     if (!vysl.length){
-      $('kamObsah').innerHTML = '<div class="kamsucho"><b>Filtry nepustily nic.</b> ' +
-        'V okruhu ' + FILTR.minuty + ' minut jsem s tímhle nastavením nenašel jediné místo. ' +
-        'Zkus povolit delší dojezd, jiný porost, nebo pusť i rezervace.</div>' + filtryHTML();
+      $('kamObsah').innerHTML = '<div class="kamsucho">' + procNic(kroky) + '</div>' + filtryHTML();
       $('kamModal').classList.add('show');
       pripojFiltry();
+      const uv = $('uvolniFiltr');
+      if (uv) uv.onclick = () => { FILTR[uv.dataset.f] = uv.dataset.v === 'true' ? true
+                                     : uv.dataset.v === 'false' ? false
+                                     : (uv.dataset.f === 'minuty' ? +uv.dataset.v : uv.dataset.v);
+                                   ulozFiltr(); kamDnes(); };
       return;
     }
     // počasí jen pro to, co prošlo filtry – ne pro čtrnáct tisíc bodů
