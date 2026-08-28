@@ -740,7 +740,9 @@ $('bannerClose').onclick = hideBanner;
 /* ============================================================
    MAPA
    ============================================================ */
-const map = L.map('map', {zoomControl:true, tap:false}).setView(HOME, 10);
+/* Tlačítko „+" bylo schované za horní lištou se jménem – zoom je proto
+   vpravo pod přepínačem vrstev, kde na něj palec dosáhne a nic ho nekryje. */
+const map = L.map('map', {zoomControl:false, tap:false}).setView(HOME, 10);
 const POPOPT = {maxWidth:280, autoPanPaddingTopLeft:L.point(16,110), autoPanPaddingBottomRight:L.point(16,240)};
 
 /* Audit 4: dokud tu nebylo tohle, byla mapa mimo stažený výřez prostě bílá
@@ -832,6 +834,8 @@ L.control.layers(null, {
   '<b>Ověřené tipy</b> – 16 popsaných míst': overeneTipy,
   '<b>Místa z map</b> – celá ČR podle filtrů': mistaVrstva
 }, {collapsed:true}).addTo(map);
+
+L.control.zoom({position:'topright', zoomInTitle:'Přiblížit', zoomOutTitle:'Oddálit'}).addTo(map);
 
 map.fitBounds(L.latLngBounds(LOC.map(d=>d.park).concat([HOME])).pad(0.08));
 
