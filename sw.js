@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v1';
+const VER        = 'houby-v2';
 const SHELL      = VER + '-shell';
 const TILES      = VER + '-tiles';
 const TILE_MAX   = 3000;          // strop uložených dlaždic
@@ -15,6 +15,7 @@ const SHELL_FILES = [
   './index.html',
   './config.js',
   './manifest.json',
+  './icon-180.png',
   './icon-192.png',
   './icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',

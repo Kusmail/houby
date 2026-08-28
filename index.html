@@ -7,9 +7,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Houby">
-<title>Houby – naše mapa</title>
+<title>Houby</title>
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <style>
@@ -56,8 +58,18 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
   background:var(--card);border-top:1px solid var(--line);
   border-radius:16px 16px 0 0;box-shadow:0 -3px 18px rgba(0,0,0,.16);
   padding:10px 12px calc(var(--safe-b) + 10px);
+  transition:transform .28s cubic-bezier(.22,.61,.36,1);
+  will-change:transform;touch-action:pan-y
 }
-.grab{width:38px;height:4px;border-radius:99px;background:#d9d4ca;margin:0 auto 9px}
+.sheet.dragging{transition:none}
+/* úchyt na vytažení – malý proužek, ale velká dotyková plocha kolem něj */
+.grab{width:44px;height:5px;border-radius:99px;background:#cfc9bf;margin:0 auto 9px;position:relative;
+  touch-action:none;cursor:grab}
+.grab::after{content:'';position:absolute;left:-90px;right:-90px;top:-16px;bottom:-16px}
+.sheet.peek .grab{background:#b9b2a6}
+.sheet-head{position:relative}
+.sheet-body{transition:opacity .2s}
+.sheet.peek .sheet-body{opacity:.35}
 
 .bigbtn{
   width:100%;min-height:60px;border:0;border-radius:14px;
@@ -185,6 +197,7 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 <div class="banner" id="banner"><span class="close" id="bannerClose">✕</span><span id="bannerTxt"></span></div>
 
 <div class="sheet">
+ <div class="sheet-head">
   <div class="grab"></div>
 
   <button class="bigbtn" id="btnPark">🚗 &nbsp;Zaparkoval jsem tady</button>
@@ -197,7 +210,9 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
     </div>
     <button class="x" id="btnCarClear" title="Auto vyzvednuto">🗑</button>
   </div>
+ </div>
 
+ <div class="sheet-body">
   <div class="row">
     <div class="toggle" id="tgShare">
       <div class="sw"><i></i></div>
@@ -217,6 +232,7 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
     <div class="mini" id="btnOffline"><b>⬇︎</b>Offline</div>
     <a class="mini" id="btnFind" href="findmy://" target="_blank" rel="noopener"><b>📡</b>Najít</a>
   </div>
+ </div>
 </div>
 
 <div class="modal" id="nameModal">
@@ -617,6 +633,7 @@ function renderCar(){
     if (carMarker){ map.removeLayer(carMarker); carMarker = null; }
     $('btnPark').style.display = '';
     $('carNav').style.display = 'none';
+    if (typeof measureSheet === 'function'){ measureSheet(); applySheet(false); }
     return;
   }
   const ll = [c.lat, c.lng];
@@ -637,6 +654,7 @@ function renderCar(){
   $('btnPark').style.display = 'none';
   $('carNav').style.display = 'flex';
   updateCarNav();
+  if (typeof measureSheet === 'function'){ measureSheet(); applySheet(false); }
 }
 
 function updateCarNav(){
@@ -870,6 +888,95 @@ document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && $('tgWake').classList.contains('on') && !state.wake) setWake(true);
 });
 
+/* ============================================================
+   VYTAHOVACÍ SPODNÍ PANEL
+   Táhni prstem za proužek (nebo za volné místo panelu) nahoru
+   a dolů. Ve složeném stavu zůstane vidět jen to hlavní –
+   tlačítko auta, případně navigace k němu – a zbytek mapy je volný.
+   ============================================================ */
+const sheetEl = document.querySelector('.sheet');
+let sheetPeek = LS.get('sheetPeek', false);   // false = rozbalený
+let peekOffset = 0;
+
+function isWide(){ return window.innerWidth >= 820; }
+
+function measureSheet(){
+  const head = sheetEl.querySelector('.sheet-head');
+  const padTop = parseFloat(getComputedStyle(sheetEl).paddingTop) || 0;
+  // ve složeném stavu zůstane vidět hlava panelu + horní odsazení
+  peekOffset = Math.max(0, Math.round(sheetEl.offsetHeight - head.offsetHeight - padTop - 6));
+}
+
+function applySheet(animate){
+  if (!animate) sheetEl.classList.add('dragging');
+  const off = (sheetPeek && !isWide()) ? peekOffset : 0;
+  sheetEl.style.transform = 'translateY(' + off + 'px)';
+  sheetEl.classList.toggle('peek', off > 0);
+  if (!animate) requestAnimationFrame(()=> sheetEl.classList.remove('dragging'));
+}
+
+function setSheetPeek(v, animate){
+  sheetPeek = !!v;
+  LS.set('sheetPeek', sheetPeek);
+  measureSheet();
+  applySheet(animate !== false);
+}
+
+/* --- tažení prstem ---
+   Posluchače pohybu a puštění dáváme na window, ne na panel:
+   panel se během tažení sám posouvá a událost by nám utekla. --- */
+let dragStartY = null, dragStartOff = 0, dragLastY = 0, dragLastT = 0, dragV = 0, dragging = false;
+
+function draggableTarget(t){
+  // z tlačítek a přepínačů se netáhne, ať se nekazí jejich ovládání
+  return !t.closest('button, a, .toggle, .mini, .bigbtn, .carnav .x, input');
+}
+
+function onDragMove(e){
+  if (!dragging) return;
+  const dy = e.clientY - dragStartY;
+  const off = Math.min(peekOffset, Math.max(0, dragStartOff + dy));
+  sheetEl.style.transform = 'translateY(' + off + 'px)';
+  const now = Date.now(), dt = now - dragLastT;
+  if (dt > 0){ dragV = (e.clientY - dragLastY) / dt; dragLastY = e.clientY; dragLastT = now; }
+  if (e.cancelable && Math.abs(dy) > 6) e.preventDefault();
+}
+
+function onDragEnd(e){
+  if (!dragging) return;
+  dragging = false;
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onDragEnd);
+  window.removeEventListener('pointercancel', onDragEnd);
+  sheetEl.classList.remove('dragging');
+  const dy = (e && typeof e.clientY === 'number') ? e.clientY - dragStartY : 0;
+  let target;
+  if (Math.abs(dragV) > 0.4)      target = dragV > 0;            // švihnutí rozhodne směr
+  else if (Math.abs(dy) < 8)      target = !sheetPeek;           // klepnutí = přepnout
+  else                            target = (dragStartOff + dy) > peekOffset / 2;
+  setSheetPeek(target, true);
+}
+
+sheetEl.addEventListener('pointerdown', e => {
+  if (isWide()) return;
+  const onGrab = !!e.target.closest('.grab');
+  if (!onGrab && !draggableTarget(e.target)) return;
+  measureSheet();
+  if (peekOffset <= 0) return;
+  dragStartY = dragLastY = e.clientY;
+  dragLastT = Date.now();
+  dragV = 0;
+  dragStartOff = sheetPeek ? peekOffset : 0;
+  dragging = true;
+  sheetEl.classList.add('dragging');
+  window.addEventListener('pointermove', onDragMove, {passive:false});
+  window.addEventListener('pointerup', onDragEnd);
+  window.addEventListener('pointercancel', onDragEnd);
+});
+
+window.addEventListener('resize', () => { measureSheet(); applySheet(false); });
+window.addEventListener('orientationchange', () => setTimeout(()=>{ measureSheet(); applySheet(false); }, 300));
+
 /* ---------- legenda + UID ---------- */
 $('btnLegend').onclick = () => {
   const box = $('legendModal').querySelector('.mbox');
@@ -1075,6 +1182,8 @@ if ('serviceWorker' in navigator){
    ============================================================ */
 renderCar();
 renderPeopleList();
+measureSheet(); applySheet(false);
+window.addEventListener('load', () => { measureSheet(); applySheet(false); });
 if (!state.name) askName(); else $('whoTxt').textContent = state.name;
 setShare(false);                 // výchozí stav je VYP, vždy
 initFirebase();
