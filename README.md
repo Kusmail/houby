@@ -17,6 +17,7 @@ Otevírá se v prohlížeči, přidá se na plochu telefonu jako ikona. Žádný
 | Poloha ostatních na mapě | ⚠️ **Jen dokud mají appku otevřenou na displeji** |
 | **Záznam nachozené trasy** | ✅ Jen dokud máš appku na displeji — díry v trase se kreslí tečkovaně |
 | **Zápis nálezu s fotkou** | ✅ Funguje i bez signálu, odešle se, až signál bude |
+| **Mazání vlastních nálezů a tras** | ✅ Klepnutím na pin, nebo v seznamu v ℹ️ |
 | Kolik lidí | Libovolně z rodiny — připojí se každý, kdo dostane rodinný odkaz |
 
 ### Proč to poslední omezení
@@ -132,8 +133,9 @@ Databáze je po vytvoření v uzamčeném režimu a nikdo do ní nesmí. Pravidl
 | `allowed` | celý seznam správce, ostatní jen svůj řádek | **sám sebe jen s platným kódem** z rodinného odkazu; správce kohokoliv |
 | `users` | jen člen | každý jen svůj vlastní záznam; správce smí cizí záznam **smazat** (ne přepsat) |
 | `car` | jen člen | kdokoli z členů, včetně mazání |
-| `finds` | jen člen | každý jen svoje nálezy |
-| `tracks` | jen člen | každý jen svoje trasy |
+| `finds` | jen člen | každý jen svoje nálezy; správce smí smazat záznamy odebraného |
+| `finds_foto` | jen člen | každý jen svoje fotky, nejvýš 60 kB na fotku |
+| `tracks` | jen člen | každý jen svoje trasy; správce smí smazat záznamy odebraného |
 
 **Správci jsou natvrdo v pravidlech** — dvě UID Matějových zařízení. Je to schválně: do `/owners` smí zapisovat jen existující správce, takže úplně prvního by neměl kdo vytvořit. Uzel `/owners` funguje navíc, pro přidání dalšího správce z appky.
 
@@ -148,6 +150,7 @@ Databáze je po vytvoření v uzamčeném režimu a nikdo do ní nesmí. Pravidl
 | Přepsat cizí polohu | 401 zamítnuto |
 | Odhlásit někoho jiného | 401 zamítnuto |
 | Číst cokoliv **po odchodu** z rodiny | 401 zamítnuto |
+| Fotka větší než 60 kB | 401 zamítnuto |
 | Připojit se **s kódem** | 200 povoleno |
 | Uložit a smazat svoji trasu | 200 povoleno |
 | Zapsat svoji polohu | 200 povoleno |
@@ -204,7 +207,7 @@ Poloha se sdílí **jen když je přepínač *Sdílím polohu* zapnutý**. Po za
 
 ## Trasy a nálezy — co je čí
 
-**Nález** se ukládá rovnou do databáze a vidí ho celá rodina. Fotka je v něm zmenšená na 320 px, aby se databáze nezanesla.
+**Nález** se ukládá rovnou do databáze a vidí ho celá rodina. Fotka je zmenšená na 320 px a **leží ve zvláštním uzlu** — stáhne se, teprve když na nález klepneš. Bez toho by si každé otevření appky stahovalo úplně všechny fotky; při pěti stech nálezech přes deset megabajtů, klidně v lese na datech.
 
 **Bez signálu to funguje taky** — nález se uloží do telefonu, hned se objeví v mapě a odešle se ostatním, jakmile budeš mít signál. Appka ti u něj napíše, že zatím čeká.
 

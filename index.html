@@ -135,6 +135,13 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 .mbox .druhy button{width:auto;padding:11px 4px;border-radius:10px;background:#f3f1ec;color:var(--ink);
   font-size:12.5px;font-weight:600;border:1.5px solid transparent}
 .mbox .druhy button.on{background:var(--green);border-color:var(--green);color:#fff}
+details.napoveda{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:#fbfaf7}
+details.napoveda summary{padding:11px 12px;font-size:12.5px;font-weight:650;cursor:pointer;
+  color:var(--ink);list-style:none}
+details.napoveda summary::-webkit-details-marker{display:none}
+details.napoveda summary::after{content:'›';float:right;transform:rotate(90deg);color:var(--muted)}
+details.napoveda[open] summary::after{transform:rotate(-90deg)}
+details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;color:var(--muted)}
 .trasy{margin:-4px 0 12px}
 .trasy .r{display:flex;align-items:center;justify-content:space-between;gap:8px;
   padding:7px 10px;border:1px solid var(--line);border-radius:9px;margin-bottom:5px;
@@ -156,6 +163,9 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 #fotoNahled.show{display:block}
 #fotoNahled img{width:100%;border-radius:11px;display:block;margin-bottom:8px}
 #fotoNahled .urcit{background:#585048}
+.pop .nalezfoto{width:100%;border-radius:8px;margin:6px 0;display:block}
+.pop .fotocek{padding:14px;text-align:center;font-size:11.5px;color:var(--muted);
+  background:#f4f2ed;border-radius:8px;margin:6px 0}
 #map .pop .smazNalez{width:100%;margin-top:8px;padding:9px;border-radius:9px;border:none;
   background:#efe7e2;color:#8a3b1c;font-size:12.5px;font-weight:650;cursor:pointer}
 .mbox .pozn{font-size:11.5px;color:var(--muted);margin:0 0 12px;line-height:1.45}
@@ -359,15 +369,12 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 
 <div class="modal" role="dialog" aria-modal="true" id="legendModal">
   <div class="mbox">
-    <h2>Legenda a nápověda</h2>
-    <p style="color:var(--ink)">
-      🔴 domov (Mratín) · 🔵 parkoviště lokality · 🟢 plocha kde hledat · hnědá čárkovaná = doporučená trasa<br><br>
-      🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = druhý z vás<br><br>
-      🍄 pin = váš nález · šedá čára = tvoje trasa · fialová čára = cizí trasa · žluto‑oranžové čtverce = <b>nejlepší místa spočítaná z vašich nálezů</b><br><br>
-      Zapneš-li <b>Lesy</b>: světle zelená = listnaté, tmavší zelená = smíšené, tmavě zelená = jehličnaté, šedozelená = neurčeno.<br><br>
-      <b>Plochy jsou orientační</b> – kreslené podle typu porostu, ne podle porostních map.
-    </p>
-    <p><b style="color:var(--ink)">Poloha na pozadí nefunguje.</b> Safari na iPhonu zastaví sledování, jakmile zamkneš telefon. Druhého vidíš jen dokud má appku otevřenou na displeji – proto je u jeho polohy vždy napsané, jak je stará. Na průběžné sledování používejte Sdílení polohy v aplikaci <b style="color:var(--ink)">Najít</b>.</p>
+    <h2>Nastavení a nápověda</h2>
+    <!-- Audit 13: panel narostl na 1,3 obrazovky a ovládání bylo až úplně
+         dole pod dlouhým textem. Vysvětlivky se čtou jednou, přepínače
+         každou vycházku – tak jsou vysvětlivky sbalené a ovládání nahoře.
+         Dynamické bloky se vkládají před tenhle prvek. -->
+    <div id="pomoc"></div>
     <button class="ghost" id="legendClose">Zavřít</button>
   </div>
 </div>
@@ -1264,7 +1271,13 @@ let vybranyDruh = null;
 let fotoSoubor  = null;      // původní soubor z fotoaparátu (na sdílení)
 let fotoNahledData = null;   // zmenšený náhled, který se ukládá do databáze
 
-const findMarkers = {};      // uid|id -> marker
+const findMarkers = {};      // id -> marker
+
+/* Audit 8: fotky dřív ležely přímo v záznamu nálezu, takže si každé
+   otevření appky stáhlo úplně všechny – při pěti stech nálezech přes
+   deset megabajtů, klidně v lese na datech. Fotka teď bydlí ve vlastním
+   uzlu a stáhne se, teprve když na nález klepneš. */
+const fotoCache = {};        // id -> data URI
 
 /* Audit 1: dřív se dialog otevřel, jen když databáze potvrdila členství.
    Bez signálu ho nepotvrdí nikdy – takže zrovna v lese, kvůli kterému
@@ -1364,15 +1377,60 @@ $('btnFind2').onclick = otevriNalez;
 
 async function ulozNalez(z){
   const id = 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  const foto = z.foto || null;
+  const bezFotky = Object.assign({}, z);
+  delete bezFotky.foto;
+  if (foto) bezFotky.mafoto = true;
+
   // hned vykreslit, ať je vidět výsledek i bez signálu
   const klic = state.uid || 'ja';
   if (!state.finds[klic]) state.finds[klic] = {};
-  state.finds[klic][id] = z;
+  state.finds[klic][id] = bezFotky;
+  if (foto) fotoCache[id] = foto;
   renderFinds();
   kresliNejlepsi();
-  if (!dbRefs || state.approved !== true){ queue('find', {id, z}); return false; }
-  try { await dbRefs.set(dbRefs.ref(dbRefs.db, 'finds/' + state.uid + '/' + id), z); return true; }
-  catch(e){ queue('find', {id, z}); return false; }
+
+  if (!dbRefs || state.approved !== true){ queue('find', {id, z:bezFotky, foto}); return false; }
+  try {
+    await dbRefs.set(dbRefs.ref(dbRefs.db, 'finds/' + state.uid + '/' + id), bezFotky);
+  } catch(e){
+    queue('find', {id, z:bezFotky, foto});
+    return false;
+  }
+  if (foto) await posliFotku(id, foto, bezFotky);
+  return true;
+}
+
+/* Fotka jde do vlastního uzlu. Kdyby ho pravidla databáze ještě neznala,
+   spadneme zpátky na starý způsob a uložíme ji rovnou k nálezu – ať
+   appka funguje bez ohledu na to, co je zrovna publikované. */
+async function posliFotku(id, foto, zaznam){
+  if (!dbRefs || !state.uid) return false;
+  try {
+    await dbRefs.set(dbRefs.ref(dbRefs.db, 'finds_foto/' + state.uid + '/' + id), foto);
+    return true;
+  } catch(e){
+    try {
+      await dbRefs.set(dbRefs.ref(dbRefs.db, 'finds/' + state.uid + '/' + id),
+                       Object.assign({}, zaznam, {foto}));
+      return true;
+    } catch(e2){
+      banner('Nález je uložený, ale <b>fotku se poslat nepodařilo</b>. V tvém telefonu ji máš.', false, 9000);
+      return false;
+    }
+  }
+}
+
+/* Fotka se stahuje až ve chvíli, kdy si nález otevřeš. */
+async function nactiFotku(uid, id){
+  if (fotoCache[id] !== undefined) return fotoCache[id];
+  if (!dbRefs || !dbRefs.get || state.approved !== true) return null;
+  try {
+    const snap = await dbRefs.get(dbRefs.ref(dbRefs.db, 'finds_foto/' + uid + '/' + id));
+    const v = snap && snap.val ? snap.val() : null;
+    fotoCache[id] = v || null;
+    return fotoCache[id];
+  } catch(e){ return null; }
 }
 
 /* ============================================================
@@ -1501,23 +1559,46 @@ function renderFinds(){
     const uid = zive[id].uid, z = zive[id].z;
     const moje = (uid === state.uid) || (uid === 'ja');
     const m = L.marker([z.lat, z.lng], {icon: pinIcon('find','🍄',22), zIndexOffset:600}).addTo(map);
-    m.bindPopup('<div class="pop"><h3>🍄 ' + (z.druh || 'Nález') + '</h3>' +
-      '<div class="sub">' + (z.kdo || '') + ' · ' + fmtTime(z.ts) + '</div>' +
-      (z.foto ? '<img src="' + z.foto + '" style="width:100%;border-radius:8px;margin:6px 0">' : '') +
-      '<table><tr><td>GPS</td><td>' + z.lat.toFixed(5) + ', ' + z.lng.toFixed(5) + '</td></tr>' +
-      (z.acc ? '<tr><td>Přesnost</td><td>±' + Math.round(z.acc) + ' m</td></tr>' : '') + '</table>' +
-      '<div class="nav"><a class="alt" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' +
-      z.lat + ',' + z.lng + '">Navigovat sem</a></div>' +
-      (moje ? '<button class="smazNalez" data-id="' + id + '" data-uid="' + uid + '">Smazat nález</button>' : '') +
-      '</div>', POPOPT);
+    m._nalez = {id, uid, z, moje};
+    m.bindPopup(popupNalezu(m._nalez, null), POPOPT);
     findMarkers[id] = m;
   });
+}
+
+/* Obsah bubliny se skládá tady, protože ho musíme umět postavit dvakrát:
+   nejdřív bez fotky (hned) a pak znovu s fotkou (až doteče). Vkládat
+   obrázek do už vykreslené bubliny nejde – Leaflet si obsah pamatuje
+   jako text a při každém přepočtu ho přepíše. */
+function popupNalezu(n, foto){
+  const z = n.z;
+  return '<div class="pop"><h3>🍄 ' + (z.druh || 'Nález') + '</h3>' +
+    '<div class="sub">' + (z.kdo || '') + ' · ' + fmtTime(z.ts) + '</div>' +
+    (foto ? '<img class="nalezfoto" src="' + foto + '" alt="fotka nálezu">'
+          : ((z.foto || z.mafoto) ? '<div class="fotocek">načítám fotku…</div>' : '')) +
+    '<table><tr><td>GPS</td><td>' + z.lat.toFixed(5) + ', ' + z.lng.toFixed(5) + '</td></tr>' +
+    (z.acc ? '<tr><td>Přesnost</td><td>±' + Math.round(z.acc) + ' m</td></tr>' : '') + '</table>' +
+    '<div class="nav"><a class="alt" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' +
+    z.lat + ',' + z.lng + '">Navigovat sem</a></div>' +
+    (n.moje ? '<button class="smazNalez" data-id="' + n.id + '" data-uid="' + n.uid + '">Smazat nález</button>' : '') +
+    '</div>';
 }
 
 /* Mazání vlastního nálezu. Dvě klepnutí, ať se to nestane omylem palcem
    v rukavici. Mazat po jednom je jediná cesta, kterou pravidla databáze
    dovolují – celý uzel najednou smazat nesmí ani jeho vlastník. */
-map.on('popupopen', e => {
+map.on('popupopen', async e => {
+  const m = e.popup._source;
+  const n = m && m._nalez;
+  if (n && (n.z.foto || n.z.mafoto) && !m._fotkaHotova){
+    m._fotkaHotova = true;
+    const foto = n.z.foto || await nactiFotku(n.uid, n.id);
+    if (foto){
+      e.popup.setContent(popupNalezu(n, foto));
+    } else {
+      e.popup.setContent(popupNalezu(n, null).replace('načítám fotku…', 'fotku se nepodařilo načíst'));
+    }
+  }
+
   const b = e.popup.getElement() && e.popup.getElement().querySelector('.smazNalez');
   if (!b) return;
   b.onclick = async () => {
@@ -1542,10 +1623,12 @@ map.on('popupopen', e => {
 async function smazNalez(uid, id){
   // ať zmizí z mapy hned, i kdyby databáze byla mimo dosah
   Object.keys(state.finds).forEach(u => { if (state.finds[u]) delete state.finds[u][id]; });
+  delete fotoCache[id];
   renderFinds(); kresliNejlepsi(); refreshNastroje();
   if (!dbRefs || state.approved !== true || uid === 'ja') return true;
   try {
     await dbRefs.remove(dbRefs.ref(dbRefs.db, 'finds/' + uid + '/' + id));
+    try { await dbRefs.remove(dbRefs.ref(dbRefs.db, 'finds_foto/' + uid + '/' + id)); } catch(e2){}
     return true;
   } catch(e){
     banner('Nález zmizel z tvojí mapy, ale <b>z databáze se ho smazat nepodařilo</b> (' + e.message + '). Zkus to znovu, až bude signál.', true, 11000);
@@ -1870,6 +1953,16 @@ async function posliTrasu(t){
    u jednotlivé trasy. Mazat se proto musí po jedné. Platí to i pro nálezy
    a je to jediný způsob, jak po sobě člověk může uklidit. */
 async function smazVsechnyMoje(uzel){
+  if (uzel === 'finds'){
+    // fotky mají vlastní uzel, jinak by po odchodu zůstaly viset
+    const r = await smazUzel('finds_foto');
+    const q = await smazUzel('finds');
+    return {smazano: q.smazano, chyby: q.chyby + r.chyby};
+  }
+  return smazUzel(uzel);
+}
+
+async function smazUzel(uzel){
   if (!dbRefs || state.approved !== true || !state.uid) return {smazano:0, chyby:0};
   let smazano = 0, chyby = 0;
   let ids = [];
@@ -2101,7 +2194,7 @@ function refreshOdchod(){
   if (!el){
     el = document.createElement('div');
     el.id = 'odchodBlok';
-    box.insertBefore(el, box.querySelector('#uidBlock') || box.querySelector('#legendClose'));
+    box.insertBefore(el, box.querySelector('#uidBlock') || box.querySelector('#pomoc') || box.querySelector('#legendClose'));
   }
   el.innerHTML =
     '<h3>Rodinná mapa</h3>' +
@@ -2155,7 +2248,7 @@ function refreshPeopleModal(){
   if (!el){
     el = document.createElement('div');
     el.id = 'peopleAdmin';
-    box.insertBefore(el, box.querySelector('#uidBlock') || box.querySelector('#legendClose'));
+    box.insertBefore(el, box.querySelector('#uidBlock') || box.querySelector('#pomoc') || box.querySelector('#legendClose'));
   }
 
   const allw = Object.keys(state.allowed);
@@ -2290,7 +2383,7 @@ function refreshNastroje(){
   if (!el){
     el = document.createElement('div');
     el.id = 'nastroje';
-    box.insertBefore(el, box.querySelector('#peopleAdmin') || box.querySelector('#uidBlock') || box.querySelector('#legendClose'));
+    box.insertBefore(el, box.querySelector('#peopleAdmin') || box.querySelector('#uidBlock') || box.querySelector('#pomoc') || box.querySelector('#legendClose'));
   }
   const pocet = ulozeneTrasy().length;
   /* Audit 9: dřív se počítalo z tras v telefonu. Jenže strop třiceti
@@ -2385,17 +2478,36 @@ function refreshNastroje(){
   };
 }
 
+function refreshPomoc(){
+  const el = $('pomoc');
+  if (!el || el.dataset.hotovo) return;
+  el.dataset.hotovo = '1';
+  el.innerHTML =
+    '<details class="napoveda"><summary>Co která barva na mapě znamená</summary>' +
+    '<p>🔴 domov (Mratín) · 🔵 parkoviště lokality · 🟢 plocha kde hledat · hnědá čárkovaná = doporučená trasa<br><br>' +
+    '🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = ostatní<br><br>' +
+    '🍄 pin = váš nález · šedá čára = tvoje trasa · fialová čára = cizí trasa · žluto‑oranžové čtverce = ' +
+    '<b>nejlepší místa spočítaná z vašich nálezů</b><br><br>' +
+    'Zapneš-li <b>Lesy</b>: žlutozelená = listnaté, zelená = smíšené, tmavě modrozelená = jehličnaté, šedá = neurčeno.<br><br>' +
+    '<b>Plochy lokalit jsou orientační</b> – kreslené podle typu porostu, ne podle porostních map.</p></details>' +
+    '<details class="napoveda"><summary>Proč nevidím druhého, když má telefon v kapse</summary>' +
+    '<p><b>Poloha na pozadí nefunguje.</b> Safari na iPhonu zastaví sledování, jakmile zamkneš telefon. ' +
+    'Druhého vidíš jen dokud má appku otevřenou na displeji – proto je u jeho polohy vždy napsané, jak je stará. ' +
+    'Na průběžné sledování používejte Sdílení polohy v aplikaci <b>Najít</b>.</p></details>';
+}
+
 $('btnLegend').onclick = () => {
   const box = $('legendModal').querySelector('.mbox');
   let uidEl = box.querySelector('#uidBlock');
   if (!uidEl){
     uidEl = document.createElement('p');
     uidEl.id = 'uidBlock';
-    box.insertBefore(uidEl, box.querySelector('#legendClose'));
+    box.insertBefore(uidEl, box.querySelector('#pomoc') || box.querySelector('#legendClose'));
   }
   uidEl.innerHTML = '<b style="color:var(--ink)">Tvoje UID</b> (každý prohlížeč a telefon má vlastní):<br>' +
     '<code style="font-size:11px;word-break:break-all;background:#f2efe9;padding:4px 6px;border-radius:5px;display:inline-block;margin-top:4px">' +
     (state.uid || 'není přihlášeno – Firebase není nastavený') + '</code>';
+  refreshPomoc();
   refreshNastroje();
   refreshPeopleModal();
   refreshOdchod();
@@ -2757,6 +2869,7 @@ async function flushPending(){
         await dbRefs.set(dbRefs.me, item.payload);
       } else if (item.kind === 'find'){
         await dbRefs.set(dbRefs.ref(dbRefs.db, 'finds/' + state.uid + '/' + item.payload.id), item.payload.z);
+        if (item.payload.foto) await posliFotku(item.payload.id, item.payload.foto, item.payload.z);
       }
     } catch(e){ queue(item.kind, item.payload); }
   }
