@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#2e5c3a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Houby">
+<title>Houby – naše mapa</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+/* ---------- barvy a základ ---------- */
+:root{
+  --ink:#1d1b17; --muted:#6b6560; --line:#e3ded4; --card:#fff; --bg:#f6f4ef;
+  --green:#2e5c3a; --green-l:#3f7d4f;
+  --park:#1d6fd6; --area:#2e8b45; --home:#c02a2a; --route:#7a4b18;
+  --car:#e07b1a; --me:#1d6fd6; --other:#8e44ad; --stale:#9a948d;
+  --danger:#c0392b;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  color:var(--ink);background:var(--bg);
+  -webkit-text-size-adjust:100%}
+#map{position:absolute;top:0;left:0;right:0;bottom:0}
+
+/* ---------- horní lišta ---------- */
+.top{
+  position:absolute;top:calc(var(--safe-t) + 8px);left:8px;right:8px;z-index:1200;
+  display:flex;gap:6px;align-items:center;pointer-events:none
+}
+.chip{
+  pointer-events:auto;background:var(--card);border:1px solid var(--line);border-radius:999px;
+  padding:7px 12px;font-size:12.5px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.14);
+  display:flex;align-items:center;gap:6px;white-space:nowrap
+}
+.chip.grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;display:block}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--stale);flex:0 0 8px;display:inline-block}
+.dot.on{background:#2e8b45}
+.dot.err{background:var(--danger)}
+.iconbtn{
+  pointer-events:auto;width:40px;height:40px;flex:0 0 40px;border-radius:50%;
+  background:var(--card);border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.14);
+  font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer
+}
+
+/* ---------- spodní panel ---------- */
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:1200;
+  background:var(--card);border-top:1px solid var(--line);
+  border-radius:16px 16px 0 0;box-shadow:0 -3px 18px rgba(0,0,0,.16);
+  padding:10px 12px calc(var(--safe-b) + 10px);
+}
+.grab{width:38px;height:4px;border-radius:99px;background:#d9d4ca;margin:0 auto 9px}
+
+.bigbtn{
+  width:100%;min-height:60px;border:0;border-radius:14px;
+  background:var(--car);color:#fff;font-size:17px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;
+  box-shadow:0 2px 0 rgba(0,0,0,.12)
+}
+.bigbtn:active{transform:translateY(1px)}
+.bigbtn.gray{background:#5d574f}
+.bigbtn[disabled]{opacity:.5}
+
+/* panel navigace k autu */
+.carnav{display:flex;align-items:center;gap:12px;background:#fdf4e8;border:1.5px solid #f0c48a;
+  border-radius:14px;padding:10px 12px}
+.arrowwrap{width:58px;height:58px;flex:0 0 58px;border-radius:50%;background:#fff;
+  border:2px solid var(--car);display:flex;align-items:center;justify-content:center;position:relative}
+#arrow{transition:transform .25s ease;font-size:30px;line-height:1;color:var(--car)}
+.carinfo{flex:1;min-width:0}
+.carinfo .d{font-size:26px;font-weight:750;line-height:1.05;letter-spacing:-.02em}
+.carinfo .s{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.35}
+.carnav .x{width:40px;height:40px;flex:0 0 40px;border-radius:10px;border:1px solid var(--line);
+  background:#fff;font-size:16px;cursor:pointer}
+
+/* řádek přepínačů */
+.row{display:flex;gap:8px;margin-top:9px;align-items:stretch}
+.toggle{
+  flex:1;display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:12px;
+  border:1.5px solid var(--line);background:#fbfaf7;cursor:pointer;min-height:52px
+}
+.toggle.on{border-color:var(--green);background:#eef5ef}
+.sw{width:44px;height:26px;flex:0 0 44px;border-radius:99px;background:#cfc9c0;position:relative;transition:background .18s}
+.sw i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;
+  transition:left .18s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.toggle.on .sw{background:var(--green)}
+.toggle.on .sw i{left:21px}
+.toggle .lbl{font-size:12.5px;font-weight:650;line-height:1.25}
+.toggle .lbl small{display:block;font-weight:500;color:var(--muted);font-size:10.5px;margin-top:1px}
+
+.minirow{display:flex;gap:6px;margin-top:8px}
+.mini{
+  flex:1;padding:9px 4px;border-radius:10px;border:1px solid var(--line);background:#fbfaf7;
+  font-size:11px;font-weight:600;color:var(--ink);cursor:pointer;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;min-height:46px;justify-content:center
+}
+.mini b{font-size:15px;font-weight:400;line-height:1}
+
+/* stav lidí */
+.people{display:flex;gap:6px;margin-top:8px;font-size:11.5px}
+.person{flex:1;display:flex;align-items:center;gap:6px;padding:7px 9px;border-radius:10px;background:#fbfaf7;border:1px solid var(--line);min-width:0}
+.person .pd{width:10px;height:10px;border-radius:50%;flex:0 0 10px}
+.person span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
+.person b{display:block;font-size:11.5px}
+.person em{font-style:normal;color:var(--muted);font-size:10.5px}
+
+/* bannery */
+.banner{
+  position:absolute;top:calc(var(--safe-t) + 56px);left:8px;right:8px;z-index:1250;
+  background:#fdf3e3;border:1px solid #e6bd7a;border-left:4px solid #d99327;
+  border-radius:10px;padding:9px 11px;font-size:12px;line-height:1.45;
+  box-shadow:0 3px 12px rgba(0,0,0,.14);display:none
+}
+.banner.err{background:#fdeceb;border-color:#e8a9a3;border-left-color:var(--danger)}
+.banner.show{display:block}
+.banner b{display:block;margin-bottom:2px}
+.banner .close{position:absolute;top:5px;right:7px;font-size:15px;color:var(--muted);cursor:pointer;padding:3px 6px}
+
+/* modal */
+.modal{position:absolute;inset:0;z-index:2000;background:rgba(20,18,15,.55);
+  display:none;align-items:center;justify-content:center;padding:18px}
+.modal.show{display:flex}
+.mbox{background:var(--card);border-radius:16px;padding:20px;max-width:340px;width:100%;
+  box-shadow:0 10px 40px rgba(0,0,0,.3);max-height:80vh;overflow:auto}
+.mbox h2{margin:0 0 6px;font-size:18px}
+.mbox p{margin:0 0 14px;font-size:13px;color:var(--muted);line-height:1.5}
+.mbox input{width:100%;padding:13px;border:1.5px solid var(--line);border-radius:10px;
+  font-size:16px;margin-bottom:12px;font-family:inherit}
+.mbox button{width:100%;padding:14px;border:0;border-radius:11px;background:var(--green);
+  color:#fff;font-size:15px;font-weight:650;cursor:pointer}
+.mbox .ghost{background:#eee9e0;color:var(--ink);margin-top:8px}
+
+/* leaflet doplňky */
+.leaflet-popup-content{margin:12px 14px;font-size:13px;line-height:1.5;width:250px !important;max-height:52vh;overflow-y:auto}
+.pop h3{margin:0 0 2px;font-size:14px;line-height:1.3}
+.pop .sub{font-size:11px;color:var(--muted);margin-bottom:7px}
+.pop table{width:100%;border-collapse:collapse;margin:5px 0}
+.pop td{padding:3px 0;vertical-align:top;font-size:12px;border-bottom:1px solid #f0eee9}
+.pop td:first-child{color:var(--muted);width:68px;padding-right:8px}
+.pop .warn{background:#fdf3e3;border-left:3px solid #d99327;padding:6px 8px;border-radius:0 4px 4px 0;font-size:11.5px;margin:7px 0}
+.pop .ok{background:#eef7ef;border-left:3px solid var(--area);padding:6px 8px;border-radius:0 4px 4px 0;font-size:11.5px;margin:7px 0}
+.pop .nav{display:flex;gap:6px;margin-top:9px}
+.pop .nav a{flex:1;text-align:center;padding:8px 4px;border-radius:7px;background:var(--park);
+  color:#fff;text-decoration:none;font-size:11.5px;font-weight:600}
+.pop .nav a.alt{background:#585048}
+.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10.5px;font-weight:650}
+.b1{background:#e3eefc;color:#144a91}
+.b2{background:#e9f2e6;color:#25592f}
+
+.pin{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;
+  border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);font-size:11px;font-weight:700;color:#fff}
+.pin.park{background:var(--park)}
+.pin.home{background:var(--home);width:28px;height:28px;font-size:14px}
+.pin.car{background:var(--car);width:40px;height:40px;font-size:20px;border-width:3px;
+  box-shadow:0 2px 10px rgba(224,123,26,.6)}
+.pin.me{background:var(--me);width:20px;height:20px;border-width:3px}
+.pin.other{background:var(--other);width:20px;height:20px;border-width:3px}
+.pin.other.stale{background:var(--stale)}
+.plabel{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:6px;
+  padding:1px 5px;font-size:10.5px;font-weight:650;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+
+.leaflet-control-layers{font-size:12.5px}
+.leaflet-top.leaflet-right{margin-top:calc(var(--safe-t) + 56px + var(--bannerH,0px));transition:margin-top .2s}
+.leaflet-control-zoom{display:none}
+@media(min-width:820px){ .leaflet-control-zoom{display:block} .sheet{max-width:420px;right:auto;border-radius:16px;left:12px;bottom:12px;border:1px solid var(--line)} }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="top">
+  <div class="chip grow" id="whoChip"><span class="dot" id="connDot"></span> <span id="whoTxt">načítám…</span></div>
+  <div class="iconbtn" id="btnLegend" title="Legenda">ℹ️</div>
+</div>
+
+<div class="banner" id="banner"><span class="close" id="bannerClose">✕</span><span id="bannerTxt"></span></div>
+
+<div class="sheet">
+  <div class="grab"></div>
+
+  <button class="bigbtn" id="btnPark">🚗 &nbsp;Zaparkoval jsem tady</button>
+
+  <div class="carnav" id="carNav" style="display:none">
+    <div class="arrowwrap"><div id="arrow">↑</div></div>
+    <div class="carinfo">
+      <div class="d" id="carDist">–</div>
+      <div class="s" id="carMeta">–</div>
+    </div>
+    <button class="x" id="btnCarClear" title="Auto vyzvednuto">🗑</button>
+  </div>
+
+  <div class="row">
+    <div class="toggle" id="tgShare">
+      <div class="sw"><i></i></div>
+      <div class="lbl">Sdílím polohu<small id="shareSub">vypnuto</small></div>
+    </div>
+    <div class="toggle" id="tgWake">
+      <div class="sw"><i></i></div>
+      <div class="lbl">Displej svítí<small id="wakeSub">vypnuto</small></div>
+    </div>
+  </div>
+
+  <div class="people" id="people"></div>
+
+  <div class="minirow">
+    <div class="mini" id="btnMe"><b>◎</b>Na mě</div>
+    <div class="mini" id="btnCar"><b>🚗</b>Na auto</div>
+    <div class="mini" id="btnOffline"><b>⬇︎</b>Offline</div>
+    <a class="mini" id="btnFind" href="findmy://" target="_blank" rel="noopener"><b>📡</b>Najít</a>
+  </div>
+</div>
+
+<div class="modal" id="nameModal">
+  <div class="mbox">
+    <h2>Jak ti máme říkat?</h2>
+    <p>Jméno uvidí druhý na mapě u tvojí polohy. Uloží se jen do tohohle telefonu.</p>
+    <input id="nameInput" type="text" placeholder="např. Matěj" maxlength="20" autocomplete="off">
+    <button id="nameSave">Uložit</button>
+  </div>
+</div>
+
+<div class="modal" id="legendModal">
+  <div class="mbox">
+    <h2>Legenda a nápověda</h2>
+    <p style="color:var(--ink)">
+      🔴 domov (Mratín) · 🔵 parkoviště lokality · 🟢 plocha kde hledat · hnědá čárkovaná = doporučená trasa<br><br>
+      🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = druhý z vás<br><br>
+      <b>Plochy jsou orientační</b> – kreslené podle typu porostu, ne podle porostních map.
+    </p>
+    <p><b style="color:var(--ink)">Poloha na pozadí nefunguje.</b> Safari na iPhonu zastaví sledování, jakmile zamkneš telefon. Druhého vidíš jen dokud má appku otevřenou na displeji – proto je u jeho polohy vždy napsané, jak je stará. Na průběžné sledování používejte Sdílení polohy v aplikaci <b style="color:var(--ink)">Najít</b>.</p>
+    <button class="ghost" id="legendClose">Zavřít</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+/* ============================================================
+   DATA LOKALIT – převzato z houby-mapa.html beze změny
+   ============================================================ */
+const HOME = [50.1985, 14.5735];
+
+const LOC = [
+/* ---------- VARIANTA 1 ---------- */
+{
+ v:1, rank:1, name:"Ctěnický háj + louky Vinoř/Podolanka", park:[50.1512,14.5760],
+ dist:"8 km · 12 min", druh:"<b>Bedla vysoká</b>, žampion, hřib dubový (vzácně)",
+ porost:"Dubohabřina 80–120 let na spraši + sečené louky, 240–260 m n.m.",
+ kde:"Ne v hloubi háje. Bedly v trávě na pásu luk jižně a východně od háje a na travnatém průseku podél severní hranice.",
+ sezona:"Bedly konec VIII – konec X, vrchol 2. pol. září",
+ trasa:"Okruh po obvodu háje a luk, 3,5–4 km",
+ park_ok:"ok", park_txt:"Oficiální bezplatné parkoviště u zámku Ctěnice.",
+ konk:"Střední – lidi tu chodí na procházku, ale bedly v trávě minou",
+ poly:[[50.1560,14.5700],[50.1575,14.5830],[50.1500,14.5880],[50.1450,14.5820],[50.1462,14.5705]],
+ route:[[50.1512,14.5760],[50.1548,14.5735],[50.1565,14.5820],[50.1495,14.5862],[50.1458,14.5800],[50.1470,14.5722],[50.1512,14.5760]]
+},
+{
+ v:1, rank:2, name:"Meze a remízky Sluhy–Bášť–Předboj", park:[50.2118,14.5455],
+ dist:"5 km · 8 min", druh:"<b>Bedla vysoká</b>, bedla červenající, žampion polní",
+ porost:"Není les. Akátové a jasanové remízky, meze, staré sady, spraš, 230–250 m n.m.",
+ kde:"Travnaté pásy na jižní a jihozápadní straně remízků, okraje starých sadů, neposečené meze. Bedly jsou 2–10 m od dřevin, ne v houští.",
+ sezona:"Září–říjen, po prvních chladných nocích",
+ trasa:"Pěší okruh po polních cestách Sluhy → Bášť, 4–5 km",
+ park_ok:"warn", park_txt:"Není oficiální parkoviště. Odstav na kraji polní cesty, nech průjezd technice. Nevjíždět na pole.",
+ konk:"<b>Nízká</b> – nevypadá to jako les, tak sem nikdo nejezdí",
+ poly:[[50.2160,14.5380],[50.2185,14.5560],[50.2075,14.5610],[50.2030,14.5480],[50.2090,14.5370]],
+ route:[[50.2118,14.5455],[50.2160,14.5405],[50.2178,14.5540],[50.2085,14.5588],[50.2042,14.5490],[50.2098,14.5392],[50.2118,14.5455]]
+},
+{
+ v:1, rank:3, name:"Houštka, Stará Boleslav", park:[50.1962,14.6845],
+ dist:"10 km · 14 min", druh:"Klouzek obecný, masák, hřib hnědý, kozák, bedla na okrajích",
+ porost:"Borovice lesní na labských navátých píscích, mozaika 30–100 let, 175–190 m n.m.",
+ kde:"Mladší borové kultury 20–50 let severně a severovýchodně od areálu. Křemenáč a kozák pod břízami u průseků. Lemy cest a mechové plotny, ne hustý stín.",
+ sezona:"Klouzci VIII–XI, snesou sucho lépe než hřiby",
+ trasa:"Okruh severně od areálu po lesních cestách, 5–6 km",
+ park_ok:"ok", park_txt:"Velké oficiální parkoviště u sportovního areálu Houštka. Alternativa: Proboštská jezera.",
+ konk:"<b>Vysoká</b> – městský les Brandýsa, chodí sem lidi denně. Musíš být brzo ráno.",
+ poly:[[50.1990,14.6760],[50.2085,14.6790],[50.2100,14.6990],[50.1985,14.7010],[50.1945,14.6870]],
+ route:[[50.1962,14.6845],[50.2010,14.6800],[50.2075,14.6835],[50.2090,14.6960],[50.1995,14.6985],[50.1958,14.6880],[50.1962,14.6845]]
+},
+{
+ v:1, rank:4, name:"Borové písčiny Dřísy–Ovčáry–Konětopy", park:[50.2288,14.7060],
+ dist:"17 km · 22 min", druh:"Klouzek, masák, křemenáč březový, kozák, bedla na průsecích",
+ porost:"Rozsáhlé borové monokultury na navátých píscích, ostrůvky břízy a dubu, 170–185 m n.m.",
+ kde:"Systematicky mladší borové kultury 15–40 let (nižší, hustší, mechové patro). Křemenáč a kozák pod břízami u odvodňovacích příkopů. Bedly na průsecích pod vedením VN. Vyhni se starým borům bez podrostu.",
+ sezona:"Srpen–říjen",
+ trasa:"Okruh po lesních cestách severně od Dřís, 6–8 km, rovina",
+ park_ok:"warn", park_txt:"Odstavná plocha na kraji lesní cesty, ne oficiální parkoviště. Za značkou zákaz vjezdu – auto nech před ní.",
+ konk:"<b>Nízká až střední</b> – nejlepší poměr výnos/konkurence do 20 km",
+ poly:[[50.2320,14.6960],[50.2430,14.7020],[50.2440,14.7290],[50.2290,14.7330],[50.2240,14.7100]],
+ route:[[50.2288,14.7060],[50.2350,14.6995],[50.2422,14.7060],[50.2428,14.7255],[50.2300,14.7300],[50.2255,14.7120],[50.2288,14.7060]]
+},
+{
+ v:1, rank:5, name:"Klecanský háj a Drasty", park:[50.1745,14.4110],
+ dist:"13 km · 18 min", druh:"Hřib dubový, hřib kovář, kozák, bedla na okrajích",
+ porost:"Dubohabřina a suťový les na svazích k Vltavě, 70–120 let, hlinitá půda, 180–280 m n.m., severní expozice",
+ kde:"Severní a severovýchodní svahy k Vltavě – drží vlhkost nejdéle. Hřib dubový pod starými duby na hřebenové plošině. Bedly na travnatých pláccích směrem k Drastům.",
+ sezona:"VII–IX hřiby, IX–X bedly",
+ trasa:"Okruh po svazích a zpět po hřebeni, 4–5 km, kopcovitější",
+ park_ok:"ok", park_txt:"Parkování v obci Klecany u vstupu do háje, legální.",
+ konk:"Střední. <b>Záložka pro suchá období</b> – severní svah drží vlhko déle než rovná písčina.",
+ poly:[[50.1790,14.4030],[50.1830,14.4180],[50.1760,14.4265],[50.1700,14.4180],[50.1715,14.4045]],
+ route:[[50.1745,14.4110],[50.1795,14.4060],[50.1822,14.4165],[50.1755,14.4245],[50.1706,14.4165],[50.1722,14.4058],[50.1745,14.4110]]
+},
+{
+ v:1, rank:6, name:"Vidrholec – severní část Klánovického lesa", park:[50.1170,14.6640],
+ dist:"18 km · 25 min", druh:"Klouzek, kozák březový, hřib hnědý, bedla",
+ porost:"Borovice a dub na píscích a štěrkopíscích, příměs břízy a smrku, 230–280 m n.m.",
+ kde:"Severní část u Jiren a Šestajovic – nejdál od pražských nástupů, tedy nejmíň vyčesaná. Bedly na loukách u Blatova a na širokých průsecích.",
+ sezona:"Srpen–říjen",
+ trasa:"Okruh severní částí, 6–7 km",
+ park_ok:"warn", park_txt:"Parkování na kraji komunikace. Alternativa: parkoviště u nádraží Klánovice (50.0945, 14.6690), ale o 4 km dál.",
+ konk:"<b>Velmi vysoká</b> – nejvytíženější les u Prahy, v dosahu MHD. Jen všední den brzo ráno.",
+ poly:[[50.1190,14.6540],[50.1210,14.6790],[50.1080,14.6840],[50.1030,14.6650],[50.1105,14.6520]],
+ route:[[50.1170,14.6640],[50.1198,14.6570],[50.1203,14.6760],[50.1090,14.6820],[50.1040,14.6660],[50.1112,14.6545],[50.1170,14.6640]]
+},
+
+/* ---------- VARIANTA 2 ---------- */
+{
+ v:2, rank:1, name:"Kokořínsko – Kokořínský důl / Mšeno", park:[50.4390,14.6350],
+ dist:"48 km · 55 min", druh:"Hřib hnědý (1,3× nad průměrem ČR), hřib smrkový, křemenáč, klouzek, bedla",
+ porost:"Borové lesy na pískovcových plošinách + buk a dub v roklích. Silně kyselé písčité půdy na kvádrových pískovcích, 200–350 m n.m.",
+ kde:"Dvě různá stanoviště, nemíchat: <b>plošiny nad roklemi</b> (bor na písku) = klouzek, masák, hřib hnědý; <b>svahy a dna roklí, severní expozice</b> (buk, dub) = hřib dubový, křemenáč, funguje i v suchu. Bedly na travnatých plošinách u Mšena, Vojtěchova a Nosálova.",
+ sezona:"Vrchol červenec, sekundárně srpen–září",
+ trasa:"Okruh z Mšena k Pokličkám a zpět 8–10 km, nebo kratší okruh dolem 5 km",
+ park_ok:"ok", park_txt:"Mšeno u koupaliště – oficiální, placené v sezóně. Druhé parkoviště: Kokořínský důl 50.4270, 14.5750 – rychle se plní, jeď před 8:00.",
+ konk:"Střední. Kokořínský důl je turisticky přetížený, ale 1 km od hlavní trasy jsi sám.",
+ top:"Mykoindex 89/100 – jediná oblast do 100 km s výbornými podmínkami k 28. 8. 2026",
+ warn:"CHKO Kokořínsko–Máchův kraj. Sběr pro vlastní potřebu povolen, ale ne v I. zónách a NPR. Hranice zón jsou členité a v terénu neznačené – ověř na portálu AOPK.",
+ poly:[[50.4520,14.5600],[50.4560,14.6500],[50.4200,14.6620],[50.4100,14.5800],[50.4330,14.5480]],
+ route:[[50.4390,14.6350],[50.4480,14.6180],[50.4470,14.5820],[50.4290,14.5760],[50.4250,14.6100],[50.4310,14.6400],[50.4390,14.6350]]
+},
+{
+ v:2, rank:2, name:"Hradčany – Ralsko (bývalý VVP)", park:[50.6180,14.7580],
+ dist:"85 km · 1:15", druh:"Klouzek obecný, masák, křemenáč osikový a březový, kozák, hřib hnědý, bedla",
+ porost:"Rozsáhlé borové porosty na mocných navátých píscích, věková mozaika po vojenském hospodaření, ostrůvky břízy a osiky, 260–300 m n.m.",
+ kde:"Borové kultury 20–50 let severně a východně od letištní plochy. Křemenáč osikový v osikových nárostech na okrajích bývalých cvičných ploch – těch je tu hodně. Bedly na travnatých plochách bývalého letiště a v jeho lemech.",
+ sezona:"Srpen–říjen",
+ trasa:"Okruh od letiště k Hradčanským rybníkům a zpět, 7–9 km, rovinaté",
+ park_ok:"ok", park_txt:"Odstavné plochy u bývalého letiště, běžně používané. Nevjíždět na plochy se zákazovými značkami.",
+ konk:"<b>Nejnižší z celé Varianty 2</b> – daleko od měst, obrovská plocha",
+ warn:"Zbytková munice z vojenského období – držet se cest a otevřených ploch, nerozhrabávat zem. Část území v CHKO, u Břehyně je NPR se zákazem vstupu mimo cesty.",
+ poly:[[50.6300,14.7350],[50.6350,14.7900],[50.6060,14.8000],[50.5980,14.7500],[50.6150,14.7280]],
+ route:[[50.6180,14.7580],[50.6280,14.7450],[50.6320,14.7820],[50.6090,14.7950],[50.6010,14.7560],[50.6165,14.7330],[50.6180,14.7580]]
+},
+{
+ v:2, rank:3, name:"Klokočka a Vrchbělá, Bělá pod Bezdězem", park:[50.4980,14.8420],
+ dist:"62 km · 55 min", druh:"Klouzek, masák, křemenáč březový, hřib hnědý",
+ porost:"Borové porosty na kyselých píscích, prameniště a podmáčené partie, 250–300 m n.m.",
+ kde:"Borové kultury východně od Klokočky. Okolí pramene a podmáčené partie drží vlhkost – tam hledej i v suchu. Křemenáče v březových skupinách.",
+ sezona:"Srpen–říjen",
+ trasa:"Okruh Klokočka – Vrchbělá, 6–8 km",
+ park_ok:"ok", park_txt:"Odstavná plocha u kaple sv. Stapina při silnici, běžně používaná.",
+ konk:"Střední. Prameniště funguje jako vlhkostní refugium – když je Polabí spálené, tady ještě naskočí.",
+ warn:"PP Klokočka – v okolí pramene se drž cest.",
+ poly:[[50.5060,14.8300],[50.5090,14.8620],[50.4900,14.8680],[50.4870,14.8380],[50.4970,14.8270]],
+ route:[[50.4980,14.8420],[50.5050,14.8330],[50.5075,14.8580],[50.4915,14.8640],[50.4880,14.8400],[50.4980,14.8420]]
+},
+{
+ v:2, rank:4, name:"Kersko – Bory (přírodní park)", park:[50.1445,14.9130],
+ dist:"32 km · 35 min", druh:"Hřib hnědý, hřib dubový, klouzek, bedla",
+ porost:"Borové a smíšené porosty na labských terasových píscích, dub a bříza, 180–200 m n.m.",
+ kde:"Bory mimo chatovou osadu – jižně a východně směrem k Semicím a Hradištku. Kolem chat je vysbíráno. Bedly na travnatých okrajích osady a na průsecích, hřiby v dubových partiích.",
+ sezona:"Červenec–říjen",
+ trasa:"Okruh od okraje osady do borů a zpět, 5–7 km, rovina",
+ park_ok:"warn", park_txt:"Chatová osada, úzké lesní uličky. Neblokuj vjezdy k chatám – místní jsou na to citliví. Zaparkuj na okraji osady a jdi pěšky.",
+ konk:"Vysoká u chat, <b>nízká 1,5 km dál</b>. Turisti do borů nechodí.",
+ poly:[[50.1500,14.9000],[50.1520,14.9400],[50.1280,14.9480],[50.1230,14.9080],[50.1380,14.8950]],
+ route:[[50.1445,14.9130],[50.1495,14.9060],[50.1508,14.9350],[50.1300,14.9430],[50.1250,14.9110],[50.1390,14.8985],[50.1445,14.9130]]
+},
+{
+ v:2, rank:5, name:"Milovice – Mladá (bývalý VVP)", park:[50.2530,14.9080],
+ dist:"35 km · 40 min", druh:"<b>Bedla vysoká (hojně)</b>, bedla červenající, žampiony",
+ porost:"Není les. Rozsáhlé travnaté plochy bývalého vojenského cvičiště s roztroušenými dřevinami, písčité a hlinitopísčité půdy, 190–230 m n.m.",
+ kde:"Travnaté plochy s roztroušenými keři, okraje bývalých cest a betonových ploch. Bedly rostou v otevřené trávě, často ve skupinách a v kruzích. Hledej z dálky – bílý klobouk poznáš na 50 m.",
+ sezona:"<b>Září–říjen</b>, vrchol po prvních chladných nocích",
+ trasa:"Volný okruh po travnatých plochách a cestách, 5–8 km, rovina – dobré i s malým dítětem",
+ park_ok:"warn", park_txt:"Parkování na kraji zpevněné komunikace u Benátecké Vrutice. Nevjíždět do areálu.",
+ konk:"Nízká na bedly – lidi sem jezdí koukat na koně, ne sbírat",
+ top:"Nejlepší plocha na bedlu vysokou v celé Variantě 2",
+ warn:"Dvě věci: (1) rezervace s pastvou velkých kopytníků – <b>do oplocenek nevstupovat</b>, rozsah se mění, ověř před cestou; (2) zbytková munice – držet se cest a otevřených ploch.",
+ poly:[[50.2620,14.8900],[50.2660,14.9350],[50.2430,14.9420],[50.2380,14.9000],[50.2500,14.8850]],
+ route:[[50.2530,14.9080],[50.2610,14.8960],[50.2640,14.9300],[50.2450,14.9380],[50.2395,14.9040],[50.2510,14.8880],[50.2530,14.9080]]
+},
+{
+ v:2, rank:6, name:"Doksy / Staré Splavy – Máchův kraj", park:[50.5900,14.6420],
+ dist:"80 km · 1:10", druh:"Hřib hnědý, klouzek, křemenáč",
+ porost:"Borové písčiny kolem Máchova jezera, 260–300 m n.m.",
+ kde:"Mimo turistické trasy, severně od Starých Splavů. Kolem jezera je v sezóně beznadějně vyšlapáno.",
+ sezona:"Srpen–říjen",
+ trasa:"Okruh severně od Starých Splavů, 6–8 km",
+ park_ok:"ok", park_txt:"Placená parkoviště v Doksech a Starých Splavech, v létě přeplněná.",
+ konk:"<b>Vysoká v sezóně</b> – rekreační oblast",
+ warn:"NPR Břehyně-Pecopala – zákaz vstupu mimo značené cesty. CHKO Kokořínsko–Máchův kraj: mimo I. zóny a NPR je sběr povolen.",
+ poly:[[50.6000,14.6200],[50.6030,14.6700],[50.5800,14.6780],[50.5760,14.6300],[50.5880,14.6150]],
+ route:[[50.5900,14.6420],[50.5985,14.6280],[50.6015,14.6620],[50.5820,14.6720],[50.5775,14.6350],[50.5900,14.6420]]
+},
+{
+ v:2, rank:7, name:"Křivoklátsko – Křivoklát / Lány", park:[50.0380,13.8720],
+ dist:"70 km · 1:05", druh:"Hřib dubový, hřib kovář, kozák",
+ porost:"Dubohabřiny a bučiny na hlinitých půdách, svahy nad Berounkou, 250–450 m n.m.",
+ kde:"Severní a severovýchodní svahy nad Berounkou – drží vlhkost. Hřib dubový pod starými duby na plošinách.",
+ sezona:"Červenec–září",
+ trasa:"Okruh z Křivoklátu po svazích, 6–9 km, kopcovité",
+ park_ok:"ok", park_txt:"Placené parkoviště pod hradem Křivoklát.",
+ konk:"Střední", top:"Mykoindex 59/100 – průměr",
+ warn:"CHKO Křivoklátsko. NPR Týřov a Velká Pleš – tam nesbírat. Mimo rezervace a I. zóny povoleno.",
+ poly:[[50.0500,13.8500],[50.0540,13.9050],[50.0250,13.9150],[50.0200,13.8600],[50.0350,13.8420]],
+ route:[[50.0380,13.8720],[50.0480,13.8560],[50.0520,13.8980],[50.0270,13.9080],[50.0215,13.8640],[50.0380,13.8720]]
+},
+{
+ v:2, rank:8, name:"Rožďalovické lesy / Jabkenice", park:[50.3830,15.0420],
+ dist:"62 km · 1:00", druh:"Hřib, klouzek, kozák",
+ porost:"Smíšené porosty, borové partie na píscích, 230–280 m n.m.",
+ kde:"Borové partie mimo oboru. Smíšené okraje pro kozáky.",
+ sezona:"Srpen–říjen",
+ trasa:"Okruh po lesních cestách, 6–8 km",
+ park_ok:"warn", park_txt:"Odstavná plocha u obce, ne oficiální parkoviště.",
+ konk:"Nízká – málo známá oblast, ale i málo dat o výnosech",
+ warn:"Obora Jabkenice – do obory nevstupovat.",
+ poly:[[50.3920,15.0250],[50.3950,15.0700],[50.3720,15.0780],[50.3680,15.0330],[50.3800,15.0180]],
+ route:[[50.3830,15.0420],[50.3905,15.0300],[50.3935,15.0650],[50.3740,15.0730],[50.3695,15.0370],[50.3830,15.0420]]
+},
+{
+ v:2, rank:9, name:"Český ráj – Prachovské skály / Sobotka", park:[50.4790,15.2900],
+ dist:"90 km · 1:20", druh:"Hřib hnědý, klouzek",
+ porost:"Pískovcové skalní město, borovice + buk, rokle drží vlhko, 300–450 m n.m.",
+ kde:"Borové plošiny nad skalami a lesy mezi Prachovem a Sobotkou. Rokle drží vlhkost v suchu.",
+ sezona:"Červenec–říjen",
+ trasa:"Okruh mimo skalní město, 6–8 km",
+ park_ok:"ok", park_txt:"Placené parkoviště u Prachovských skal. Vstupné do skal se platí zvlášť.",
+ konk:"Vysoká u skal, nižší v okolních lesích", top:"Mykoindex 70/100 – druhý nejlepší v dosahu",
+ warn:"CHKO Český ráj a přírodní rezervace. Mimo rezervace je sběr povolen.",
+ poly:[[50.4880,15.2700],[50.4910,15.3150],[50.4680,15.3230],[50.4640,15.2780],[50.4770,15.2620]],
+ route:[[50.4790,15.2900],[50.4865,15.2760],[50.4895,15.3100],[50.4700,15.3180],[50.4655,15.2820],[50.4790,15.2900]]
+},
+{
+ v:2, rank:10, name:"Brdy – Obecnice / Nepomuk ⚠ nedoporučeno", park:[49.7300,13.9500],
+ dist:"90 km · 1:25", druh:"Hřib smrkový",
+ porost:"Smrkové a smíšené porosty vyšších poloh, 550–800 m n.m.",
+ kde:"Smrkové porosty severně od Obecnice, mimo dopadové plochy.",
+ sezona:"Srpen–říjen",
+ trasa:"Okruh od přehrady, 7–10 km, kopcovité",
+ park_ok:"warn", park_txt:"Odstavná plocha u přehrady Obecnice.",
+ konk:"Střední",
+ top:"Mykoindex 50/100 – nejnižší v dosahu 100 km. Za tu vzdálenost to nestojí.",
+ warn:"Dopadové plochy Jordán, Brda a Tok mají <b>zákaz vstupu kvůli nevybuchlé munici</b> a hrozí pokuta. CHKO Brdy. Doporučuju vybrat jinou lokalitu.",
+ poly:[[49.7420,13.9300],[49.7450,13.9750],[49.7200,13.9820],[49.7160,13.9380],[49.7300,13.9220]],
+ route:[[49.7300,13.9500],[49.7405,13.9360],[49.7435,13.9700],[49.7220,13.9770],[49.7175,13.9420],[49.7300,13.9500]]
+}
+];
+</script>
+
+<script type="module">
+/* ============================================================
+   HOUBY – aplikace
+   Vše běží i bez Firebase (pak jen bez sdílení mezi telefony).
+   ============================================================ */
+
+/* ---------- pomocné funkce ---------- */
+const $ = id => document.getElementById(id);
+const R = 6371000;
+const rad = d => d * Math.PI / 180;
+const deg = r => r * 180 / Math.PI;
+
+function distM(a, b){                    // vzdálenost v metrech (haversine)
+  const dLat = rad(b[0]-a[0]), dLon = rad(b[1]-a[1]);
+  const s = Math.sin(dLat/2)**2 + Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.min(1, Math.sqrt(s)));
+}
+function bearingDeg(a, b){               // azimut z bodu a do bodu b, 0 = sever
+  const y = Math.sin(rad(b[1]-a[1]))*Math.cos(rad(b[0]));
+  const x = Math.cos(rad(a[0]))*Math.sin(rad(b[0])) - Math.sin(rad(a[0]))*Math.cos(rad(b[0]))*Math.cos(rad(b[1]-a[1]));
+  return (deg(Math.atan2(y,x)) + 360) % 360;
+}
+function fmtDist(m){
+  if (m == null) return '–';
+  if (m < 1000) return Math.round(m) + ' m';
+  return (m/1000).toFixed(m < 10000 ? 2 : 1).replace('.', ',') + ' km';
+}
+function fmtAge(ts){
+  if (!ts) return 'neznámo kdy';
+  const s = Math.max(0, Math.round((Date.now()-ts)/1000));
+  if (s < 60)   return 'před ' + s + ' s';
+  if (s < 3600) return 'před ' + Math.round(s/60) + ' min';
+  if (s < 86400)return 'před ' + Math.round(s/3600) + ' h';
+  return 'před ' + Math.round(s/86400) + ' dny';
+}
+function fmtTime(ts){
+  if (!ts) return '';
+  return new Date(ts).toLocaleString('cs-CZ', {day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+const STALE_MS = 5*60*1000;   // po 5 minutách je cizí poloha „stará"
+
+/* ---------- lokální úložiště ---------- */
+const LS = {
+  get(k, d){ try { const v = localStorage.getItem('hb_'+k); return v===null?d:JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem('hb_'+k, JSON.stringify(v)); } catch(e){} },
+  del(k){ try { localStorage.removeItem('hb_'+k); } catch(e){} }
+};
+
+/* ---------- bannery ---------- */
+let bannerTimer = null;
+function bannerOffset(){
+  const b = $('banner');
+  const h = b.classList.contains('show') ? (b.offsetHeight + 8) : 0;
+  document.documentElement.style.setProperty('--bannerH', h + 'px');
+}
+function hideBanner(){ $('banner').classList.remove('show'); bannerOffset(); }
+function banner(html, isErr, autoHide){
+  const b = $('banner');
+  $('bannerTxt').innerHTML = html;
+  b.classList.toggle('err', !!isErr);
+  b.classList.add('show');
+  bannerOffset();
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(hideBanner, autoHide || 14000);   // nikdy nezůstane viset napořád
+}
+$('bannerClose').onclick = hideBanner;
+
+/* ============================================================
+   MAPA
+   ============================================================ */
+const map = L.map('map', {zoomControl:true, tap:false}).setView(HOME, 10);
+const POPOPT = {maxWidth:280, autoPanPaddingTopLeft:L.point(16,110), autoPanPaddingBottomRight:L.point(16,240)};
+
+const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18, attribution: '&copy; OpenStreetMap'
+});
+tiles.addTo(map);
+L.control.scale({imperial:false}).addTo(map);
+
+function pinIcon(cls, txt, size){
+  const s = size || 24;
+  return L.divIcon({className:'', html:`<div class="pin ${cls}">${txt||''}</div>`,
+    iconSize:[s,s], iconAnchor:[s/2,s/2], popupAnchor:[0,-s/2-2]});
+}
+
+L.marker(HOME, {icon: pinIcon('home','⌂',28), zIndexOffset:500}).addTo(map)
+ .bindPopup('<div class="pop"><h3>Domov</h3><div class="sub">Stodolní 411, 250 63 Mratín</div></div>', POPOPT);
+
+const v1 = L.layerGroup().addTo(map);
+const v2 = L.layerGroup().addTo(map);
+
+function popupHTML(d){
+  const parkBox = d.park_ok === 'ok'
+    ? `<div class="ok"><b>Parkování ✓</b> ${d.park_txt}</div>`
+    : `<div class="warn"><b>Parkování ⚠</b> ${d.park_txt}</div>`;
+  const [la, lo] = d.park;
+  return `<div class="pop">
+    <h3>${d.rank}. ${d.name}</h3>
+    <div class="sub"><span class="badge ${d.v===1?'b1':'b2'}">Varianta ${d.v}</span> &nbsp;${d.dist}</div>
+    ${d.top ? `<div class="ok"><b>★</b> ${d.top}</div>` : ''}
+    <table>
+      <tr><td>GPS</td><td>${la.toFixed(4)}, ${lo.toFixed(4)}</td></tr>
+      <tr><td>Druhy</td><td>${d.druh}</td></tr>
+      <tr><td>Porost</td><td>${d.porost}</td></tr>
+      <tr><td>Kde hledat</td><td>${d.kde}</td></tr>
+      <tr><td>Sezóna</td><td>${d.sezona}</td></tr>
+      <tr><td>Trasa</td><td>${d.trasa}</td></tr>
+      <tr><td>Konkurence</td><td>${d.konk}</td></tr>
+    </table>
+    ${parkBox}
+    ${d.warn ? `<div class="warn"><b>Omezení ⚠</b> ${d.warn}</div>` : ''}
+    <div class="nav">
+      <a target="_blank" rel="noopener" href="https://mapy.cz/turisticka?y=${la}&x=${lo}&z=16&source=coor&id=${lo}%2C${la}">Mapy.cz</a>
+      <a class="alt" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${la},${lo}">Navigovat</a>
+    </div>
+  </div>`;
+}
+
+LOC.forEach(d => {
+  const g = d.v === 1 ? v1 : v2;
+  L.polygon(d.poly, {color:'#2e8b45', weight:2.5, opacity:.95, fillColor:'#2e8b45', fillOpacity:.22})
+   .bindPopup(popupHTML(d), POPOPT).addTo(g);
+  L.polyline(d.route, {color:'#7a4b18', weight:2.5, opacity:.75, dashArray:'7,7'}).addTo(g);
+  L.marker(d.park, {icon: pinIcon('park','P')}).bindPopup(popupHTML(d), POPOPT).addTo(g);
+});
+
+L.control.layers(null, {
+  '<b>Varianta 1</b> – do 20 km': v1,
+  '<b>Varianta 2</b> – do 100 km': v2
+}, {collapsed:true}).addTo(map);
+
+map.fitBounds(L.latLngBounds(LOC.map(d=>d.park).concat([HOME])).pad(0.08));
+
+/* ============================================================
+   STAV
+   ============================================================ */
+const state = {
+  uid: null,
+  name: LS.get('name', null),
+  sharing: false,
+  wake: null,
+  me: null,          // {lat,lng,acc,ts}
+  car: LS.get('car', null),
+  others: {},        // uid -> {name,lat,lng,acc,ts,sharing}
+  heading: null,     // kompas zařízení
+  fbReady: false
+};
+
+let meMarker = null, meCircle = null, carMarker = null;
+const otherMarkers = {};
+
+/* ---------- vykreslení auta ---------- */
+function renderCar(){
+  const c = state.car;
+  if (!c){
+    if (carMarker){ map.removeLayer(carMarker); carMarker = null; }
+    $('btnPark').style.display = '';
+    $('carNav').style.display = 'none';
+    return;
+  }
+  const ll = [c.lat, c.lng];
+  if (!carMarker){
+    carMarker = L.marker(ll, {icon: pinIcon('car','🚗',40), zIndexOffset:900}).addTo(map);
+  } else {
+    carMarker.setLatLng(ll);
+  }
+  const accTxt = (c.acc && c.acc > 20) ? ` · přesnost jen ±${Math.round(c.acc)} m` : '';
+  carMarker.bindPopup(`<div class="pop"><h3>🚗 Zaparkované auto</h3>
+    <div class="sub">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</div>
+    <table><tr><td>Označil</td><td>${c.byName||'–'}</td></tr>
+    <tr><td>Kdy</td><td>${fmtTime(c.ts)} (${fmtAge(c.ts)})</td></tr>
+    <tr><td>Přesnost</td><td>±${c.acc?Math.round(c.acc):'?'} m</td></tr></table>
+    <div class="nav"><a class="alt" target="_blank" rel="noopener"
+      href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}">Navigovat k autu</a></div></div>`, POPOPT);
+
+  $('btnPark').style.display = 'none';
+  $('carNav').style.display = 'flex';
+  updateCarNav();
+}
+
+function updateCarNav(){
+  const c = state.car, m = state.me;
+  if (!c) return;
+  if (!m){
+    $('carDist').textContent = '–';
+    $('carMeta').innerHTML = 'Zapni sdílení polohy, ať víme, jak daleko jsi.<br>Označil ' + (c.byName||'?') + ' ' + fmtAge(c.ts) + '.';
+    return;
+  }
+  const d = distM([m.lat, m.lng], [c.lat, c.lng]);
+  const brg = bearingDeg([m.lat, m.lng], [c.lat, c.lng]);
+  $('carDist').textContent = fmtDist(d);
+  let meta = 'k autu · označil ' + (c.byName||'?') + ' ' + fmtAge(c.ts);
+  if (state.heading == null) meta += '<br>Azimut ' + Math.round(brg) + '° – klepni na šipku a povol kompas';
+  else meta += '<br>Šipka ukazuje směr k autu';
+  if (m.acc && m.acc > 20) meta += '<br>⚠ Tvoje GPS je nepřesná (±' + Math.round(m.acc) + ' m)';
+  $('carMeta').innerHTML = meta;
+  const rot = (state.heading == null) ? brg : (brg - state.heading + 360) % 360;
+  $('arrow').style.transform = 'rotate(' + rot + 'deg)';
+}
+
+/* ---------- vykreslení lidí ---------- */
+function renderPeople(){
+  // já
+  if (state.me){
+    const ll = [state.me.lat, state.me.lng];
+    if (!meMarker){
+      meMarker = L.marker(ll, {icon: pinIcon('me','',20), zIndexOffset:800}).addTo(map);
+      meCircle = L.circle(ll, {radius: state.me.acc||20, color:'#1d6fd6', weight:1, fillOpacity:.10}).addTo(map);
+    } else {
+      meMarker.setLatLng(ll); meCircle.setLatLng(ll).setRadius(state.me.acc||20);
+    }
+    meMarker.bindTooltip('Já', {permanent:true, direction:'top', className:'plabel', offset:[0,-12]});
+  }
+  // ostatní
+  Object.keys(state.others).forEach(uid => {
+    const o = state.others[uid];
+    if (uid === state.uid) return;
+    const valid = o && o.sharing && typeof o.lat === 'number';
+    if (!valid){
+      if (otherMarkers[uid]){ map.removeLayer(otherMarkers[uid].m); map.removeLayer(otherMarkers[uid].c); delete otherMarkers[uid]; }
+      return;
+    }
+    const stale = (Date.now() - (o.ts||0)) > STALE_MS;
+    const ll = [o.lat, o.lng];
+    if (!otherMarkers[uid]){
+      otherMarkers[uid] = {
+        m: L.marker(ll, {icon: pinIcon('other','',20), zIndexOffset:700}).addTo(map),
+        c: L.circle(ll, {radius:o.acc||20, color:'#8e44ad', weight:1, fillOpacity:.10}).addTo(map)
+      };
+    }
+    const om = otherMarkers[uid];
+    om.m.setLatLng(ll); om.c.setLatLng(ll).setRadius(o.acc||20);
+    om.m.setIcon(pinIcon('other' + (stale?' stale':''), '', 20));
+    om.c.setStyle({color: stale ? '#9a948d' : '#8e44ad'});
+    om.m.bindTooltip((o.name||'Druhý') + ' · ' + fmtAge(o.ts), {permanent:true, direction:'top', className:'plabel', offset:[0,-12]});
+  });
+  renderPeopleList();
+}
+
+function renderPeopleList(){
+  const el = $('people');
+  const items = [];
+  items.push(`<div class="person"><span class="pd" style="background:var(--me)"></span>
+    <span><b>${state.name||'Já'}</b><em>${state.me ? ('poloha ' + fmtAge(state.me.ts)) : (state.sharing ? 'čekám na GPS…' : 'nesdílím polohu')}</em></span></div>`);
+  const others = Object.keys(state.others).filter(u => u !== state.uid);
+  if (!others.length){
+    items.push(`<div class="person"><span class="pd" style="background:var(--stale)"></span>
+      <span><b>Druhý</b><em>${state.fbReady ? 'zatím se nepřipojil' : 'sdílení není nastavené'}</em></span></div>`);
+  } else {
+    others.forEach(u => {
+      const o = state.others[u];
+      const stale = (Date.now() - (o.ts||0)) > STALE_MS;
+      const txt = !o.sharing ? 'nesdílí polohu'
+                : (stale ? 'naposledy ' + fmtAge(o.ts) : 'poloha ' + fmtAge(o.ts));
+      items.push(`<div class="person"><span class="pd" style="background:${(!o.sharing||stale)?'var(--stale)':'var(--other)'}"></span>
+        <span><b>${o.name||'Druhý'}</b><em>${txt}</em></span></div>`);
+    });
+  }
+  el.innerHTML = items.join('');
+}
+setInterval(()=>{ renderPeopleList(); if(state.car) updateCarNav(); }, 15000);
+
+/* ============================================================
+   GEOLOKACE
+   ============================================================ */
+let watchId = null, lastPush = 0;
+
+function startWatch(){
+  if (!navigator.geolocation){
+    banner('<b>Tenhle prohlížeč neumí geolokaci.</b> Poloha ani navigace k autu fungovat nebude.', true);
+    return;
+  }
+  if (watchId != null) return;
+  watchId = navigator.geolocation.watchPosition(onPos, onPosErr, {
+    enableHighAccuracy: true, maximumAge: 5000, timeout: 20000
+  });
+}
+function stopWatch(){
+  if (watchId != null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+}
+function onPos(p){
+  state.me = {lat:p.coords.latitude, lng:p.coords.longitude, acc:p.coords.accuracy, ts:Date.now()};
+  renderPeople();
+  if (state.car) updateCarNav();
+  if (state.sharing && Date.now() - lastPush > 10000){   // max 1× za 10 s
+    lastPush = Date.now();
+    pushMyPosition();
+  }
+}
+function onPosErr(e){
+  if (e.code === 1) banner('<b>Poloha je zakázaná.</b> Povol ji v Nastavení → Safari → Poloha, jinak nepůjde ani navigace k autu.', true);
+  else if (e.code === 2) banner('<b>GPS nemá signál.</b> V hustém lese to chvíli trvá – vyjdi na světlejší místo a počkej.', false, 8000);
+  else if (e.code === 3) banner('<b>GPS nestihla odpovědět.</b> Zkouším dál.', false, 5000);
+}
+
+// jednorázové zaměření (pro označení auta), nezávislé na sdílení
+function getPositionOnce(){
+  // Když už běží sledování a máme čerstvou pozici, použij ji – je to okamžité
+  // a nečeká se na nový GPS fix (ten v lese trvá klidně půl minuty).
+  if (state.me && (Date.now() - state.me.ts) < 15000){
+    return Promise.resolve({lat:state.me.lat, lng:state.me.lng, acc:state.me.acc});
+  }
+  return new Promise((res, rej) => {
+    if (!navigator.geolocation) return rej(new Error('geolokace není k dispozici'));
+    navigator.geolocation.getCurrentPosition(
+      p => res({lat:p.coords.latitude, lng:p.coords.longitude, acc:p.coords.accuracy}),
+      rej, {enableHighAccuracy:true, timeout:20000, maximumAge:10000});
+  });
+}
+
+/* ---------- kompas ---------- */
+let compassOn = false;
+async function initCompass(){
+  if (compassOn) return;
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function'){
+      // iOS 13+: musí být uvnitř user gesture
+      const r = await DeviceOrientationEvent.requestPermission();
+      if (r !== 'granted'){
+        banner('Kompas nepovolen – šipka se nebude otáčet. Místo ní ukazuju azimut ve stupních.', false, 7000);
+        return;
+      }
+    }
+    window.addEventListener('deviceorientation', e => {
+      let h = null;
+      if (typeof e.webkitCompassHeading === 'number') h = e.webkitCompassHeading;      // iOS
+      else if (e.absolute && typeof e.alpha === 'number') h = 360 - e.alpha;           // ostatní
+      if (h != null){ state.heading = h; if (state.car) updateCarNav(); }
+    }, true);
+    compassOn = true;
+  } catch(err){
+    banner('Kompas se nepodařilo zapnout – ukazuju azimut ve stupních.', false, 7000);
+  }
+}
+document.querySelector('.arrowwrap').addEventListener('click', initCompass);
+
+/* ============================================================
+   OVLÁDÁNÍ
+   ============================================================ */
+$('btnPark').onclick = async () => {
+  const b = $('btnPark');
+  b.disabled = true; b.textContent = '📡  Zaměřuju…';
+  initCompass();
+  try {
+    const p = await getPositionOnce();
+    state.car = {lat:p.lat, lng:p.lng, acc:p.acc, by:state.uid, byName:state.name||'?', ts:Date.now()};
+    LS.set('car', state.car);
+    renderCar();
+    map.setView([p.lat, p.lng], Math.max(map.getZoom(), 16));
+    pushCar(state.car);
+    if (p.acc > 20) banner('Auto uloženo, ale <b>GPS byla nepřesná (±' + Math.round(p.acc) + ' m)</b>. Až budeš mít lepší signál, klidně to označ znovu.', false, 9000);
+  } catch(e){
+    banner('<b>Nepodařilo se zaměřit polohu.</b> Zkontroluj, že je povolená poloha, a zkus to znovu na otevřenějším místě.', true);
+  } finally {
+    b.disabled = false; b.innerHTML = '🚗 &nbsp;Zaparkoval jsem tady';
+  }
+};
+
+$('btnCarClear').onclick = () => {
+  if (!confirm('Opravdu smazat pozici auta? Uvidí to i druhý.')) return;
+  state.car = null; LS.del('car'); renderCar(); pushCar(null);
+};
+
+$('btnMe').onclick = () => {
+  if (state.me) map.setView([state.me.lat, state.me.lng], Math.max(map.getZoom(), 15));
+  else banner('Zatím nemám tvoji polohu. Zapni přepínač <b>Sdílím polohu</b>.', false, 6000);
+};
+$('btnCar').onclick = () => {
+  if (state.car) map.setView([state.car.lat, state.car.lng], 16);
+  else banner('Auto zatím nikdo neoznačil.', false, 5000);
+};
+
+/* ---------- přepínač sdílení polohy ---------- */
+function setShare(on){
+  state.sharing = on;
+  $('tgShare').classList.toggle('on', on);
+  $('shareSub').textContent = on ? 'zapnuto' : 'vypnuto';
+  LS.set('share', on);
+  if (on){ startWatch(); }
+  else { stopWatch(); state.me = null;
+         if (meMarker){ map.removeLayer(meMarker); map.removeLayer(meCircle); meMarker = null; meCircle = null; } }
+  pushMyPosition();
+  renderPeopleList();
+}
+$('tgShare').onclick = () => setShare(!state.sharing);
+
+/* ---------- wake lock ---------- */
+async function setWake(on){
+  $('tgWake').classList.toggle('on', on);
+  if (on){
+    try {
+      state.wake = await navigator.wakeLock.request('screen');
+      $('wakeSub').textContent = 'displej nezhasne';
+      state.wake.addEventListener('release', () => { $('tgWake').classList.remove('on'); $('wakeSub').textContent = 'vypnuto'; });
+      banner('Displej nezhasne, dokud je appka vepředu. <b>Bere to baterku</b> – vypni to, až nebudeš potřebovat.', false, 8000);
+    } catch(e){
+      $('tgWake').classList.remove('on');
+      $('wakeSub').textContent = 'nepodporováno';
+      banner('Tenhle telefon neumí držet displej rozsvícený z webu. Nastav si delší automatické zamykání v Nastavení → Displej a jas.', false, 8000);
+    }
+  } else {
+    try { if (state.wake) await state.wake.release(); } catch(e){}
+    state.wake = null; $('wakeSub').textContent = 'vypnuto';
+  }
+}
+$('tgWake').onclick = () => setWake(!$('tgWake').classList.contains('on'));
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && $('tgWake').classList.contains('on') && !state.wake) setWake(true);
+});
+
+/* ---------- legenda + UID ---------- */
+$('btnLegend').onclick = () => {
+  const box = $('legendModal').querySelector('.mbox');
+  let uidEl = box.querySelector('#uidBlock');
+  if (!uidEl){
+    uidEl = document.createElement('p');
+    uidEl.id = 'uidBlock';
+    box.insertBefore(uidEl, box.querySelector('#legendClose'));
+  }
+  uidEl.innerHTML = '<b style="color:var(--ink)">Tvoje UID</b> (potřebné jednou při nastavení databáze):<br>' +
+    '<code style="font-size:11px;word-break:break-all;background:#f2efe9;padding:4px 6px;border-radius:5px;display:inline-block;margin-top:4px">' +
+    (state.uid || 'není přihlášeno – Firebase není nastavený') + '</code>';
+  $('legendModal').classList.add('show');
+};
+$('legendClose').onclick = () => $('legendModal').classList.remove('show');
+
+/* ---------- jméno ---------- */
+function askName(){
+  $('nameModal').classList.add('show');
+  $('nameInput').value = state.name || '';
+  $('nameSave').onclick = () => {
+    const v = ($('nameInput').value || '').trim().slice(0,20);
+    if (!v) return;
+    state.name = v; LS.set('name', v);
+    $('nameModal').classList.remove('show');
+    $('whoTxt').textContent = v;
+    renderPeopleList(); pushMyPosition();
+  };
+}
+$('whoChip').onclick = askName;
+
+/* ============================================================
+   OFFLINE – předgenerování dlaždic pro aktuální výřez
+   Respektuje OSM tile usage policy: jen aktuální výřez + 2 úrovně
+   zoomu, s limitem a prodlevou mezi požadavky. Žádné hromadné stahování.
+   ============================================================ */
+const TILE_LIMIT = 400;
+$('btnOffline').onclick = async () => {
+  const b = $('btnOffline');
+  const z0 = map.getZoom(), bb = map.getBounds();
+  const list = [];
+  for (let z = z0; z <= Math.min(z0+2, 17); z++){
+    const nw = project(bb.getNorthWest(), z), se = project(bb.getSouthEast(), z);
+    for (let x = nw.x; x <= se.x; x++)
+      for (let y = nw.y; y <= se.y; y++)
+        list.push(`https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`);
+  }
+  if (list.length > TILE_LIMIT){
+    banner('Výřez je moc velký (' + list.length + ' dlaždic). <b>Přibliž mapu</b> na oblast, kam jedete, a zkus to znovu.', false, 9000);
+    return;
+  }
+  banner('Stahuju ' + list.length + ' dlaždic. <b>Udělej to na Wi-Fi doma</b>, ne v lese na datech.', false, 6000);
+  let done = 0, fail = 0;
+  for (const u of list){
+    try { await fetch(u, {mode:'no-cors', cache:'reload'}); done++; }
+    catch(e){ fail++; }
+    b.innerHTML = '<b>⬇︎</b>' + Math.round(done*100/list.length) + ' %';
+    await new Promise(r => setTimeout(r, 60));   // šetrné tempo k OSM serverům
+  }
+  b.innerHTML = '<b>⬇︎</b>Offline';
+  banner(fail ? ('Uloženo ' + done + ' dlaždic, ' + fail + ' se nepovedlo (asi slabý signál).')
+              : ('Hotovo – ' + done + ' dlaždic je uložených. Tenhle výřez teď funguje i bez signálu.'), false, 8000);
+};
+function project(latlng, z){
+  const p = map.project(latlng, z), s = 256;
+  return {x: Math.floor(p.x/s), y: Math.floor(p.y/s)};
+}
+
+/* ============================================================
+   FIREBASE – sdílení mezi telefony
+   Když se nepodaří načíst nebo není vyplněný config.js,
+   aplikace běží dál lokálně (mapa + auto jen v tomhle telefonu).
+   ============================================================ */
+let dbRefs = null;
+
+function localOnly(msg){
+  state.fbReady = false;
+  $('connDot').className = 'dot err';
+  banner('<b>Sdílení s druhým telefonem neběží.</b> ' + msg + ' Mapa, poloha i označení auta fungují dál, ale jen v tomhle telefonu.', true);
+  renderPeopleList();
+}
+
+async function initFirebase(){
+  if (typeof FIREBASE_CONFIG === 'undefined' || !FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey
+      || String(FIREBASE_CONFIG.apiKey).indexOf('SEM_') === 0){
+    localOnly('V souboru <code>config.js</code> zatím nejsou vyplněné údaje z Firebase – viz README, krok 1 a 2.');
+    return;
+  }
+  try {
+    const V = '10.14.1';
+    const [{initializeApp}, {getAuth, signInAnonymously, onAuthStateChanged},
+           {getDatabase, ref, set, update, onValue, remove, onDisconnect}] = await Promise.all([
+      import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
+      import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`),
+      import(`https://www.gstatic.com/firebasejs/${V}/firebase-database.js`)
+    ]);
+
+    const app = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    await signInAnonymously(auth);
+
+    onAuthStateChanged(auth, user => {
+      if (!user) return;
+      state.uid = user.uid;
+      state.fbReady = true;
+      dbRefs = {
+        db, ref, set, update, remove,
+        car: ref(db, 'car'),
+        me: ref(db, 'users/' + user.uid),
+        users: ref(db, 'users')
+      };
+
+      // stav spojení
+      onValue(ref(db, '.info/connected'), snap => {
+        const on = snap.val() === true;
+        $('connDot').className = 'dot' + (on ? ' on' : '');
+        if (on) flushPending();
+      });
+
+      // po odpojení označit, že už nesdílím
+      onDisconnect(ref(db, 'users/' + user.uid + '/sharing')).set(false);
+
+      // auto
+      onValue(dbRefs.car, snap => {
+        const v = snap.val();
+        state.car = v && typeof v.lat === 'number' ? v : null;
+        if (state.car) LS.set('car', state.car); else LS.del('car');
+        renderCar();
+      }, err => localOnly('Databáze odmítla čtení – zkontroluj pravidla a obě UID (README, krok 4).'));
+
+      // lidé
+      onValue(dbRefs.users, snap => {
+        state.others = snap.val() || {};
+        renderPeople();
+      });
+
+      pushMyPosition();
+      flushPending();
+    });
+
+  } catch(e){
+    localOnly('Nepodařilo se připojit k Firebase (' + (e && e.message ? e.message : 'neznámá chyba') + ').');
+  }
+}
+
+/* ---------- zápisy, s frontou pro offline ---------- */
+function pending(){ return LS.get('pending', []); }
+function queue(kind, payload){
+  const q = pending(); q.push({kind, payload, ts:Date.now()});
+  LS.set('pending', q.slice(-20));
+}
+async function flushPending(){
+  if (!dbRefs) return;
+  const q = pending(); if (!q.length) return;
+  LS.del('pending');
+  for (const item of q){
+    try {
+      if (item.kind === 'car'){
+        if (item.payload) await dbRefs.set(dbRefs.car, item.payload);
+        else await dbRefs.remove(dbRefs.car);
+      } else if (item.kind === 'me'){
+        await dbRefs.set(dbRefs.me, item.payload);
+      }
+    } catch(e){ queue(item.kind, item.payload); }
+  }
+}
+
+async function pushCar(car){
+  if (!dbRefs){ queue('car', car); return; }
+  try {
+    if (car) await dbRefs.set(dbRefs.car, car);
+    else await dbRefs.remove(dbRefs.car);
+  } catch(e){ queue('car', car); banner('Auto je uložené v telefonu, ale zatím se nepodařilo odeslat druhému. Odešlu to, až bude signál.', false, 8000); }
+}
+
+async function pushMyPosition(){
+  if (!dbRefs || !state.uid) return;
+  const payload = {
+    name: state.name || 'Bez jména',
+    sharing: !!state.sharing,
+    lat: state.sharing && state.me ? state.me.lat : null,
+    lng: state.sharing && state.me ? state.me.lng : null,
+    acc: state.sharing && state.me ? state.me.acc : null,
+    ts: Date.now()
+  };
+  try { await dbRefs.set(dbRefs.me, payload); }
+  catch(e){ /* poloha je pomíjivá, do fronty ji nedáváme */ }
+}
+
+/* ============================================================
+   SERVICE WORKER
+   ============================================================ */
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+/* ============================================================
+   START
+   ============================================================ */
+renderCar();
+renderPeopleList();
+if (!state.name) askName(); else $('whoTxt').textContent = state.name;
+setShare(false);                 // výchozí stav je VYP, vždy
+initFirebase();
+
+if (state.car && !state.fbReady){
+  banner('Ukazuju <b>poslední známou pozici auta</b> uloženou v tomhle telefonu (' + fmtAge(state.car.ts) + ').', false, 7000);
+}
+</script>
+</body>
+</html>
