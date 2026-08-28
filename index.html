@@ -2899,6 +2899,12 @@ async function nactiPocasiPro(mista){
   if (!r.ok) throw new Error('HTTP ' + r.status);
   let d = await r.json();
   if (!Array.isArray(d)) d = [d];
+  /* Audit 5: tady se dřív jen věřilo, že přišlo tolik záznamů, kolik se
+     poslalo souřadnic. Když ne (a service worker to uměl způsobit),
+     spadlo to o dva řádky dál na 'pocasi[i].daily' – hláška, ze které
+     nikdo nic nepozná. Ptáme se rovnou tady a řekneme čísla. */
+  if (d.length !== mista.length)
+    throw new Error('počasí přišlo pro ' + d.length + ' z ' + mista.length + ' míst');
   pocasiCache = {klic, ts: Date.now(), data: d};
   return d;
 }
@@ -3054,8 +3060,23 @@ function ukazMista(mista){
 const RUST_MIN_Z   = 11;      // pod tím server les nenakreslí a stejně by to byla kaše
 const RUST_MAX_KM  = 40;      // širší výřez už maska nezvládne v rozumné velikosti
 const RUST_MPX     = 25;      // metrů na pixel masky – strop, který ČÚZK ještě kreslí
-const RUST_MRIZKA  = 10000;   // hrubá mřížka počasí v metrech
 const RUST_CEKANI  = 20000;   // déle na server nečekáme, jinak visí „Počítám…"
+
+/* Audit 5: maska se stahovala přesně na okraj obrazovky, takže každé
+   šťouchnutí prstem odhalilo neobarvený pruh a vyvolalo nový dotaz na
+   ČÚZK i na Open-Meteo. Při hledání na mapě to znamenalo desítky dotazů
+   za minutu a les, který člověk nikdy nedohonil. Maska se teď kreslí
+   o třetinu větší, než je vidět, a dokud se výřez vejde do toho, co už
+   je nakreslené, nesahá appka na server vůbec. */
+const RUST_NASOBEK = 2.5;     // kolikrát širší než obrazovka se maska kreslí
+const RUST_MEKKY_STROP = 30000;  // nad tohle se maska nenafukuje – telefon by ji nepřekreslil
+
+/* Počasí se po krajině mění pomalu, mapa se posouvá rychle. Mřížka se
+   proto počítá pro zaokrouhlenou oblast a tři hodiny se drží v paměti –
+   posun o pár kilometrů už žádný dotaz nestojí. */
+const RUST_MRIZKA  = 10000;   // hrubá mřížka počasí v metrech
+const RUST_OBLAST  = 20000;   // na tolik metrů se oblast počasí zaokrouhluje
+const RUST_POCASI_PLATNOST = 3*3600*1000;
 
 const BARVY_RUSTU = [
   [158, 60,  40],   // 1 – mizerně
@@ -3065,16 +3086,38 @@ const BARVY_RUSTU = [
   [ 41,112, 66]     // 5 – výborně
 ];
 
-let rustProbiha = false, rustKlic = null, rustTimer = null;
+let rustProbiha = false, rustTimer = null, rustPokryti = null;
+const rustPocasiCache = new Map();
 
 function rustZapnuty(){ return !!(rustVrstva && map.hasLayer(rustVrstva)); }
 
-/* Obrázek lesních ploch pro výřez. Vrací canvas + jeho rozsah. */
-async function maskaLesa(b){
+/* Výřez natažený za okraj obrazovky, v metrech Mercatoru.
+   Naměřeno: při okraji 30 % stačil posun o 60 pixelů a maska už
+   nestačila – deset šťouchnutí prstem = deset dotazů na ČÚZK.
+   Při dvouapůlnásobku se prstem posuneš třikrát, než se sáhne na server. */
+function rustVyrez(b){
   const sw = L.CRS.EPSG3857.project(b.getSouthWest());
   const ne = L.CRS.EPSG3857.project(b.getNorthEast());
-  const sirkaM = (ne.x - sw.x) * Math.cos(b.getCenter().lat * Math.PI / 180);
-  if (sirkaM > RUST_MAX_KM * 1000) return {prilis: true, km: Math.round(sirkaM / 1000)};
+  const lat = b.getCenter().lat;
+  const kos = Math.cos(lat * Math.PI / 180);
+  const sirka = (ne.x - sw.x) * kos;                    // metry na obrazovce
+  let cil = Math.min(sirka * RUST_NASOBEK, RUST_MEKKY_STROP);
+  cil = Math.min(Math.max(cil, sirka), RUST_MAX_KM * 1000);
+  const k = cil / sirka;
+  const dx = (ne.x - sw.x) * (k - 1) / 2, dy = (ne.y - sw.y) * (k - 1) / 2;
+  return {
+    sw: L.point(sw.x - dx, sw.y - dy),
+    ne: L.point(ne.x + dx, ne.y + dy),
+    lat, sirkaObrazovky: sirka
+  };
+}
+
+/* Obrázek lesních ploch pro výřez. Vrací canvas + jeho rozsah. */
+async function maskaLesa(v){
+  const sw = v.sw, ne = v.ne;
+  if (v.sirkaObrazovky > RUST_MAX_KM * 1000)
+    return {prilis: true, km: Math.round(v.sirkaObrazovky / 1000)};
+  const sirkaM = (ne.x - sw.x) * Math.cos(v.lat * Math.PI / 180);
   const px = Math.min(1600, Math.max(300, Math.round(sirkaM / RUST_MPX)));
   const q = new URLSearchParams({
     bbox: [sw.x, sw.y, ne.x, ne.y].join(','), bboxSR: '3857', imageSR: '3857',
@@ -3108,17 +3151,30 @@ async function maskaLesa(b){
   return {canvas: c, sw, ne, px: img.width, py: img.height};
 }
 
-/* Počasí na hrubé mřížce přes výřez – jedním dotazem. */
+/* Počasí na hrubé mřížce nad zaokrouhlenou oblastí – jedním dotazem. */
 async function pocasiMrizka(sw, ne){
+  /* Oblast se nesmí odvozovat z okrajů masky – ty se s každým posunem
+     hnou a zaokrouhlení pak vyjde jinak, takže by se počasí stahovalo
+     pořád dokola. Bere se buňka, ve které leží STŘED, a jedna buňka
+     kolem dokola. Klíč se změní, až člověk ujede dvacet kilometrů. */
+  const cx = Math.floor((sw.x + ne.x) / 2 / RUST_OBLAST);
+  const cy = Math.floor((sw.y + ne.y) / 2 / RUST_OBLAST);
+  const o = {x0: (cx-1)*RUST_OBLAST, y0: (cy-1)*RUST_OBLAST,
+             x1: (cx+2)*RUST_OBLAST, y1: (cy+2)*RUST_OBLAST};
+  const bedlove = FILTR.druh === 'bedly';
+  const klic = [o.x0, o.y0, o.x1, o.y1, bedlove ? 'b' : 'o'].join(',');
+  const mam = rustPocasiCache.get(klic);
+  if (mam && Date.now() - mam.ts < RUST_POCASI_PLATNOST) return mam.data;
+
   const kroky = [];
-  const nx = Math.max(2, Math.min(8, Math.ceil((ne.x - sw.x) / RUST_MRIZKA)));
-  const ny = Math.max(2, Math.min(8, Math.ceil((ne.y - sw.y) / RUST_MRIZKA)));
+  const nx = Math.max(2, Math.min(8, Math.ceil((o.x1 - o.x0) / RUST_MRIZKA)));
+  const ny = Math.max(2, Math.min(8, Math.ceil((o.y1 - o.y0) / RUST_MRIZKA)));
   for (let j = 0; j < ny; j++){
     for (let i = 0; i < nx; i++){
-      const x = sw.x + (ne.x - sw.x) * (i / (nx - 1));
-      const y = sw.y + (ne.y - sw.y) * (j / (ny - 1));
+      const x = o.x0 + (o.x1 - o.x0) * (i / (nx - 1));
+      const y = o.y0 + (o.y1 - o.y0) * (j / (ny - 1));
       const ll = L.CRS.EPSG3857.unproject(L.point(x, y));
-      kroky.push({i, j, lat: ll.lat, lng: ll.lng});
+      kroky.push({lat: ll.lat, lng: ll.lng});
     }
   }
   const lat = kroky.map(k => k.lat.toFixed(3)).join(',');
@@ -3136,8 +3192,8 @@ async function pocasiMrizka(sw, ne){
   if (!r.ok) throw new Error('Open-Meteo HTTP ' + r.status);
   let d = await r.json();
   if (!Array.isArray(d)) d = [d];
+  if (d.length !== kroky.length) throw new Error('počasí přišlo pro ' + d.length + ' z ' + kroky.length + ' bodů');
   const mesic = new Date().getMonth() + 1;
-  const bedlove = FILTR.druh === 'bedly';
   const hodnoty = kroky.map((k, idx) => {
     const p = rozborPocasi(d[idx].daily);
     const vlhkost = Math.max(0, Math.min(1, p.vazene / 25));
@@ -3145,11 +3201,16 @@ async function pocasiMrizka(sw, ne){
     const sez = faktorSezony(mesic, bedlove);
     return Math.max(0, Math.min(1, vlhkost * teplo * sez));
   });
-  return {nx, ny, hodnoty};
+  const vysl = {nx, ny, hodnoty, x0: o.x0, y0: o.y0, x1: o.x1, y1: o.y1};
+  if (rustPocasiCache.size > 12) rustPocasiCache.clear();
+  rustPocasiCache.set(klic, {ts: Date.now(), data: vysl});
+  return vysl;
 }
 
-function zMrizky(m, u, v){          // u,v = 0..1 přes výřez, bilineárně
-  const fx = u * (m.nx - 1), fy = v * (m.ny - 1);
+/* Bilineárně mezi body mřížky. u,v je 0..1 přes oblast mřížky, ne přes masku. */
+function zMrizky(m, u, v){
+  const fx = Math.max(0, Math.min(1, u)) * (m.nx - 1);
+  const fy = Math.max(0, Math.min(1, v)) * (m.ny - 1);
   const x0 = Math.floor(fx), y0 = Math.floor(fy);
   const x1 = Math.min(m.nx - 1, x0 + 1), y1 = Math.min(m.ny - 1, y0 + 1);
   const tx = fx - x0, ty = fy - y0;
@@ -3182,7 +3243,7 @@ function prekresliRustBrzy(){
 async function prekresliRust(){
   if (!rustZapnuty()){
     rustVrstva.clearLayers();
-    rustKlic = null;
+    rustPokryti = null;
     skryjLegenduRustu();
     return;
   }
@@ -3190,24 +3251,25 @@ async function prekresliRust(){
 
   if (map.getZoom() < RUST_MIN_Z){
     rustVrstva.clearLayers();
-    rustKlic = null;
+    rustPokryti = null;
     zpravaRustu('<b>Přibliž mapu</b>, ať můžu obarvit les. Z takové dálky by ' +
                 'to stejně byla jen zelená kaše.');
     return;
   }
 
+  /* Dokud je vidět jen to, co už je nakreslené, není důvod na nic sahat. */
   const b = map.getBounds();
-  const klic = b.getSouth().toFixed(2)+','+b.getWest().toFixed(2)+','+
-               b.getNorth().toFixed(2)+','+b.getEast().toFixed(2)+'|'+FILTR.druh;
-  if (klic === rustKlic) return;
+  if (rustPokryti && rustPokryti.zoom === map.getZoom() &&
+      rustPokryti.druh === FILTR.druh && rustPokryti.meze.contains(b)) return;
 
   rustProbiha = true;
   zpravaRustu('Počítám, kde by teď mohly růst…');
   try {
-    const m = await maskaLesa(b);
+    const v = rustVyrez(b);
+    const m = await maskaLesa(v);
     if (m.prilis){
       rustVrstva.clearLayers();
-      rustKlic = null;
+      rustPokryti = null;
       zpravaRustu('<b>Výřez je moc velký (' + m.km + ' km).</b> Les obarvím do ' +
                   RUST_MAX_KM + ' km – přibliž mapu.');
       return;
@@ -3216,14 +3278,18 @@ async function prekresliRust(){
     const ctx = m.canvas.getContext('2d');
     const dat = ctx.getImageData(0, 0, m.px, m.py);
     const d = dat.data;
+    const sirkaMr = mr.x1 - mr.x0, vyskaMr = mr.y1 - mr.y0;
     let lesnich = 0;
     for (let y = 0; y < m.py; y++){
-      const v = y / (m.py - 1);
+      /* obrázek má y dolů, Mercator nahoru */
+      const my = m.ne.y - (m.ne.y - m.sw.y) * (y / (m.py - 1));
+      const vv = (my - mr.y0) / vyskaMr;
       for (let x = 0; x < m.px; x++){
         const i = (y * m.px + x) * 4;
         if (d[i+3] < 40){ d[i+3] = 0; continue; }        // není les
         lesnich++;
-        const idx = zMrizky(mr, x / (m.px - 1), 1 - v);   // obrázek má y dolů, Mercator nahoru
+        const mx = m.sw.x + (m.ne.x - m.sw.x) * (x / (m.px - 1));
+        const idx = zMrizky(mr, (mx - mr.x0) / sirkaMr, vv);
         const st = Math.max(0, Math.min(4, Math.round(idx * 5 - 0.5)));
         const c = BARVY_RUSTU[st];
         d[i] = c[0]; d[i+1] = c[1]; d[i+2] = c[2];
@@ -3233,16 +3299,15 @@ async function prekresliRust(){
     ctx.putImageData(dat, 0, 0);
     rustVrstva.clearLayers();
     const jz = L.CRS.EPSG3857.unproject(m.sw), sv = L.CRS.EPSG3857.unproject(m.ne);
-    L.imageOverlay(m.canvas.toDataURL('image/png'),
-                   L.latLngBounds(jz, sv), {opacity: 1, interactive: false})
+    const meze = L.latLngBounds(jz, sv);
+    L.imageOverlay(m.canvas.toDataURL('image/png'), meze, {opacity: 1, interactive: false})
      .addTo(rustVrstva);
-    rustKlic = klic;
+    rustPokryti = {meze, zoom: map.getZoom(), druh: FILTR.druh};
     ukazLegenduRustu(mr, lesnich / (m.px * m.py));
-    /* Než se to spočítalo, mohl člověk mapou posunout. Obrázek by pak
-       ležel vedle toho, na co se dívá – tak se počítá znovu. */
-    if (map.getBounds().getCenter().distanceTo(b.getCenter()) > 100) prekresliRustBrzy();
+    /* Než se to spočítalo, mohl člověk mapou posunout. */
+    if (!meze.contains(map.getBounds())) prekresliRustBrzy();
   } catch(e){
-    rustKlic = null;
+    rustPokryti = null;
     zpravaRustu('<b>Mapu růstu se nepodařilo spočítat.</b> ' + e.message +
                 ' Zkus to, až budeš mít signál.');
   } finally {
@@ -3259,7 +3324,7 @@ function ukazLegenduRustu(mr, podilLesa){
     return;
   }
   zpravaRustu('<b>Kde teď rostou</b> — barva lesa je index z počasí a sezóny. ' +
-    'Ve výřezu průměr <b>' + Math.round(prum*100) + ' %</b>, nejlepší kout <b>' +
+    'V okolí průměr <b>' + Math.round(prum*100) + ' %</b>, nejlepší kout <b>' +
     Math.round(nej*100) + ' %</b>, lesa <b>' + Math.round(podilLesa*100) + ' %</b> plochy. ' +
     '<span class="skala">' + BARVY_RUSTU.map((c,i) =>
       '<i style="background:rgb('+c.join(',')+')" title="' + (i+1) + ' z 5"></i>').join('') + '</span> ' +
@@ -3576,6 +3641,15 @@ async function ukazPlochu(m, jmeno){
 const ZOOM_MISTA = 11;
 let mistaTimer = null, mistaHlaseno = false;
 
+/* Směr slovy, ať je hláška k něčemu i bez šipky na obrazovce.
+   Azimut počítá bearingDeg, který v appce už je – druhý výpočet téhož
+   je přesně to, po čem audit jde. */
+function smerSlovy(a, b){
+  const smery = ['na sever','na severovýchod','na východ','na jihovýchod',
+                 'na jih','na jihozápad','na západ','na severozápad'];
+  return smery[Math.round(bearingDeg(a, b) / 45) % 8];
+}
+
 function prekresliMistaBrzy(){
   clearTimeout(mistaTimer);
   mistaTimer = setTimeout(prekresliMista, 250);
@@ -3616,7 +3690,26 @@ async function prekresliMista(){
   ukazMista(kresli);
 
   if (!vidi.length){
-    txt.innerHTML = 'Tady žádná evidovaná parkoviště u lesa nejsou. Zkus se posunout jinam.';
+    /* Audit 5: „zkus se posunout jinam" je slepá ulička – člověk neví kam
+       a vypadá to, že appka nefunguje. Sedm a půl tisíce bodů na republiku
+       je řídko: u Mečeříže je nejbližší 2,5 km daleko, tedy hned za okrajem
+       obrazovky. Tak se rovnou řekne kam a nabídne se tam skočit. */
+    const stred = b.getCenter();
+    let nej = null, nejd = Infinity;
+    for (const m of vse){
+      const d = distM([stred.lat, stred.lng], [m.lat, m.lng]);
+      if (d < nejd){ nejd = d; nej = m; }
+    }
+    if (nej && nejd < 60000){
+      txt.innerHTML = 'Tady evidovaná parkoviště u lesa nejsou. Nejbližší je ' +
+        '<b>' + fmtDist(nejd) + '</b> ' +
+        smerSlovy([stred.lat, stred.lng], [nej.lat, nej.lng]) +
+        '. <button id="skocNaMisto">Ukázat</button>';
+      const b2 = $('skocNaMisto');
+      if (b2) b2.onclick = () => map.setView([nej.lat, nej.lng], Math.max(map.getZoom(), 13));
+    } else {
+      txt.innerHTML = 'Tady žádná evidovaná parkoviště u lesa nejsou. Zkus se posunout jinam.';
+    }
   } else if (!projde.length){
     txt.innerHTML = 'Ve výřezu je <b>' + sklonuj(vidi.length, 'místo', 'místa', 'míst') +
       '</b>, ale filtr houby a porostu je schoval všechna. Zkus ho povolit.';
@@ -3664,7 +3757,9 @@ async function kamDnes(){
       top.push(m);
     }
     const pocasi = await nactiPocasiPro(top);
-    const poradi = top.map((m, i) => skoreMista(m, pocasi[i].daily)).sort((a,b) => b.sance - a.sance);
+    const sPocasim = top.map((m, i) => ({m, den: pocasi[i] && pocasi[i].daily})).filter(z => z.den);
+    if (!sPocasim.length) throw new Error('počasí se nevrátilo ani pro jedno místo');
+    const poradi = sPocasim.map(z => skoreMista(z.m, z.den)).sort((a,b) => b.sance - a.sance);
     const nej = poradi[0];
     const sl = slovniSance(nej.sance);
     const sucho = nej.sance < 0.15;

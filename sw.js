@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v31';
+const VER        = 'houby-v32';
 const SHELL      = VER + '-shell';
 
 /* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
@@ -132,6 +132,27 @@ self.addEventListener('message', async e => {
   } catch(err){}
 });
 
+/* Audit 5 – nejhorší chyba, jakou tahle appka měla.
+   Skořápka se hledala v cache s ignoreSearch:true, tedy „na dotazu za
+   otazníkem nezáleží". To je správně pro ./index.html?t=31, ale tenhle
+   blok dostával VŠECHNO, co nebylo dlaždice – včetně dotazů na
+   Open-Meteo, OSRM, ÚHÚL i AOPK. První odpověď se uložila a od té chvíle
+   dostávala appka na každý další dotaz na tu adresu tu první, bez ohledu
+   na souřadnice, filtry i počet bodů.
+
+   Co to působilo: „pořád stejné tři návrhy, ať měním filtry jak chci" –
+   OSRM vracel pokaždé první spočítané dojezdy. A po přidání mapy růstu
+   i tvrdý pád: mapa si vyžádala počasí pro 8 bodů mřížky, doporučení pak
+   pro 30 míst a dostalo zpátky těch osm – odtud „undefined is not an
+   object (evaluating 'pocasi[i].daily')".
+
+   Reprodukováno v prohlížeči: druhý dotaz na stejnou cestu s jiným
+   dotazem dostal odpověď prvního (3 místo 30 položek).
+
+   Nové pravidlo: v cache skořápky je jen to, co je z naší domény, plus
+   výslovně předuložené soubory z CDN. Cizí služby jdou vždy na síť. */
+const CIZI_SKORAPKA = SHELL_FILES.filter(u => /^https?:\/\//.test(u));
+
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -157,10 +178,17 @@ self.addEventListener('fetch', e => {
     return;
   }
 
+  /* Cizí služba, která není dlaždice ani předuložený soubor z CDN:
+     nikdy neukládat, nikdy nepodstrkávat starou odpověď. */
+  const nase = url.startsWith(self.location.origin + '/');
+  if (!nase && CIZI_SKORAPKA.indexOf(url) === -1) return;
+
   // skořápka aplikace
   e.respondWith((async () => {
     const c = await caches.open(SHELL);
-    const hit = await c.match(req, {ignoreSearch: true});
+    /* ignoreSearch smí platit jen pro otevření stránky (./index.html?t=31).
+       U ostatních souborů musí adresa sedět přesně. */
+    const hit = await c.match(req, req.mode === 'navigate' ? {ignoreSearch: true} : undefined);
     const net = fetch(req).then(res => {
       if (res && res.ok) c.put(req, res.clone());
       return res;
