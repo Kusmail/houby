@@ -412,7 +412,9 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 <div class="modal" role="dialog" aria-modal="true" id="filtrModal">
   <div class="mbox">
     <h2>Co ti mám na mapě ukazovat</h2>
-    <p class="pozn">Filtry platí pro místa na mapě i pro doporučení „Kam dnes na houby".</p>
+    <p class="pozn">Houba a porost platí pro mapu i pro doporučení. <b>Dojezd a chráněná území
+    platí jen pro doporučení</b> – u dojezdu se musí ptát navigace a u rezervací server AOPK,
+    a to bod po bodu; při posouvání mapy by to znamenalo tisíce dotazů.</p>
     <div id="filtrObsah"></div>
     <button class="ghost" id="filtrClose">Hotovo</button>
   </div>
@@ -2819,11 +2821,11 @@ async function prekresliMista(){
     txt.innerHTML = 'Tady žádná evidovaná parkoviště u lesa nejsou. Zkus se posunout jinam.';
   } else if (!projde.length){
     txt.innerHTML = 'Ve výřezu je <b>' + sklonuj(vidi.length, 'místo', 'místa', 'míst') +
-      '</b>, ale filtr je schoval všechna. Zkus ho povolit.';
+      '</b>, ale filtr houby a porostu je schoval všechna. Zkus ho povolit.';
   } else {
     txt.innerHTML = 'Ve výřezu <b>' + sklonuj(projde.length, 'místo', 'místa', 'míst') + '</b> z map' +
       (projde.length > kresli.length ? ' (kreslím prvních ' + kresli.length + ', přibliž víc)' : '') +
-      (vidi.length > projde.length ? ' · filtr skryl ' + (vidi.length - projde.length) : '');
+      (vidi.length > projde.length ? ' · houba a porost skryly ' + (vidi.length - projde.length) : '');
   }
 }
 
