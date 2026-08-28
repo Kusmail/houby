@@ -2527,14 +2527,17 @@ async function najdiMista(limit){   // limit = kolik míst pošleme na router
     .filter(m => (m.minuty != null ? m.minuty : odhadMinut(m)) <= FILTR.minuty * 1.25)
     .sort((a,b) => (a.minuty != null ? a.minuty : odhadMinut(a)) - (b.minuty != null ? b.minuty : odhadMinut(b)));
 
-  const vybrane = kandidati.slice(0, limit || 200);
+  const strop = limit || 200;
+  const vybrane = kandidati.slice(0, strop);
   await skutecneMinuty(vybrane.filter(m => !m.presnyDojezd));
   let vysl = vybrane.filter(m => (m.minuty || 999) <= FILTR.minuty);
+  const poDojezdu = vysl.length;
   if (FILTR.chranena){
     await oznacChranena(vysl);
     vysl = vysl.filter(m => !m.chranene);
   }
-  return {vysl, celkem: kandidati.length};
+  return {vysl, celkem: kandidati.length, vsech: vse.length + LOC.length,
+          orezano: kandidati.length > strop, strop, poDojezdu};
 }
 
 /* ---------- oblíbená místa ----------
@@ -2692,11 +2695,11 @@ async function kamDnes(){
   const b = $('btnKam');
   b.disabled = true; b.innerHTML = '⏳ &nbsp;Hledám v celé ČR…';
   try {
-    const {vysl, celkem} = await najdiMista(200);
+    const {vysl, celkem, vsech, orezano, strop, poDojezdu} = await najdiMista(200);
     if (!vysl.length){
       $('kamObsah').innerHTML = '<div class="kamsucho"><b>Filtry nepustily nic.</b> ' +
         'V okruhu ' + FILTR.minuty + ' minut jsem s tímhle nastavením nenašel jediné místo. ' +
-        'Zkus povolit delší dojezd nebo jiný porost.</div>' + filtryHTML();
+        'Zkus povolit delší dojezd, jiný porost, nebo pusť i rezervace.</div>' + filtryHTML();
       $('kamModal').classList.add('show');
       pripojFiltry();
       return;
@@ -2709,8 +2712,14 @@ async function kamDnes(){
     const sl = slovniSance(nej.sance);
     const sucho = nej.sance < 0.15;
 
-    let html = '<div class="kamstat">Prohledáno <b>' + celkem + '</b> míst v celé ČR, ' +
-               'filtry prošlo <b>' + vysl.length + '</b>, počasí spočítáno pro <b>' + top.length + '</b>.</div>';
+    /* Čísla musí říkat pravdu i ve chvíli, kdy narazíme na strop. Dřív tu
+       stálo „filtry prošlo 200", což byl jen počet míst, kterým jsem stihl
+       spočítat dojezd – ne kolik jich filtrům vyhovuje. */
+    let html = '<div class="kamstat">Z <b>' + vsech + '</b> míst v ČR vyhovuje filtrům <b>' + celkem + '</b>. ' +
+      (orezano
+        ? 'Dojezd jsem ověřil u <b>' + strop + '</b> nejbližších (dál nesahám), do limitu se z nich vešlo <b>' + poDojezdu + '</b>'
+        : 'Do limitu dojezdu se vešlo <b>' + poDojezdu + '</b>') +
+      ', počasí jsem spočítal pro <b>' + top.length + '</b> nejlepších.</div>';
     if (sucho){
       html += '<div class="kamsucho"><b>Dnes nikam.</b> Ani na nejlepším z našich míst nejsou podmínky ' +
               'na to, aby houby rostly. Nebudu ti vymýšlet doporučení, které by nesedělo.<br><br>' +
