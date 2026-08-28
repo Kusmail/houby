@@ -155,6 +155,8 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
    prstem po něm nikdo nechce koukat. */
 :focus-visible{outline:3px solid #2e5c3a;outline-offset:2px;border-radius:10px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.bigbtn.sber{background:#1f4a2e;margin-bottom:8px}
+.bigbtn.sber:disabled{opacity:.6}
 .bigbtn.kam{background:#2e5c3a;margin-bottom:8px}
 .bigbtn.kam:disabled{opacity:.6}
 .kamlok{border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:10px;background:#fbfaf7}
@@ -355,6 +357,7 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
  <div class="sheet-head">
   <div class="grab" id="grab" role="button" tabindex="0" aria-label="Vytáhnout nebo zatáhnout spodní panel"></div>
 
+  <button class="bigbtn sber" id="btnSber">🌲 &nbsp;Najdi mi les tady</button>
   <button class="bigbtn kam" id="btnKam">🍄 &nbsp;Kam dnes na houby?</button>
 
   <button class="bigbtn" id="btnPark">🚗 &nbsp;Zaparkoval jsem tady</button>
@@ -488,6 +491,12 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
    DATA LOKALIT – převzato z houby-mapa.html beze změny
    ============================================================ */
 const HOME = [50.1985, 14.5735];
+
+/* Od tohohle přiblížení kreslí appka jednotlivé porosty („kde sbírat").
+   Deklarace patří sem, ne k ostatnímu kódu vrstvy: hned po startu se
+   podle ní nastavuje výřez mapy, a `const` níž v souboru by v tu chvíli
+   ještě neexistovala. */
+const SBER_MIN_Z = 13;
 
 const LOC = [
 /* ---------- VARIANTA 1 ---------- */
@@ -813,18 +822,31 @@ tiles.addTo(map);
 
 /* Jedna chybějící dlaždice je běžná. Když jich naprší víc najednou,
    je to celý kus mapy a stojí za to říct proč. Jednou za spuštění. */
-let chybejiciDlazdice = 0, reklJsemOdlazdicich = false, dlazdiceTimer = null;
+/* Audit 6: tahle hláška křičela i nad mapou, která byla celá vidět.
+   Počítaly se jen chybějící dlaždice, ne ty načtené – jenže při každém
+   posunu se pár dlaždic nestihne a OSM občas jednu odmítne. Teď se
+   porovnává: hláška má smysl jen když se nedaří VĚTŠINA dlaždic, a ne
+   v prvních vteřinách po spuštění, kdy se stahuje celá obrazovka. */
+let chybejiciDlazdice = 0, nactenychDlazdic = 0, reklJsemOdlazdicich = false, dlazdiceTimer = null;
+const startAppky = Date.now();
+tiles.on('tileload', () => { nactenychDlazdic++; });
 tiles.on('tileerror', () => {
   chybejiciDlazdice++;
   clearTimeout(dlazdiceTimer);
   dlazdiceTimer = setTimeout(() => {
-    if (reklJsemOdlazdicich || chybejiciDlazdice < 6) { chybejiciDlazdice = 0; return; }
+    const vsech = chybejiciDlazdice + nactenychDlazdic;
+    const podilChyb = vsech ? chybejiciDlazdice / vsech : 0;
+    if (reklJsemOdlazdicich || chybejiciDlazdice < 6 ||
+        (navigator.onLine && podilChyb < 0.5) ||
+        Date.now() - startAppky < 6000){
+      chybejiciDlazdice = 0; nactenychDlazdic = 0; return;
+    }
     reklJsemOdlazdicich = true;
     banner(navigator.onLine
       ? '<b>Šrafovaná místa se nepodařilo načíst.</b> Server s mapou zrovna neodpovídá – zkus to za chvíli, nebo si výřez stáhni doma na Wi-Fi.'
       : '<b>Tuhle oblast nemáš staženou.</b> Jsi bez signálu a šrafovaná místa v telefonu nejsou. Poloha, auto i trasa fungují dál – jen pod nimi není mapa.',
       false, 12000);
-    chybejiciDlazdice = 0;
+    chybejiciDlazdice = 0; nactenychDlazdic = 0;
   }, 1200);
 });
 L.control.scale({imperial:false}).addTo(map);
@@ -896,7 +918,24 @@ L.control.layers(null, {
 
 L.control.zoom({position:'topright', zoomInTitle:'Přiblížit', zoomOutTitle:'Oddálit'}).addTo(map);
 
-map.fitBounds(L.latLngBounds(LOC.map(d=>d.park).concat([HOME])).pad(0.08));
+/* Audit 6: appka se otevírala na celou republiku, kde nejde ukázat ani
+   místa, ani porosty – první obrazovka byly dvě hlášky „přibliž mapu".
+   Otevírá se proto rovnou v lese u domova, kde vrstva porostů funguje.
+   Když prohlížeč polohu už povolil, přeskočí to na to, kde právě jsi;
+   pokud povolená není, NEPTÁ se – to patří pod tlačítko „Na mě". */
+map.setView(HOME, SBER_MIN_Z);
+
+(async () => {
+  try {
+    if (!navigator.permissions || !navigator.geolocation) return;
+    const st = await navigator.permissions.query({name: 'geolocation'});
+    if (st.state !== 'granted') return;
+    navigator.geolocation.getCurrentPosition(p => {
+      const d = distM([HOME[0], HOME[1]], [p.coords.latitude, p.coords.longitude]);
+      if (d > 1000) map.setView([p.coords.latitude, p.coords.longitude], SBER_MIN_Z);
+    }, () => {}, {enableHighAccuracy: false, timeout: 8000, maximumAge: 300000});
+  } catch(e){ /* prohlížeč to neumí – zůstáváme u domova */ }
+})();
 
 /* ============================================================
    STAV
@@ -1183,6 +1222,7 @@ function obnovPark(){
 }
 
 $('btnKam').onclick = () => kamDnes();
+$('btnSber').onclick = () => najdiLesTady();
 $('kamClose').onclick = () => $('kamModal').classList.remove('show');
 $('btnFiltr').onclick = () => otevriFiltry();
 $('filtrClose').onclick = () => $('filtrModal').classList.remove('show');
@@ -3135,7 +3175,8 @@ const BARVY_RUSTU = [
    Okraj porostu je skoro vždycky lepší než jeho střed – proto se
    vysoko hodnocené porosty kreslí se silným obrysem: po něm se chodí.
    ============================================================ */
-const SBER_MIN_Z = 13;        // pod tím je porostů tolik, že je server neposkládá
+/* SBER_MIN_Z je deklarované nahoře u HOME – spouštěcí kód mapy ho
+   potřebuje dřív, než se sem skript dostane. */
 
 /* [druh porostu][výškový stupeň] → jak to sedí na tu houbu, 0..1 */
 const VHODNOST = {
@@ -3153,6 +3194,12 @@ const VHODNOST = {
   }
 };
 /* Co v takovém porostu hledat – aby barva nebyla jen barva. */
+/* ZABAGED má druh porostu ve tvaru „listnaté" (shoda s „porosty").
+   V jednotném čísle to musí být „listnatý porost", ne „listnaté porost". */
+const DRUH_1P = {'jehličnaté':'jehličnatý', 'listnaté':'listnatý',
+                 'smíšené':'smíšený', 'bez určení':'neurčený'};
+function druhSlovy(d){ return DRUH_1P[d] || d; }
+
 const CO_TAM_ROSTE = {
   'jehličnaté': {'do 2,5 m':'zatím nic, moc mladé', 'od 2,5 m do 8 m':'klouzci a masáci v mladém boru',
                  'od 8 m do 20 m':'hřib smrkový a borový, křemenáč', 'nad 20 m':'hřiby ve starém porostu, ryzce'},
@@ -3293,7 +3340,7 @@ async function kresliSber(b){
         const druh = a.druh_p || 'bez určení', vyska = a.vyska_p || 'bez určení';
         vrstva.bindPopup(
           '<div class="pop"><h3>' + (a._st >= 3 ? 'Tady stojí za to hledat' : 'Spíš ne') + '</h3>' +
-          '<div class="sub">' + druh + ' porost, ' + vyska + '</div>' +
+          '<div class="sub">' + druhSlovy(druh) + ' porost, ' + vyska + '</div>' +
           '<table>' +
           '<tr><td>Co tu bývá</td><td>' + ((CO_TAM_ROSTE[druh] || {})[vyska] || 'podle porostu') + '</td></tr>' +
           '<tr><td>Hodnocení</td><td><b>' + Math.round(a._skore*100) + ' %</b> pro ' + jmenoHouby + '</td></tr>' +
@@ -3477,8 +3524,11 @@ async function prekresliRust(){
   if (map.getZoom() < RUST_MIN_Z){
     rustVrstva.clearLayers();
     rustPokryti = null;
-    zpravaRustu('<b>Přibliž mapu</b>, ať můžu obarvit les. Z takové dálky by ' +
-                'to stejně byla jen zelená kaše.');
+    /* Lišta míst už „přibliž mapu" říká. Dvě stejné hlášky pod sebou
+       ukrajovaly třetinu obrazovky a neřekly nic navíc. */
+    if (map.getZoom() < ZOOM_MISTA && map.hasLayer(mistaVrstva)) skryjLegenduRustu();
+    else zpravaRustu('<b>Přibliž mapu</b>, ať můžu vybrat porosty. Z takové ' +
+                     'dálky by to byla jen zelená kaše.');
     return;
   }
 
@@ -3998,6 +4048,79 @@ map.on('zoomend', prekresliRustBrzy);
 map.on('overlayadd', prekresliRustBrzy);
 map.on('overlayremove', prekresliRustBrzy);
 prekresliRustBrzy();
+
+/* ============================================================
+   NAJDI MI LES TADY
+
+   Do téhle verze musel člověk mapu sám přibližovat a hledat, kde se
+   zezelená. To je při hledání hub k ničemu – v ruce je koš, ne trpělivost.
+   Tohle vezme, kde jsi (nebo kam se díváš), zeptá se ČÚZK na porosty
+   v okolí, vybere ten nejlepší pro houbu z filtru a skočí na něj.
+   ============================================================ */
+const LES_OKOLI_M = 7000;      // v jakém okolí hledáme; víc už server neposkládá
+
+async function najdiLesTady(){
+  const b = $('btnSber');
+  b.disabled = true;
+  const puvodni = b.innerHTML;
+  b.innerHTML = '⏳ &nbsp;Hledám porost…';
+  try {
+    /* Na GPS se čeká nejvýš tři vteřiny. V lese trvá fix klidně půl
+       minuty a člověk by koukal na „Hledám porost…" a myslel si, že
+       se to zaseklo. Když se GPS neozve, bere se střed mapy. */
+    const zaloha = map.getZoom() >= 10 ? map.getCenter() : L.latLng(HOME[0], HOME[1]);
+    const stred = await Promise.race([
+      getPositionOnce().then(p => L.latLng(p.lat, p.lng)).catch(() => zaloha),
+      new Promise(res => setTimeout(() => res(zaloha), 3000))
+    ]);
+    const d = LES_OKOLI_M;
+    const meze = L.latLngBounds(
+      L.latLng(stred.lat - d/111300, stred.lng - d/71300),
+      L.latLng(stred.lat + d/111300, stred.lng + d/71300));
+
+    const {features} = await nactiPorosty(meze);
+    let nej = null;
+    for (const f of features){
+      const a = f.properties || {};
+      const g = f.geometry;
+      if (!g) continue;
+      const prvni = g.type === 'Polygon' ? g.coordinates[0] : (g.coordinates[0] || [])[0];
+      if (!prvni || !prvni.length) continue;
+      const lat = prvni[0][1], lng = prvni[0][0];
+      const m = miryPrvku(g, lat);
+      if (m.plocha < 20000) continue;                 // pod 2 ha nemá cenu nikam jezdit
+      const okraj = Math.max(0, Math.min(1, m.obvod * 25 / m.plocha));
+      const skore = vhodnostPorostu(a.druh_p || 'bez určení', a.vyska_p || 'bez určení') *
+                    (0.85 + 0.3 * okraj);
+      /* Blízko má přednost před o chlup lepším porostem na druhém konci okresu. */
+      const km = distM([stred.lat, stred.lng], [lat, lng]) / 1000;
+      const vaha = skore * (1 - Math.min(0.45, km / 20));
+      if (!nej || vaha > nej.vaha)
+        nej = {vaha, skore, lat, lng, ha: m.plocha/10000,
+               druh: a.druh_p || 'bez určení', vyska: a.vyska_p || 'bez určení', km};
+    }
+
+    if (!nej){
+      banner('<b>V okolí ' + Math.round(LES_OKOLI_M/1000) + ' km nemám evidovaný ' +
+             'porost, kde by to stálo za to.</b> Zkus „Kam dnes na houby" – ta hledá po celé ČR.',
+             false, 10000);
+      return;
+    }
+
+    map.setView([nej.lat, nej.lng], 15);
+    const houba = FILTR.druh === 'bedly' ? 'bedly'
+                : FILTR.druh === 'hriby' ? 'hřiby a klouzky' : 'houby (filtr máš na „vše")';
+    banner('<b>' + druhSlovy(nej.druh) + ' porost, ' + nej.vyska + '</b> · ' +
+           (nej.ha < 10 ? nej.ha.toFixed(1) : Math.round(nej.ha)) + ' ha · ' +
+           fmtDist(nej.km*1000) + ' odsud. Na ' + houba + ' <b>' + Math.round(nej.skore*100) + ' %</b>. ' +
+           'Choď po kraji porostu – tam je silný obrys.', false, 12000);
+  } catch(e){
+    banner('<b>Porosty se nepodařilo načíst.</b> ' + e.message + ' Zkus to, až budeš mít signál.', true, 9000);
+  } finally {
+    b.disabled = false;
+    b.innerHTML = puvodni;
+  }
+}
 
 /* Když nezbylo nic, je rozdíl mezi „je to daleko" a „ten porost tu není".
    Vypíše se, kde přesně místa zmizela, a nabídne se jedním klepnutím
