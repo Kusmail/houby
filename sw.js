@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v5';
+const VER        = 'houby-v6';
 const SHELL      = VER + '-shell';
 const TILES      = VER + '-tiles';
 const TILE_MAX   = 3000;          // strop uložených dlaždic
