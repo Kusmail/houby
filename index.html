@@ -889,7 +889,7 @@ LOC.forEach((d, idx) => {
 });
 
 L.control.layers(null, {
-  '<b>Kde teď rostou</b> – obarvený les podle počasí': rustVrstva,
+  '<b>Kde sbírat</b> – porosty podle tvojí houby': rustVrstva,
   '<b>Ověřené tipy</b> – 16 popsaných míst': overeneTipy,
   '<b>Místa z map</b> – celá ČR podle filtrů': mistaVrstva
 }, {collapsed:true}).addTo(map);
@@ -2402,11 +2402,17 @@ async function nactiTypyLesaHned(){
 
   if (typyAbort) typyAbort.abort();
   typyAbort = new AbortController();
+  /* Audit 5: tady stálo outSR 3857. ČÚZK v tom případě vrátí GeoJSON
+     se souřadnicemi v METRECH, ale Leaflet čte GeoJSON jako stupně –
+     polygony tedy skončily někde v nekonečnu a vrstva „Lesy" byla od
+     zoomu 14 prostě neviditelná. Nikdo si toho nevšiml, protože pod
+     ní zůstal zelený rastr. Musí se ptát na 4326 a zjednodušení pak
+     není v metrech, ale ve stupních. */
   const q = new URLSearchParams({
-    geometry: bbox, geometryType: 'esriGeometryEnvelope', inSR: '3857', outSR: '3857',
+    geometry: bbox, geometryType: 'esriGeometryEnvelope', inSR: '3857', outSR: '4326',
     spatialRel: 'esriSpatialRelIntersects', where: '1=1', outFields: 'druh_p',
     returnGeometry: 'true', f: 'geojson', resultRecordCount: '1500',
-    maxAllowableOffset: String(zjed)
+    maxAllowableOffset: String(zjed / 111320)
   });
 
   try {
@@ -2721,8 +2727,19 @@ function sedíDruh(m){
 
 /* Vzdušná čára je jen předfiltr, ať neposíláme na router tisíce bodů.
    Skutečné minuty za volantem se počítají až pro to, co projde. */
+/* Odkud se počítá dojezd. Dřív vždycky z Mratína – i když člověk stál
+   sto kilometrů jinde a appka mu nabízela místa u domova. Když víme,
+   kde jsi, počítá se od tebe; jinak od domova. */
+function odkud(){
+  if (state.me && typeof state.me.lat === 'number'){
+    const d = distM([HOME[0], HOME[1]], [state.me.lat, state.me.lng]);
+    if (d > 3000) return {bod: [state.me.lat, state.me.lng], doma: false, km: d/1000};
+  }
+  return {bod: HOME, doma: true, km: 0};
+}
+
 function odhadMinut(m){
-  const km = distM([HOME[0], HOME[1]], [m.lat, m.lng]) / 1000;
+  const km = distM(odkud().bod, [m.lat, m.lng]) / 1000;
   return km * 1.35 / (km < 15 ? 0.55 : km < 50 ? 0.85 : 1.15);   // km/min
 }
 
@@ -2736,7 +2753,8 @@ const OSRM_DAVKA = 400;
 const OSRM_DAVEK = 2;
 
 async function davkaMinut(cast){
-  const sou = [HOME[1].toFixed(5) + ',' + HOME[0].toFixed(5)]
+  const z = odkud().bod;
+  const sou = [z[1].toFixed(5) + ',' + z[0].toFixed(5)]
     .concat(cast.map(m => m.lng.toFixed(5) + ',' + m.lat.toFixed(5))).join(';');
   const u = 'https://router.project-osrm.org/table/v1/driving/' + sou +
             '?sources=0&annotations=duration,distance';
@@ -3098,6 +3116,201 @@ const BARVY_RUSTU = [
   [ 41,112, 66]     // 5 – výborně
 ];
 
+/* ============================================================
+   KDE SBÍRAT — obarvené porosty
+
+   Barva podle počasí byla v celém výřezu skoro stejná, protože počasí
+   se na deseti kilometrech nemění. To neodpovědělo na otázku, kvůli
+   které appka vznikla: KDE V TOMHLE LESE.
+
+   Od přiblížení na 13 se proto kreslí jednotlivé porosty ze ZABAGED
+   (vrstva 144) obarvené podle toho, jak sedí na houbu z filtru.
+   Druh porostu a výškový stupeň jsou v datech; ostatní je houbařská
+   zkušenost, ne měření – proto to appka píše jako odhad.
+
+   Bedla chce světlo a trávu: mladé a nízké listnaté porosty a jejich
+   okraje, ne hluboký smrkový stín. Hřiby a klouzky chtějí opak:
+   vzrostlé jehličnaté a smíšené porosty, klouzci mladší bory.
+
+   Okraj porostu je skoro vždycky lepší než jeho střed – proto se
+   vysoko hodnocené porosty kreslí se silným obrysem: po něm se chodí.
+   ============================================================ */
+const SBER_MIN_Z = 13;        // pod tím je porostů tolik, že je server neposkládá
+
+/* [druh porostu][výškový stupeň] → jak to sedí na tu houbu, 0..1 */
+const VHODNOST = {
+  bedly: {
+    'listnaté':   {'do 2,5 m':1.00, 'od 2,5 m do 8 m':0.85, 'od 8 m do 20 m':0.50, 'nad 20 m':0.35},
+    'smíšené':    {'do 2,5 m':0.90, 'od 2,5 m do 8 m':0.75, 'od 8 m do 20 m':0.45, 'nad 20 m':0.30},
+    'jehličnaté': {'do 2,5 m':0.50, 'od 2,5 m do 8 m':0.40, 'od 8 m do 20 m':0.25, 'nad 20 m':0.20},
+    'bez určení': {'do 2,5 m':0.55, 'od 2,5 m do 8 m':0.45, 'od 8 m do 20 m':0.35, 'nad 20 m':0.30}
+  },
+  hriby: {
+    'jehličnaté': {'do 2,5 m':0.45, 'od 2,5 m do 8 m':0.85, 'od 8 m do 20 m':1.00, 'nad 20 m':0.95},
+    'smíšené':    {'do 2,5 m':0.40, 'od 2,5 m do 8 m':0.70, 'od 8 m do 20 m':0.95, 'nad 20 m':0.90},
+    'listnaté':   {'do 2,5 m':0.30, 'od 2,5 m do 8 m':0.45, 'od 8 m do 20 m':0.75, 'nad 20 m':0.80},
+    'bez určení': {'do 2,5 m':0.35, 'od 2,5 m do 8 m':0.50, 'od 8 m do 20 m':0.60, 'nad 20 m':0.60}
+  }
+};
+/* Co v takovém porostu hledat – aby barva nebyla jen barva. */
+const CO_TAM_ROSTE = {
+  'jehličnaté': {'do 2,5 m':'zatím nic, moc mladé', 'od 2,5 m do 8 m':'klouzci a masáci v mladém boru',
+                 'od 8 m do 20 m':'hřib smrkový a borový, křemenáč', 'nad 20 m':'hřiby ve starém poros­tu, ryzce'},
+  'listnaté':   {'do 2,5 m':'bedly v trávě a na okraji', 'od 2,5 m do 8 m':'bedly, kozáci pod břízou',
+                 'od 8 m do 20 m':'hřib dubový, kozák', 'nad 20 m':'hřib dubový ve starém doubí'},
+  'smíšené':    {'do 2,5 m':'bedly na světlině', 'od 2,5 m do 8 m':'klouzci, kozáci, bedly na okraji',
+                 'od 8 m do 20 m':'hřiby, křemenáče, kozáci', 'nad 20 m':'hřiby ve vzrostlém lese'},
+  'bez určení': {'do 2,5 m':'nízký porost, spíš okraje', 'od 2,5 m do 8 m':'mladý porost',
+                 'od 8 m do 20 m':'vzrostlý porost', 'nad 20 m':'starý porost'}
+};
+
+let sberKlic = null, sberAbort = null;
+
+function vhodnostPorostu(druh, vyska){
+  const bedlove = FILTR.druh === 'bedly';
+  const t = (klic) => {
+    const d = VHODNOST[klic][druh] || VHODNOST[klic]['bez určení'];
+    return d[vyska] !== undefined ? d[vyska] : 0.4;
+  };
+  if (FILTR.druh === 'bedly') return t('bedly');
+  if (FILTR.druh === 'hriby') return t('hriby');
+  return Math.max(t('bedly'), t('hriby'));         // „vše" bere to lepší z obou
+}
+
+/* Plocha a obvod prstence ve stupních → hektary a podíl okraje.
+   Malý nebo protáhlý porost je skoro celý okraj, a okraj je to,
+   po čem se chodí a kde houby stojí. */
+function mirySmycky(ring, lat){
+  const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540;
+  let plocha = 0, obvod = 0;
+  for (let i = 0, n = ring.length; i < n; i++){
+    const a = ring[i], b = ring[(i + 1) % n];
+    const ax = a[0]*kx, ay = a[1]*ky, bx = b[0]*kx, by = b[1]*ky;
+    plocha += ax*by - bx*ay;
+    obvod  += Math.hypot(bx-ax, by-ay);
+  }
+  return {plocha: Math.abs(plocha)/2, obvod};
+}
+
+function miryPrvku(g, lat){
+  const rings = g.type === 'Polygon' ? g.coordinates
+              : g.type === 'MultiPolygon' ? g.coordinates.flat() : [];
+  let plocha = 0, obvod = 0;
+  rings.forEach((r, i) => { const m = mirySmycky(r, lat); plocha += m.plocha; obvod += m.obvod; });
+  return {plocha, obvod};
+}
+
+async function nactiPorosty(b){
+  const sw = L.CRS.EPSG3857.project(b.getSouthWest());
+  const ne = L.CRS.EPSG3857.project(b.getNorthEast());
+  const K = 500;
+  const bbox = [Math.floor(sw.x/K)*K, Math.floor(sw.y/K)*K,
+                Math.ceil(ne.x/K)*K,  Math.ceil(ne.y/K)*K].join(',');
+  const zjed = map.getZoom() >= 15 ? 6 : 12;      // metry, přepočtou se na stupně
+  const q = new URLSearchParams({
+    geometry: bbox, geometryType: 'esriGeometryEnvelope', inSR: '3857', outSR: '4326',
+    spatialRel: 'esriSpatialRelIntersects', where: '1=1', outFields: 'druh_p,vyska_p',
+    returnGeometry: 'true', f: 'geojson', resultRecordCount: '1500',
+    maxAllowableOffset: String(zjed / 111320)
+  });
+  if (sberAbort) sberAbort.abort();
+  sberAbort = new AbortController();
+  const stop = setTimeout(() => sberAbort.abort(), RUST_CEKANI);
+  try {
+    const r = await fetch(CUZK_QUERY + '?' + q.toString(), {signal: sberAbort.signal});
+    if (!r.ok) throw new Error('ČÚZK HTTP ' + r.status);
+    const g = await r.json();
+    if (!g || !Array.isArray(g.features)) throw new Error('ČÚZK nevrátil porosty');
+    return {features: g.features, klic: bbox + '|' + zjed};
+  } finally { clearTimeout(stop); }
+}
+
+async function kresliSber(b){
+  const {features, klic} = await nactiPorosty(b);
+  const celyKlic = klic + '|' + FILTR.druh;
+  const sw = L.CRS.EPSG3857.project(b.getSouthWest());
+  const ne = L.CRS.EPSG3857.project(b.getNorthEast());
+  const mr = await pocasiMrizka(sw, ne);
+  const sirkaMr = mr.x1 - mr.x0, vyskaMr = mr.y1 - mr.y0;
+
+  let haCelkem = 0, haNej = 0, nejlepsi = 0, pocasiSoucet = 0;
+  const kusy = [];
+  for (const f of features){
+    const a = f.properties || {};
+    const druh = a.druh_p || 'bez určení', vyska = a.vyska_p || 'bez určení';
+    const g = f.geometry;
+    if (!g) continue;
+    const prvni = g.type === 'Polygon' ? g.coordinates[0] : (g.coordinates[0] || [])[0];
+    if (!prvni || !prvni.length) continue;
+    const lat = prvni[0][1], lng = prvni[0][0];
+    const m = miryPrvku(g, lat);
+    if (m.plocha < 2000) continue;                 // pod 0,2 ha nemá cenu kreslit
+    const ha = m.plocha / 10000;
+    /* podíl okraje: pás 25 m od hranice ku celé ploše */
+    const okraj = Math.max(0, Math.min(1, m.obvod * 25 / m.plocha));
+    const p = L.CRS.EPSG3857.project(L.latLng(lat, lng));
+    const pocasi = zMrizky(mr, (p.x - mr.x0) / sirkaMr, (p.y - mr.y0) / vyskaMr);
+    /* Barva NESMÍ viset na počasí. Počasí je v celém výřezu stejné,
+       takže by jen ztlumilo všechno naráz a mapa by zas neřekla, kam jít.
+       Barva je tedy vlastnost porostu (druh, stáří, kolik je z něj okraj)
+       – ta platí i příští týden. Jak je na tom počasí dnes, stojí
+       v liště nad mapou a v bublině porostu. */
+    const zaklad = vhodnostPorostu(druh, vyska);
+    const skore = Math.max(0, Math.min(1, zaklad * (0.85 + 0.3 * okraj)));
+    haCelkem += ha;
+    pocasiSoucet += pocasi;
+    if (skore >= 0.7){ haNej += ha; }
+    if (skore > nejlepsi) nejlepsi = skore;
+    kusy.push({f, druh, vyska, ha, skore, okraj, pocasi});
+  }
+  kusy.sort((x, y) => x.skore - y.skore);          // nejlepší nahoru, ať nejsou překryté
+
+  /* Pět vrstev podle stupně, ne šest set jednotlivých. V Houštce je
+     porostů skoro šest set – kdyby každý byl vlastní vrstva Leafletu,
+     telefon by se u toho zadrhl. */
+  rustVrstva.clearLayers();
+  const podleStupne = [[], [], [], [], []];
+  for (const k of kusy){
+    const st = Math.max(0, Math.min(4, Math.round(k.skore * 5 - 0.5)));
+    k.f.properties = Object.assign({}, k.f.properties, {
+      _st: st, _skore: k.skore, _ha: k.ha, _okraj: k.okraj, _pocasi: k.pocasi
+    });
+    podleStupne[st].push(k.f);
+  }
+  const jmenoHouby = FILTR.druh === 'bedly' ? 'bedly'
+                   : FILTR.druh === 'hriby' ? 'hřiby a klouzky' : 'to, co je ve filtru';
+  podleStupne.forEach((prvky, st) => {
+    if (!prvky.length) return;
+    const c = BARVY_RUSTU[st];
+    const barva = 'rgb(' + c.join(',') + ')';
+    L.geoJSON({type: 'FeatureCollection', features: prvky}, {
+      style: {
+        color: barva, weight: st >= 3 ? 3 : 1.2, opacity: st >= 3 ? 0.95 : 0.5,
+        fillColor: barva, fillOpacity: st >= 3 ? 0.45 : 0.26
+      },
+      onEachFeature: (ft, vrstva) => {
+        const a = ft.properties || {};
+        const druh = a.druh_p || 'bez určení', vyska = a.vyska_p || 'bez určení';
+        vrstva.bindPopup(
+          '<div class="pop"><h3>' + (a._st >= 3 ? 'Tady stojí za to hledat' : 'Spíš ne') + '</h3>' +
+          '<div class="sub">' + druh + ' porost, ' + vyska + '</div>' +
+          '<table>' +
+          '<tr><td>Co tu bývá</td><td>' + ((CO_TAM_ROSTE[druh] || {})[vyska] || 'podle porostu') + '</td></tr>' +
+          '<tr><td>Hodnocení</td><td><b>' + Math.round(a._skore*100) + ' %</b> pro ' + jmenoHouby + '</td></tr>' +
+          '<tr><td>Plocha</td><td>' + (a._ha < 10 ? a._ha.toFixed(1) : Math.round(a._ha)) + ' ha' +
+            (a._okraj > 0.6 ? ' – skoro celé okraj' : '') + '</td></tr>' +
+          '<tr><td>Počasí tady</td><td>' + Math.round(a._pocasi*100) + ' %</td></tr>' +
+          '</table>' +
+          '<div class="sub">Druh a výška porostu jsou z map ČÚZK, zbytek je houbařská ' +
+          'zkušenost – ne měření z tohohle lesa. Zapiš nález nebo prázdnou vycházku ' +
+          'a příště to bude vědět líp.</div></div>', POPOPT);
+      }
+    }).addTo(rustVrstva);
+  });
+  return {celyKlic, pocet: kusy.length, haCelkem, haNej, nejlepsi,
+          pocasi: kusy.length ? pocasiSoucet / kusy.length : 0};
+}
+
 let rustProbiha = false, rustTimer = null, rustPokryti = null;
 const rustPocasiCache = new Map();
 
@@ -3274,6 +3487,31 @@ async function prekresliRust(){
   if (rustPokryti && rustPokryti.zoom === map.getZoom() &&
       rustPokryti.druh === FILTR.druh && rustPokryti.meze.contains(b)) return;
 
+  /* Přiblíženo na les: kreslí se jednotlivé porosty, ne barevná plocha.
+     Tohle je odpověď na „kde v tomhle lese", kterou barva podle počasí
+     dát nemohla – ta byla v celém výřezu skoro stejná. */
+  if (map.getZoom() >= SBER_MIN_Z){
+    rustProbiha = true;
+    zpravaRustu('Hledám porosty, které sedí…');
+    try {
+      const v = await kresliSber(b);
+      if (!v.pocet){
+        rustPokryti = null;
+        zpravaRustu('<b>Ve výřezu nemám žádný evidovaný porost.</b> ' +
+                    'Zkus se posunout k lesu, nebo mapu oddal.');
+        return;
+      }
+      rustPokryti = {meze: b.pad(-0.02), zoom: map.getZoom(), druh: FILTR.druh};
+      ukazLegenduSberu(v);
+      return;
+    } catch(e){
+      rustPokryti = null;
+      if (e.name !== 'AbortError')
+        zpravaRustu('<b>Porosty se nepodařilo načíst.</b> ' + e.message + ' Zkus to za chvíli.');
+      return;
+    } finally { rustProbiha = false; }
+  }
+
   rustProbiha = true;
   zpravaRustu('Počítám, kde by teď mohly růst…');
   try {
@@ -3327,6 +3565,21 @@ async function prekresliRust(){
   }
 }
 
+function ukazLegenduSberu(v){
+  const houba = FILTR.druh === 'bedly' ? 'bedly'
+              : FILTR.druh === 'hriby' ? 'hřiby a klouzky' : 'houby z filtru';
+  const ha = (x) => x < 10 ? x.toFixed(1) : Math.round(x);
+  zpravaRustu(
+    (v.haNej >= 0.5
+      ? '<b>Sbírej v tmavých:</b> ' + ha(v.haNej) + ' ha tu sedí na <b>' + houba + '</b>'
+      : '<b>Nic tu na ' + houba + ' nesedí.</b> Nejlepší porost dává jen ' +
+        Math.round(v.nejlepsi*100) + ' %') +
+    ' · počasí dnes <b>' + Math.round(v.pocasi*100) + ' %</b>' +
+    ' <span class="skala">' + BARVY_RUSTU.map((c,i) =>
+      '<i style="background:rgb('+c.join(',')+')" title="' + (i+1) + ' z 5"></i>').join('') + '</span> ' +
+    '<small>' + v.pocet + ' porostů · silný obrys = kraj, tam choď. Klepni na porost.</small>');
+}
+
 function ukazLegenduRustu(mr, podilLesa){
   const prum = mr.hodnoty.reduce((a,b)=>a+b,0) / mr.hodnoty.length;
   const nej  = Math.max.apply(null, mr.hodnoty);
@@ -3335,12 +3588,14 @@ function ukazLegenduRustu(mr, podilLesa){
                 'co obarvit – zkus se posunout k lesu.');
     return;
   }
-  zpravaRustu('<b>Kde teď rostou</b> — barva lesa je index z počasí a sezóny. ' +
-    'V okolí průměr <b>' + Math.round(prum*100) + ' %</b>, nejlepší kout <b>' +
-    Math.round(nej*100) + ' %</b>, lesa <b>' + Math.round(podilLesa*100) + ' %</b> plochy. ' +
+  /* Audit 5: na iPhonu 390x844 zabíraly lišty i s touhle legendou 272 px,
+     tedy 32 % obrazovky – z mapy zbýval pruh 234 px. Vysvětlení patří
+     do ℹ️, nad mapu jen čísla a škála. */
+  zpravaRustu('<b>Rostou teď:</b> okolí <b>' + Math.round(prum*100) + ' %</b>, ' +
+    'nejlepší kout <b>' + Math.round(nej*100) + ' %</b> ' +
     '<span class="skala">' + BARVY_RUSTU.map((c,i) =>
       '<i style="background:rgb('+c.join(',')+')" title="' + (i+1) + ' z 5"></i>').join('') + '</span> ' +
-    '<small>mizerně → výborně. Není to jistota, je to počasí nad lesem.</small>');
+    '<small>odhad z počasí a sezóny, ne jistota</small>');
 }
 
 /* ============================================================
@@ -3817,7 +4072,11 @@ async function kamDnes(){
     /* Čísla musí říkat pravdu i ve chvíli, kdy narazíme na strop. Dřív tu
        stálo „filtry prošlo 200", což byl jen počet míst, kterým jsem stihl
        spočítat dojezd – ne kolik jich filtrům vyhovuje. */
-    let html = '<div class="kamstat">Z <b>' + vsech + '</b> míst v ČR vyhovuje filtrům <b>' + celkem + '</b>. ' +
+    const zOdkud = odkud();
+    let html = '<div class="kamstat">' +
+      (zOdkud.doma ? 'Počítám dojezd <b>z domova</b>. '
+                   : 'Počítám dojezd <b>od tvojí polohy</b> (' + fmtDist(zOdkud.km*1000) + ' od domova). ') +
+      'Z <b>' + vsech + '</b> míst v ČR vyhovuje filtrům <b>' + celkem + '</b>. ' +
       (orezano
         ? 'Dojezd jsem ověřil u <b>' + strop + '</b> nejbližších (dál nesahám), do limitu se z nich vešlo <b>' + poDojezdu + '</b>'
         : 'Do limitu dojezdu se vešlo <b>' + poDojezdu + '</b>') +
@@ -4377,6 +4636,29 @@ async function limitDlazdic(){
 /* Audit 5: cache dlaždic může narazit na kvótu prohlížeče a Safari ji pak
    umí odstřihnout celou naráz – i to, co sis pracně stáhl doma. Radši
    počítáme dopředu a řekneme to, než aby mapa jednou v lese prostě zmizela. */
+/* Audit 5: service worker umí odpovědět na dotaz „kolik-map" – kolik
+   dlaždic doopravdy má a kolik si za ně prohlížeč účtuje. Appka se ho
+   nikdy nezeptala; byl to mrtvý konec. Teď se ptá, a díky tomu umí po
+   stažení říct, kolik se jich OPRAVDU uložilo, místo aby počítala
+   dokončené požadavky. U cizích domén totiž prohlížeč nepustí ke stavu
+   odpovědi, takže 404 vypadala stejně jako uložená dlaždice. */
+function zeptejSeSW(zprava, cekat){
+  return new Promise(res => {
+    const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (!sw) return res(null);
+    const kanal = (e) => {
+      if (!e.data || e.data.typ !== zprava) return;
+      navigator.serviceWorker.removeEventListener('message', kanal);
+      clearTimeout(t); res(e.data);
+    };
+    const t = setTimeout(() => {
+      navigator.serviceWorker.removeEventListener('message', kanal); res(null);
+    }, cekat || 3000);
+    navigator.serviceWorker.addEventListener('message', kanal);
+    sw.postMessage(zprava);
+  });
+}
+
 async function odhadUloziste(){
   try {
     if (!navigator.storage || !navigator.storage.estimate) return null;
@@ -4420,6 +4702,7 @@ async function stahniVyrez(){
   banner('Stahuju ' + list.length + ' dlaždic (zabere to zhruba ' +
          fmtMB(list.length * ODHAD_NA_DLAZDICI) + ' z místa, které ti prohlížeč dává). ' +
          '<b>Udělej to na Wi-Fi doma</b>, ne v lese na datech.', false, 8000);
+  const pred = await zeptejSeSW('kolik-map');
   let done = 0, fail = 0;
   for (const u of list){
     try { await fetch(u, {mode:'no-cors', cache:'reload'}); done++; }
@@ -4428,8 +4711,17 @@ async function stahniVyrez(){
     await new Promise(r => setTimeout(r, 60));   // šetrné tempo k OSM serverům
   }
   b.innerHTML = REC.aktivni ? '<b>⏹</b>Ukončit' : '<b>⏺</b>Trasa';
-  banner(fail ? ('Uloženo ' + done + ' dlaždic, ' + fail + ' se nepovedlo (asi slabý signál).')
-              : ('Hotovo – ' + done + ' dlaždic je uložených. Tenhle výřez teď funguje i bez signálu.'), false, 8000);
+  const po2 = await zeptejSeSW('kolik-map');
+  const pribylo = (pred && po2) ? (po2.dlazdic - pred.dlazdic) : null;
+  banner(
+    pribylo !== null
+      ? (pribylo >= list.length * 0.95
+          ? 'Hotovo – <b>' + pribylo + '</b> dlaždic je uložených. Tenhle výřez teď funguje i bez signálu.'
+          : 'Uloženo <b>' + pribylo + '</b> z ' + list.length + ' dlaždic. Zbytek server nedal – ' +
+            'zkus to za chvíli znovu, doplní se jen to, co chybí.')
+      : (fail ? ('Staženo ' + done + ' dlaždic, ' + fail + ' se nepovedlo (asi slabý signál).')
+              : ('Hotovo – ' + done + ' dlaždic staženo. Tenhle výřez teď funguje i bez signálu.')),
+    false, 8000);
 
   const po = await odhadUloziste();
   if (po && po.podil > 0.8){
