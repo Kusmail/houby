@@ -248,6 +248,13 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 }
 .mistabar.show{display:flex}
 .mistabar span.t{flex:1;min-width:0}
+/* Audit 6: appka se má ovládat jednou rukou v rukavicích, ale filtrovací
+   štítky měly na výšku 26 px a tlačítka v okně 32 px. Doporučený minimální
+   cíl je 44 px – naměřeno 24 prvků pod tímhle rozměrem. */
+.fchip{min-height:44px !important; min-width:44px !important;
+  display:inline-flex !important; align-items:center; justify-content:center}
+#legendModal .ghost, #kamModal .ghost, .modal button.ghost{min-height:44px}
+.iconbtn{min-width:44px; min-height:44px}
 .mistabar button{
   flex:0 0 auto;background:var(--card);border:1px solid var(--line);border-radius:999px;
   min-height:44px;min-width:64px;padding:6px 14px;font-size:13px;font-weight:700;
@@ -2457,6 +2464,7 @@ async function nactiTypyLesaHned(){
 
   try {
     const r = await fetch(CUZK_QUERY + '?' + q.toString(), {signal: typyAbort.signal});
+    if (!r.ok) throw new Error('ČÚZK HTTP ' + r.status);
     const g = await r.json();
     if (!g || !Array.isArray(g.features)) return;
     typyKlic = klic;
@@ -2876,12 +2884,14 @@ async function najdiMista(limit){   // limit = kolik míst pošleme na router
   const strop = limit || (OSRM_DAVKA * OSRM_DAVEK);
   const vybrane = kandidati.slice(0, strop);
   await skutecneMinuty(vybrane.filter(m => !m.presnyDojezd));
-  let vysl = vybrane.filter(m => (m.minuty || 999) <= FILTR.minuty);
+  const vysl = vybrane.filter(m => (m.minuty || 999) <= FILTR.minuty);
   const poDojezdu = vysl.length;
-  if (FILTR.chranena){
-    await oznacChranena(vysl);
-    vysl = vysl.filter(m => !m.chranene);
-  }
+  /* Audit 6: tady se dřív ptalo AOPK jen na prvních čtyřicet míst, ale
+     filtrovalo se všech tři sta. Zbylým dvěma stům šedesáti zůstalo
+     „nevím" – a `!undefined` je pravda, takže prošly jako NEchráněné,
+     aniž se kdo zeptal. Appka tvrdila „mimo rezervace" o místech, která
+     neověřila. Kontrola se proto přesunula až na ta, která se opravdu
+     ukážou (viz kamDnes). */
   return {vysl, celkem: kandidati.length, vsech: vse.length + LOC.length,
           orezano: kandidati.length > strop, strop, poDojezdu,
           kroky: {naCeste: naCeste.length, poPorostu: poPorostu.length,
@@ -3247,16 +3257,37 @@ function miryPrvku(g, lat){
   return {plocha, obvod};
 }
 
+/* Audit 6: výřez se stahoval přesně na obrazovku a pokrytí se zapisovalo
+   ještě o kus menší, takže KAŽDÝ posun prstem znamenal nový dotaz –
+   naměřeno deset posunů = deset dotazů a 155 kB. Stahuje se proto
+   s přesahem a vrací se skutečně stažené meze, podle kterých se pozná,
+   že sahat na server není proč. */
+/* Kolik se stahuje za okraj obrazovky. Na zoomu 13 je výřez telefonu
+   skoro 5 × 10 km a porostů přes tři sta – tam se přesah nevyplatí.
+   Od 14 výš jich je pár desítek, takže se stáhne rovnou široké okolí
+   a posouvání pak žádný dotaz nestojí. */
+function sberOkraj(){ return map.getZoom() >= 14 ? 1.4 : 0.5; }
+const SBER_MAX_KM = 14;        // nad to je to přes dva tisíce porostů a půl mega
+
 async function nactiPorosty(b){
-  const sw = L.CRS.EPSG3857.project(b.getSouthWest());
-  const ne = L.CRS.EPSG3857.project(b.getNorthEast());
+  const stred = b.getCenter();
+  const sw0 = L.CRS.EPSG3857.project(b.getSouthWest());
+  const ne0 = L.CRS.EPSG3857.project(b.getNorthEast());
+  const ok = sberOkraj();
+  const dx = (ne0.x - sw0.x) * ok / 2, dy = (ne0.y - sw0.y) * ok / 2;
+  const sw = L.point(sw0.x - dx, sw0.y - dy), ne = L.point(ne0.x + dx, ne0.y + dy);
+  const sirkaKm = (ne.x - sw.x) * Math.cos(stred.lat * Math.PI / 180) / 1000;
+  if (sirkaKm > SBER_MAX_KM) return {prilis: true, km: Math.round(sirkaKm)};
   const K = 500;
   const bbox = [Math.floor(sw.x/K)*K, Math.floor(sw.y/K)*K,
                 Math.ceil(ne.x/K)*K,  Math.ceil(ne.y/K)*K].join(',');
   const zjed = map.getZoom() >= 15 ? 6 : 12;      // metry, přepočtou se na stupně
   const q = new URLSearchParams({
     geometry: bbox, geometryType: 'esriGeometryEnvelope', inSR: '3857', outSR: '4326',
-    spatialRel: 'esriSpatialRelIntersects', where: '1=1', outFields: 'druh_p,vyska_p',
+    spatialRel: 'esriSpatialRelIntersects', where: '1=1',
+    /* Plochu a obvod počítá server přesně – moje počítání ze zjednodušeného
+       obrysu je vždycky o kus menší. */
+    outFields: 'druh_p,vyska_p,Shape_Area,Shape_Length',
     returnGeometry: 'true', f: 'geojson', resultRecordCount: '1500',
     maxAllowableOffset: String(zjed / 111320)
   });
@@ -3268,12 +3299,17 @@ async function nactiPorosty(b){
     if (!r.ok) throw new Error('ČÚZK HTTP ' + r.status);
     const g = await r.json();
     if (!g || !Array.isArray(g.features)) throw new Error('ČÚZK nevrátil porosty');
-    return {features: g.features, klic: bbox + '|' + zjed};
+    const jz = L.CRS.EPSG3857.unproject(L.point(+bbox.split(',')[0], +bbox.split(',')[1]));
+    const sv = L.CRS.EPSG3857.unproject(L.point(+bbox.split(',')[2], +bbox.split(',')[3]));
+    return {features: g.features, klic: bbox + '|' + zjed, meze: L.latLngBounds(jz, sv),
+            strop: g.features.length >= 1500};
   } finally { clearTimeout(stop); }
 }
 
 async function kresliSber(b){
-  const {features, klic} = await nactiPorosty(b);
+  const odpoved = await nactiPorosty(b);
+  if (odpoved.prilis) return {prilis: true, km: odpoved.km};
+  const {features, klic, meze, strop} = odpoved;
   const celyKlic = klic + '|' + FILTR.druh;
   const sw = L.CRS.EPSG3857.project(b.getSouthWest());
   const ne = L.CRS.EPSG3857.project(b.getNorthEast());
@@ -3290,7 +3326,11 @@ async function kresliSber(b){
     const prvni = g.type === 'Polygon' ? g.coordinates[0] : (g.coordinates[0] || [])[0];
     if (!prvni || !prvni.length) continue;
     const lat = prvni[0][1], lng = prvni[0][0];
-    const m = miryPrvku(g, lat);
+    /* Shape_Area a Shape_Length počítá server z původního obrysu.
+       Můj výpočet ze zjednodušeného polygonu je jen záloha. */
+    const m = (a.Shape_Area > 0)
+      ? {plocha: a.Shape_Area, obvod: a.Shape_Length || 0}
+      : miryPrvku(g, lat);
     if (m.plocha < 2000) continue;                 // pod 0,2 ha nemá cenu kreslit
     const ha = m.plocha / 10000;
     /* podíl okraje: pás 25 m od hranice ku celé ploše */
@@ -3354,7 +3394,7 @@ async function kresliSber(b){
       }
     }).addTo(rustVrstva);
   });
-  return {celyKlic, pocet: kusy.length, haCelkem, haNej, nejlepsi,
+  return {celyKlic, pocet: kusy.length, haCelkem, haNej, nejlepsi, meze, strop,
           pocasi: kusy.length ? pocasiSoucet / kusy.length : 0};
 }
 
@@ -3545,13 +3585,21 @@ async function prekresliRust(){
     zpravaRustu('Hledám porosty, které sedí…');
     try {
       const v = await kresliSber(b);
+      if (v.prilis){
+        rustVrstva.clearLayers();
+        rustPokryti = null;
+        zpravaRustu('<b>Výřez je moc velký (' + v.km + ' km).</b> Porosty kreslím ' +
+                    'do ' + SBER_MAX_KM + ' km – přibliž mapu.');
+        return;
+      }
       if (!v.pocet){
         rustPokryti = null;
         zpravaRustu('<b>Ve výřezu nemám žádný evidovaný porost.</b> ' +
                     'Zkus se posunout k lesu, nebo mapu oddal.');
         return;
       }
-      rustPokryti = {meze: b.pad(-0.02), zoom: map.getZoom(), druh: FILTR.druh};
+      /* Pokrytí je to, co je opravdu stažené – ne obrazovka. */
+      rustPokryti = {meze: v.meze, zoom: map.getZoom(), druh: FILTR.druh};
       ukazLegenduSberu(v);
       return;
     } catch(e){
@@ -3714,11 +3762,6 @@ function mercXY(lat, lng){
 function mercLatLng(x, y){
   const p = L.CRS.EPSG3857.unproject(L.point(x, y));
   return [p.lat, p.lng];
-}
-function stredRingu(r){
-  let x = 0, y = 0;
-  r.forEach(b => { x += b[0]; y += b[1]; });
-  return [x / r.length, y / r.length];
 }
 function plochaRingu(r){
   let a = 0;
@@ -4057,7 +4100,20 @@ prekresliRustBrzy();
    Tohle vezme, kde jsi (nebo kam se díváš), zeptá se ČÚZK na porosty
    v okolí, vybere ten nejlepší pro houbu z filtru a skočí na něj.
    ============================================================ */
-const LES_OKOLI_M = 7000;      // v jakém okolí hledáme; víc už server neposkládá
+const LES_OKOLI_M = 15000;     // okolí, ve kterém hledáme
+
+/* Audit 6: tohle stahovalo VŠECHNY porosty v okolí (444 kB) a narazilo
+   na strop 1500 záznamů – „nejlepší porost v okolí" byl ve skutečnosti
+   nejlepší z prvních patnácti set, které server náhodně poslal.
+   Teď se ptáme rovnou na to, co hledáme: server vybere jen porosty
+   správného druhu a stáří, seřadí je od největšího a pošle čtyřicet.
+   Naměřeno: hřiby 58 kB, bedly 2,9 kB na oblasti 15 × 16 km. */
+const VYBER_SQL = {
+  bedly: "druh_p IN ('listnaté','smíšené') AND vyska_p IN ('do 2,5 m','od 2,5 m do 8 m')",
+  hriby: "druh_p IN ('jehličnaté','smíšené') AND vyska_p IN ('od 8 m do 20 m','nad 20 m')",
+  vse:   "(druh_p IN ('listnaté','smíšené') AND vyska_p IN ('do 2,5 m','od 2,5 m do 8 m'))" +
+         " OR (druh_p IN ('jehličnaté','smíšené') AND vyska_p IN ('od 8 m do 20 m','nad 20 m'))"
+};
 
 async function najdiLesTady(){
   const b = $('btnSber');
@@ -4074,11 +4130,26 @@ async function najdiLesTady(){
       new Promise(res => setTimeout(() => res(zaloha), 3000))
     ]);
     const d = LES_OKOLI_M;
-    const meze = L.latLngBounds(
-      L.latLng(stred.lat - d/111300, stred.lng - d/71300),
-      L.latLng(stred.lat + d/111300, stred.lng + d/71300));
+    const sw = L.CRS.EPSG3857.project(L.latLng(stred.lat - d/111300, stred.lng - d/71300));
+    const ne = L.CRS.EPSG3857.project(L.latLng(stred.lat + d/111300, stred.lng + d/71300));
+    const q = new URLSearchParams({
+      geometry: [sw.x, sw.y, ne.x, ne.y].join(','), geometryType: 'esriGeometryEnvelope',
+      inSR: '3857', outSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+      where: (VYBER_SQL[FILTR.druh] || VYBER_SQL.vse) + ' AND Shape_Area > 20000',
+      outFields: 'druh_p,vyska_p,Shape_Area,Shape_Length', returnGeometry: 'true',
+      maxAllowableOffset: String(30 / 111320), orderByFields: 'Shape_Area DESC',
+      resultRecordCount: '40', f: 'geojson'
+    });
+    const stopHledani = new AbortController();
+    const casovka = setTimeout(() => stopHledani.abort(), RUST_CEKANI);
+    let features;
+    try {
+      const r = await fetch(CUZK_QUERY + '?' + q.toString(), {signal: stopHledani.signal});
+      if (!r.ok) throw new Error('ČÚZK HTTP ' + r.status);
+      const g = await r.json();
+      features = (g && g.features) || [];
+    } finally { clearTimeout(casovka); }
 
-    const {features} = await nactiPorosty(meze);
     let nej = null;
     for (const f of features){
       const a = f.properties || {};
@@ -4086,17 +4157,23 @@ async function najdiLesTady(){
       if (!g) continue;
       const prvni = g.type === 'Polygon' ? g.coordinates[0] : (g.coordinates[0] || [])[0];
       if (!prvni || !prvni.length) continue;
-      const lat = prvni[0][1], lng = prvni[0][0];
-      const m = miryPrvku(g, lat);
-      if (m.plocha < 20000) continue;                 // pod 2 ha nemá cenu nikam jezdit
-      const okraj = Math.max(0, Math.min(1, m.obvod * 25 / m.plocha));
+      /* těžiště obrysu, ať se skáče doprostřed porostu, ne na jeho roh */
+      let sx = 0, sy = 0;
+      prvni.forEach(c => { sx += c[0]; sy += c[1]; });
+      const lng = sx / prvni.length, lat = sy / prvni.length;
+      /* Server plochu i obvod posílá; kdyby je někdy vynechal, spočítá
+         se z obrysu – jinak by tlačítko mlčky nenašlo nic. */
+      let plocha = a.Shape_Area || 0, obvod = a.Shape_Length || 0;
+      if (!plocha){ const mm = miryPrvku(g, lat); plocha = mm.plocha; obvod = mm.obvod; }
+      if (plocha < 20000) continue;                 // pod 2 ha nemá cenu nikam jezdit
+      const okraj = Math.max(0, Math.min(1, obvod * 25 / plocha));
       const skore = vhodnostPorostu(a.druh_p || 'bez určení', a.vyska_p || 'bez určení') *
                     (0.85 + 0.3 * okraj);
       /* Blízko má přednost před o chlup lepším porostem na druhém konci okresu. */
       const km = distM([stred.lat, stred.lng], [lat, lng]) / 1000;
-      const vaha = skore * (1 - Math.min(0.45, km / 20));
+      const vaha = skore * (1 - Math.min(0.5, km / 30));
       if (!nej || vaha > nej.vaha)
-        nej = {vaha, skore, lat, lng, ha: m.plocha/10000,
+        nej = {vaha, skore, lat, lng, ha: plocha/10000,
                druh: a.druh_p || 'bez určení', vyska: a.vyska_p || 'bez určení', km};
     }
 
@@ -4185,8 +4262,25 @@ async function kamDnes(){
       if (!m.overene && top.some(z => !z.overene && distM([m.lat,m.lng],[z.lat,z.lng]) < 600)) continue;
       top.push(m);
     }
-    const pocasi = await nactiPocasiPro(top);
-    const sPocasim = top.map((m, i) => ({m, den: pocasi[i] && pocasi[i].daily})).filter(z => z.den);
+    /* Rezervace se ověřují až tady, na tom, co se ukáže – a filtruje se
+       jen podle skutečné odpovědi AOPK, ne podle „nevím". */
+    let doZobrazeni = top;
+    let rezervaciSkryto = 0;
+    if (FILTR.chranena){
+      await oznacChranena(top);
+      doZobrazeni = top.filter(m => !m.chranene);
+      rezervaciSkryto = top.length - doZobrazeni.length;
+    }
+    if (!doZobrazeni.length){
+      $('kamObsah').innerHTML = '<div class="kamsucho"><b>Všechna nejlepší místa leží ' +
+        'v rezervaci.</b> V nastavení máš „vynechat rezervace" – přepni na „je mi to jedno", ' +
+        'nebo zkus delší dojezd.</div>' + filtryHTML();
+      $('kamModal').classList.add('show');
+      pripojFiltry();
+      return;
+    }
+    const pocasi = await nactiPocasiPro(doZobrazeni);
+    const sPocasim = doZobrazeni.map((m, i) => ({m, den: pocasi[i] && pocasi[i].daily})).filter(z => z.den);
     if (!sPocasim.length) throw new Error('počasí se nevrátilo ani pro jedno místo');
     const poradi = sPocasim.map(z => skoreMista(z.m, z.den)).sort((a,b) => b.sance - a.sance);
     const nej = poradi[0];
@@ -4204,7 +4298,8 @@ async function kamDnes(){
       (orezano
         ? 'Dojezd jsem ověřil u <b>' + strop + '</b> nejbližších (dál nesahám), do limitu se z nich vešlo <b>' + poDojezdu + '</b>'
         : 'Do limitu dojezdu se vešlo <b>' + poDojezdu + '</b>') +
-      ', počasí jsem spočítal pro <b>' + top.length + '</b> nejlepších.</div>';
+      ', počasí jsem spočítal pro <b>' + doZobrazeni.length + '</b> nejlepších' +
+      (rezervaciSkryto ? ' (rezervace skryly ' + rezervaciSkryto + ')' : '') + '.</div>';
     if (sucho){
       html += '<div class="kamsucho"><b>Dnes nikam.</b> Ani na nejlepším z našich míst nejsou podmínky ' +
               'na to, aby houby rostly. Nebudu ti vymýšlet doporučení, které by nesedělo.<br><br>' +
