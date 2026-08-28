@@ -9,6 +9,8 @@ Otevírá se v prohlížeči, přidá se na plochu telefonu jako ikona. Žádný
 
 | Funkce | Jak to funguje |
 |---|---|
+| **Doporučení „Kam dnes na houby"** | ✅ Podle srážek posledních 21 dní, se signálem |
+| **Oblíbená místa** | ✅ Sdílená v rodině, vstupují do doporučování |
 | Mapa 16 houbařských lokalit | ✅ Vždy, i bez signálu (pokud sis oblast stáhla) |
 | **Lesy celé ČR podle typu porostu** | ✅ Oficiální data ČÚZK, se signálem |
 | **Chráněná území** | ✅ Oficiální data AOPK, se signálem |
@@ -225,6 +227,20 @@ Poloha se sdílí **jen když je přepínač *Sdílím polohu* zapnutý**. Po za
 - **Smazat jednu trasu** jde v ℹ️ v seznamu pod přepínačem „Kde jsme už hledali", křížkem u řádku. Sdílená trasa se smaže i ostatním.
 
 ---
+
+## Kam dnes na houby
+
+Velké zelené tlačítko nahoře v panelu. Appka stáhne srážky za posledních 21 dní a předpověď na týden pro všech 16 lokalit, spočítá šanci a ukáže tři nejlepší.
+
+**Jak to počítá.** Houby nerostou z mapy, ale z deště. Podhoubí potřebuje vodu a pak zhruba týden až dva, než vyleze plodnice. Proto se počítá hlavně s deštěm **z okna před 6 až 18 dny**, s vrcholem kolem 10–14 dnů. Déšť z posledních dnů má menší váhu — udrží, co roste, ale sám nic nevykouzlí. Do výsledku dál vstupuje roční doba, typ porostu podle ZABAGED (bedly jinam než hřiby), vaše vlastní nálezy v té ploše, dojezd z Mratína a to, jestli je místo mezi oblíbenými.
+
+U každého doporučení je napsané, **z čeho je spočítané**: kolik mm napršelo, kdy byl poslední vydatný déšť, jaký je porost, kolik tam máte nálezů.
+
+> ⚠️ **Není to jistota, je to počasí a statistika.** Do lesa appka nevidí. Když jsou podmínky mizerné, řekne rovnou „dnes nikam" a poradí, kdy to zkusit — místo aby vymýšlela doporučení, které nesedí.
+
+## Oblíbená místa
+
+Hvězdička je v bublině každé lokality a v kartách doporučení. Vlastní místo přidáš v ℹ️ tlačítkem **Přidat oblíbené místo doprostřed mapy**. Oblíbená místa se ukládají k tvému uživateli v databázi, takže je vidí celá rodina a máš je i na druhém telefonu. Do doporučování se počítají.
 
 ## Lesy celé ČR
 

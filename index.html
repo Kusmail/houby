@@ -155,6 +155,22 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
    prstem po něm nikdo nechce koukat. */
 :focus-visible{outline:3px solid #2e5c3a;outline-offset:2px;border-radius:10px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.bigbtn.kam{background:#2e5c3a;margin-bottom:8px}
+.bigbtn.kam:disabled{opacity:.6}
+.kamlok{border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:10px;background:#fbfaf7}
+.kamlok.prvni{border-color:var(--green);border-width:2px;background:#f2f7f2}
+.kamlok .hl{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13.5px;margin-bottom:2px}
+.kamlok .sance{color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;flex:none}
+.kamlok .sub{font-size:11.5px;color:var(--muted);margin-bottom:7px}
+.kamlok table{width:100%;font-size:11.5px;border-collapse:collapse}
+.kamlok td{padding:3px 0;vertical-align:top;color:var(--muted)}
+.kamlok td:last-child{text-align:right;color:var(--ink)}
+.kamlok .akce{display:flex;gap:6px;margin-top:9px}
+.mbox .kamlok .akce button{width:auto;flex:1;padding:9px 6px;font-size:12px;margin:0}
+.kamsucho{background:#fdf3e3;border-left:3px solid #d99327;padding:11px 12px;border-radius:9px;
+  font-size:12.5px;line-height:1.5;margin-bottom:12px}
+#kamObsah .pozn{font-size:11.5px;color:var(--muted);line-height:1.45;margin:2px 0 12px}
+.pin.oblibene{background:#c9a227;color:#fff;border-color:#fff}
 .bigbtn.prepsat{background:#d99327;font-size:13.5px;line-height:1.35}
 .carnav .x.ptam{background:#d99327;color:#fff}
 .fotobtn{display:block;text-align:center;padding:13px;border:1.5px dashed var(--line);border-radius:11px;
@@ -166,6 +182,10 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .pop .nalezfoto{width:100%;border-radius:8px;margin:6px 0;display:block}
 .pop .fotocek{padding:14px;text-align:center;font-size:11.5px;color:var(--muted);
   background:#f4f2ed;border-radius:8px;margin:6px 0}
+#map .pop .oblTlac{width:100%;margin-top:8px;padding:9px;border-radius:9px;border:none;
+  background:#f3efe4;color:#7a5c12;font-size:12.5px;font-weight:650;cursor:pointer}
+#map .pop .smazOblibene{width:100%;margin-top:8px;padding:9px;border-radius:9px;border:none;
+  background:#efe7e2;color:#8a3b1c;font-size:12.5px;font-weight:650;cursor:pointer}
 #map .pop .smazNalez{width:100%;margin-top:8px;padding:9px;border-radius:9px;border:none;
   background:#efe7e2;color:#8a3b1c;font-size:12.5px;font-weight:650;cursor:pointer}
 .mbox .pozn{font-size:11.5px;color:var(--muted);margin:0 0 12px;line-height:1.45}
@@ -286,6 +306,8 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
  <div class="sheet-head">
   <div class="grab" id="grab" role="button" tabindex="0" aria-label="Vytáhnout nebo zatáhnout spodní panel"></div>
 
+  <button class="bigbtn kam" id="btnKam">🍄 &nbsp;Kam dnes na houby?</button>
+
   <button class="bigbtn" id="btnPark">🚗 &nbsp;Zaparkoval jsem tady</button>
 
   <div class="carnav" id="carNav" style="display:none" role="group" aria-label="Navigace k autu">
@@ -354,6 +376,14 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
   </div>
 </div>
 
+<div class="modal" role="dialog" aria-modal="true" id="kamModal">
+  <div class="mbox">
+    <h2>Kam dnes na houby</h2>
+    <div id="kamObsah"></div>
+    <button class="ghost" id="kamClose">Zavřít</button>
+  </div>
+</div>
+
 <div class="modal" role="dialog" aria-modal="true" id="trackModal">
   <div class="mbox">
     <h2>Trasa zaznamenaná</h2>
@@ -389,73 +419,73 @@ const HOME = [50.1985, 14.5735];
 const LOC = [
 /* ---------- VARIANTA 1 ---------- */
 {
- v:1, rank:1, name:"Ctěnický háj + louky Vinoř/Podolanka", park:[50.1512,14.5760],
+ v:1, rank:1, name:"Ctěnický háj + louky Vinoř/Podolanka", porostData:{jehl:10,list:28,neurc:62,ploch:29}, park:[50.14519,14.58161],
  dist:"8 km · 12 min", druh:"<b>Bedla vysoká</b>, žampion, hřib dubový (vzácně)",
  porost:"Dubohabřina 80–120 let na spraši + sečené louky, 240–260 m n.m.",
  kde:"Ne v hloubi háje. Bedly v trávě na pásu luk jižně a východně od háje a na travnatém průseku podél severní hranice.",
  sezona:"Bedly konec VIII – konec X, vrchol 2. pol. září",
  trasa:"Okruh po obvodu háje a luk, 3,5–4 km",
- park_ok:"ok", park_txt:"Oficiální bezplatné parkoviště u zámku Ctěnice.",
+ park_ok:"ok", park_txt:"Evidované parkoviště podle ZABAGED (ČÚZK). 47 m od komunikace, 35 m od plochy, kde hledat. Oproti dřívějšku posunuto o 778 m: původní bod byl 130 m od komunikace a 680 m od plochy.",
  konk:"Střední – lidi tu chodí na procházku, ale bedly v trávě minou",
  poly:[[50.1560,14.5700],[50.1575,14.5830],[50.1500,14.5880],[50.1450,14.5820],[50.1462,14.5705]],
  route:[[50.1512,14.5760],[50.1548,14.5735],[50.1565,14.5820],[50.1495,14.5862],[50.1458,14.5800],[50.1470,14.5722],[50.1512,14.5760]]
 },
 {
- v:1, rank:2, name:"Meze a remízky Sluhy–Bášť–Předboj", park:[50.2118,14.5455],
+ v:1, rank:2, name:"Meze a remízky Sluhy–Bášť–Předboj", porostData:{jehl:16,list:74,neurc:10,ploch:31}, park:[50.20282,14.55002],
  dist:"5 km · 8 min", druh:"<b>Bedla vysoká</b>, bedla červenající, žampion polní",
  porost:"Není les. Akátové a jasanové remízky, meze, staré sady, spraš, 230–250 m n.m.",
  kde:"Travnaté pásy na jižní a jihozápadní straně remízků, okraje starých sadů, neposečené meze. Bedly jsou 2–10 m od dřevin, ne v houští.",
  sezona:"Září–říjen, po prvních chladných nocích",
  trasa:"Pěší okruh po polních cestách Sluhy → Bášť, 4–5 km",
- park_ok:"warn", park_txt:"Není oficiální parkoviště. Odstav na kraji polní cesty, nech průjezd technice. Nevjíždět na pole.",
+ park_ok:"ok", park_txt:"Evidované parkoviště podle ZABAGED (ČÚZK). 38 m od komunikace, 145 m od plochy, kde hledat. Oproti dřívějšku posunuto o 1049 m: původní bod byl 336 m od komunikace a 680 m od plochy.",
  konk:"<b>Nízká</b> – nevypadá to jako les, tak sem nikdo nejezdí",
  poly:[[50.2160,14.5380],[50.2185,14.5560],[50.2075,14.5610],[50.2030,14.5480],[50.2090,14.5370]],
  route:[[50.2118,14.5455],[50.2160,14.5405],[50.2178,14.5540],[50.2085,14.5588],[50.2042,14.5490],[50.2098,14.5392],[50.2118,14.5455]]
 },
 {
- v:1, rank:3, name:"Houštka, Stará Boleslav", park:[50.1962,14.6845],
+ v:1, rank:3, name:"Houštka, Stará Boleslav", porostData:{jehl:34,list:44,neurc:22,ploch:134}, park:[50.19671,14.67597],
  dist:"10 km · 14 min", druh:"Klouzek obecný, masák, hřib hnědý, kozák, bedla na okrajích",
  porost:"Borovice lesní na labských navátých píscích, mozaika 30–100 let, 175–190 m n.m.",
  kde:"Mladší borové kultury 20–50 let severně a severovýchodně od areálu. Křemenáč a kozák pod břízami u průseků. Lemy cest a mechové plotny, ne hustý stín.",
  sezona:"Klouzci VIII–XI, snesou sucho lépe než hřiby",
  trasa:"Okruh severně od areálu po lesních cestách, 5–6 km",
- park_ok:"ok", park_txt:"Velké oficiální parkoviště u sportovního areálu Houštka. Alternativa: Proboštská jezera.",
+ park_ok:"ok", park_txt:"Evidované parkoviště podle ZABAGED (ČÚZK). 5 m od komunikace, 255 m od plochy, kde hledat. Oproti dřívějšku posunuto o 609 m: původní bod byl 9 m od komunikace a 260 m od plochy.",
  konk:"<b>Vysoká</b> – městský les Brandýsa, chodí sem lidi denně. Musíš být brzo ráno.",
  poly:[[50.1990,14.6760],[50.2085,14.6790],[50.2100,14.6990],[50.1985,14.7010],[50.1945,14.6870]],
  route:[[50.1962,14.6845],[50.2010,14.6800],[50.2075,14.6835],[50.2090,14.6960],[50.1995,14.6985],[50.1958,14.6880],[50.1962,14.6845]]
 },
 {
- v:1, rank:4, name:"Borové písčiny Dřísy–Ovčáry–Konětopy", park:[50.2288,14.7060],
+ v:1, rank:4, name:"Borové písčiny Dřísy–Ovčáry–Konětopy", porostData:{jehl:47,list:39,neurc:14,ploch:797}, park:[50.24121,14.70404],
  dist:"17 km · 22 min", druh:"Klouzek, masák, křemenáč březový, kozák, bedla na průsecích",
  porost:"Rozsáhlé borové monokultury na navátých píscích, ostrůvky břízy a dubu, 170–185 m n.m.",
  kde:"Systematicky mladší borové kultury 15–40 let (nižší, hustší, mechové patro). Křemenáč a kozák pod břízami u odvodňovacích příkopů. Bedly na průsecích pod vedením VN. Vyhni se starým borům bez podrostu.",
  sezona:"Srpen–říjen",
  trasa:"Okruh po lesních cestách severně od Dřís, 6–8 km, rovina",
- park_ok:"warn", park_txt:"Odstavná plocha na kraji lesní cesty, ne oficiální parkoviště. Za značkou zákaz vjezdu – auto nech před ní.",
+ park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 246 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 1387 m: původní bod byl 435 m od komunikace a 605 m od plochy.",
  konk:"<b>Nízká až střední</b> – nejlepší poměr výnos/konkurence do 20 km",
  poly:[[50.2320,14.6960],[50.2430,14.7020],[50.2440,14.7290],[50.2290,14.7330],[50.2240,14.7100]],
  route:[[50.2288,14.7060],[50.2350,14.6995],[50.2422,14.7060],[50.2428,14.7255],[50.2300,14.7300],[50.2255,14.7120],[50.2288,14.7060]]
 },
 {
- v:1, rank:5, name:"Klecanský háj a Drasty", park:[50.1745,14.4110],
+ v:1, rank:5, name:"Klecanský háj a Drasty", porostData:{jehl:26,list:66,neurc:7,ploch:97}, park:[50.18371,14.42329],
  dist:"13 km · 18 min", druh:"Hřib dubový, hřib kovář, kozák, bedla na okrajích",
  porost:"Dubohabřina a suťový les na svazích k Vltavě, 70–120 let, hlinitá půda, 180–280 m n.m., severní expozice",
  kde:"Severní a severovýchodní svahy k Vltavě – drží vlhkost nejdéle. Hřib dubový pod starými duby na hřebenové plošině. Bedly na travnatých pláccích směrem k Drastům.",
  sezona:"VII–IX hřiby, IX–X bedly",
  trasa:"Okruh po svazích a zpět po hřebeni, 4–5 km, kopcovitější",
- park_ok:"ok", park_txt:"Parkování v obci Klecany u vstupu do háje, legální.",
+ park_ok:"ok", park_txt:"Evidované parkoviště podle ZABAGED (ČÚZK). 6 m od komunikace, 385 m od plochy, kde hledat. Oproti dřívějšku posunuto o 1347 m: původní bod byl 126 m od komunikace a 571 m od plochy.",
  konk:"Střední. <b>Záložka pro suchá období</b> – severní svah drží vlhko déle než rovná písčina.",
  poly:[[50.1790,14.4030],[50.1830,14.4180],[50.1760,14.4265],[50.1700,14.4180],[50.1715,14.4045]],
  route:[[50.1745,14.4110],[50.1795,14.4060],[50.1822,14.4165],[50.1755,14.4245],[50.1706,14.4165],[50.1722,14.4058],[50.1745,14.4110]]
 },
 {
- v:1, rank:6, name:"Vidrholec – severní část Klánovického lesa", park:[50.1170,14.6640],
+ v:1, rank:6, name:"Vidrholec – severní část Klánovického lesa", porostData:{jehl:12,list:20,neurc:67,ploch:12}, park:[50.10253,14.66571],
  dist:"18 km · 25 min", druh:"Klouzek, kozák březový, hřib hnědý, bedla",
  porost:"Borovice a dub na píscích a štěrkopíscích, příměs břízy a smrku, 230–280 m n.m.",
  kde:"Severní část u Jiren a Šestajovic – nejdál od pražských nástupů, tedy nejmíň vyčesaná. Bedly na loukách u Blatova a na širokých průsecích.",
  sezona:"Srpen–říjen",
  trasa:"Okruh severní částí, 6–7 km",
- park_ok:"warn", park_txt:"Parkování na kraji komunikace. Alternativa: parkoviště u nádraží Klánovice (50.0945, 14.6690), ale o 4 km dál.",
+ park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 73 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 1614 m: původní bod byl 182 m od komunikace a 747 m od plochy.",
  konk:"<b>Velmi vysoká</b> – nejvytíženější les u Prahy, v dosahu MHD. Jen všední den brzo ráno.",
  poly:[[50.1190,14.6540],[50.1210,14.6790],[50.1080,14.6840],[50.1030,14.6650],[50.1105,14.6520]],
  route:[[50.1170,14.6640],[50.1198,14.6570],[50.1203,14.6760],[50.1090,14.6820],[50.1040,14.6660],[50.1112,14.6545],[50.1170,14.6640]]
@@ -463,13 +493,13 @@ const LOC = [
 
 /* ---------- VARIANTA 2 ---------- */
 {
- v:2, rank:1, name:"Kokořínsko – Kokořínský důl / Mšeno", park:[50.4390,14.6350],
+ v:2, rank:1, name:"Kokořínsko – Kokořínský důl / Mšeno", porostData:{jehl:46,list:40,neurc:13,ploch:2000}, park:[50.41949,14.65883],
  dist:"48 km · 55 min", druh:"Hřib hnědý (1,3× nad průměrem ČR), hřib smrkový, křemenáč, klouzek, bedla",
  porost:"Borové lesy na pískovcových plošinách + buk a dub v roklích. Silně kyselé písčité půdy na kvádrových pískovcích, 200–350 m n.m.",
  kde:"Dvě různá stanoviště, nemíchat: <b>plošiny nad roklemi</b> (bor na písku) = klouzek, masák, hřib hnědý; <b>svahy a dna roklí, severní expozice</b> (buk, dub) = hřib dubový, křemenáč, funguje i v suchu. Bedly na travnatých plošinách u Mšena, Vojtěchova a Nosálova.",
  sezona:"Vrchol červenec, sekundárně srpen–září",
  trasa:"Okruh z Mšena k Pokličkám a zpět 8–10 km, nebo kratší okruh dolem 5 km",
- park_ok:"ok", park_txt:"Mšeno u koupaliště – oficiální, placené v sezóně. Druhé parkoviště: Kokořínský důl 50.4270, 14.5750 – rychle se plní, jeď před 8:00.",
+ park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 232 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 2749 m: původní bod byl 54 m od komunikace a 2168 m od plochy.",
  konk:"Střední. Kokořínský důl je turisticky přetížený, ale 1 km od hlavní trasy jsi sám.",
  top:"Mykoindex 89/100 – jediná oblast do 100 km s výbornými podmínkami k 28. 8. 2026",
  warn:"CHKO Kokořínsko–Máchův kraj. Sběr pro vlastní potřebu povolen, ale ne v I. zónách a NPR. Hranice zón jsou členité a v terénu neznačené – ověř na portálu AOPK.",
@@ -477,51 +507,51 @@ const LOC = [
  route:[[50.4390,14.6350],[50.4480,14.6180],[50.4470,14.5820],[50.4290,14.5760],[50.4250,14.6100],[50.4310,14.6400],[50.4390,14.6350]]
 },
 {
- v:2, rank:2, name:"Hradčany – Ralsko (bývalý VVP)", park:[50.6180,14.7580],
+ v:2, rank:2, name:"Hradčany – Ralsko (bývalý VVP)", porostData:{jehl:58,list:22,neurc:20,ploch:2000}, park:[50.63447,14.78675],
  dist:"85 km · 1:15", druh:"Klouzek obecný, masák, křemenáč osikový a březový, kozák, hřib hnědý, bedla",
  porost:"Rozsáhlé borové porosty na mocných navátých píscích, věková mozaika po vojenském hospodaření, ostrůvky břízy a osiky, 260–300 m n.m.",
  kde:"Borové kultury 20–50 let severně a východně od letištní plochy. Křemenáč osikový v osikových nárostech na okrajích bývalých cvičných ploch – těch je tu hodně. Bedly na travnatých plochách bývalého letiště a v jeho lemech.",
  sezona:"Srpen–říjen",
  trasa:"Okruh od letiště k Hradčanským rybníkům a zpět, 7–9 km, rovinaté",
- park_ok:"ok", park_txt:"Odstavné plochy u bývalého letiště, běžně používané. Nevjíždět na plochy se zákazovými značkami.",
+ park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 237 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 2732 m: původní bod byl 495 m od komunikace a 2101 m od plochy.",
  konk:"<b>Nejnižší z celé Varianty 2</b> – daleko od měst, obrovská plocha",
  warn:"Zbytková munice z vojenského období – držet se cest a otevřených ploch, nerozhrabávat zem. Část území v CHKO, u Břehyně je NPR se zákazem vstupu mimo cesty.",
  poly:[[50.6300,14.7350],[50.6350,14.7900],[50.6060,14.8000],[50.5980,14.7500],[50.6150,14.7280]],
  route:[[50.6180,14.7580],[50.6280,14.7450],[50.6320,14.7820],[50.6090,14.7950],[50.6010,14.7560],[50.6165,14.7330],[50.6180,14.7580]]
 },
 {
- v:2, rank:3, name:"Klokočka a Vrchbělá, Bělá pod Bezdězem", park:[50.4980,14.8420],
+ v:2, rank:3, name:"Klokočka a Vrchbělá, Bělá pod Bezdězem", porostData:{jehl:62,list:21,neurc:17,ploch:639}, park:[50.49509,14.82357],
  dist:"62 km · 55 min", druh:"Klouzek, masák, křemenáč březový, hřib hnědý",
  porost:"Borové porosty na kyselých píscích, prameniště a podmáčené partie, 250–300 m n.m.",
  kde:"Borové kultury východně od Klokočky. Okolí pramene a podmáčené partie drží vlhkost – tam hledej i v suchu. Křemenáče v březových skupinách.",
  sezona:"Srpen–říjen",
  trasa:"Okruh Klokočka – Vrchbělá, 6–8 km",
- park_ok:"ok", park_txt:"Odstavná plocha u kaple sv. Stapina při silnici, běžně používaná.",
+ park_ok:"ok", park_txt:"Evidované parkoviště podle ZABAGED (ČÚZK). 57 m od komunikace, 322 m od plochy, kde hledat. Oproti dřívějšku posunuto o 1343 m: původní bod byl 597 m od komunikace a 1067 m od plochy.",
  konk:"Střední. Prameniště funguje jako vlhkostní refugium – když je Polabí spálené, tady ještě naskočí.",
  warn:"PP Klokočka – v okolí pramene se drž cest.",
  poly:[[50.5060,14.8300],[50.5090,14.8620],[50.4900,14.8680],[50.4870,14.8380],[50.4970,14.8270]],
  route:[[50.4980,14.8420],[50.5050,14.8330],[50.5075,14.8580],[50.4915,14.8640],[50.4880,14.8400],[50.4980,14.8420]]
 },
 {
- v:2, rank:4, name:"Kersko – Bory (přírodní park)", park:[50.1445,14.9130],
+ v:2, rank:4, name:"Kersko – Bory (přírodní park)", porostData:{jehl:38,list:42,neurc:21,ploch:1507}, park:[50.13797,14.89396],
  dist:"32 km · 35 min", druh:"Hřib hnědý, hřib dubový, klouzek, bedla",
  porost:"Borové a smíšené porosty na labských terasových píscích, dub a bříza, 180–200 m n.m.",
  kde:"Bory mimo chatovou osadu – jižně a východně směrem k Semicím a Hradištku. Kolem chat je vysbíráno. Bedly na travnatých okrajích osady a na průsecích, hřiby v dubových partiích.",
  sezona:"Červenec–říjen",
  trasa:"Okruh od okraje osady do borů a zpět, 5–7 km, rovina",
- park_ok:"warn", park_txt:"Chatová osada, úzké lesní uličky. Neblokuj vjezdy k chatám – místní jsou na to citliví. Zaparkuj na okraji osady a jdi pěšky.",
+ park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 74 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 1539 m: původní bod byl 424 m od komunikace a 1110 m od plochy.",
  konk:"Vysoká u chat, <b>nízká 1,5 km dál</b>. Turisti do borů nechodí.",
  poly:[[50.1500,14.9000],[50.1520,14.9400],[50.1280,14.9480],[50.1230,14.9080],[50.1380,14.8950]],
  route:[[50.1445,14.9130],[50.1495,14.9060],[50.1508,14.9350],[50.1300,14.9430],[50.1250,14.9110],[50.1390,14.8985],[50.1445,14.9130]]
 },
 {
- v:2, rank:5, name:"Milovice – Mladá (bývalý VVP)", park:[50.2530,14.9080],
+ v:2, rank:5, name:"Milovice – Mladá (bývalý VVP)", porostData:{jehl:35,list:52,neurc:12,ploch:1107}, park:[50.24289,14.93865],
  dist:"35 km · 40 min", druh:"<b>Bedla vysoká (hojně)</b>, bedla červenající, žampiony",
  porost:"Není les. Rozsáhlé travnaté plochy bývalého vojenského cvičiště s roztroušenými dřevinami, písčité a hlinitopísčité půdy, 190–230 m n.m.",
  kde:"Travnaté plochy s roztroušenými keři, okraje bývalých cest a betonových ploch. Bedly rostou v otevřené trávě, často ve skupinách a v kruzích. Hledej z dálky – bílý klobouk poznáš na 50 m.",
  sezona:"<b>Září–říjen</b>, vrchol po prvních chladných nocích",
  trasa:"Volný okruh po travnatých plochách a cestách, 5–8 km, rovina – dobré i s malým dítětem",
- park_ok:"warn", park_txt:"Parkování na kraji zpevněné komunikace u Benátecké Vrutice. Nevjíždět do areálu.",
+ park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 238 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 2452 m: původní bod byl 79 m od komunikace a 1624 m od plochy.",
  konk:"Nízká na bedly – lidi sem jezdí koukat na koně, ne sbírat",
  top:"Nejlepší plocha na bedlu vysokou v celé Variantě 2",
  warn:"Dvě věci: (1) rezervace s pastvou velkých kopytníků – <b>do oplocenek nevstupovat</b>, rozsah se mění, ověř před cestou; (2) zbytková munice – držet se cest a otevřených ploch.",
@@ -529,65 +559,65 @@ const LOC = [
  route:[[50.2530,14.9080],[50.2610,14.8960],[50.2640,14.9300],[50.2450,14.9380],[50.2395,14.9040],[50.2510,14.8880],[50.2530,14.9080]]
 },
 {
- v:2, rank:6, name:"Doksy / Staré Splavy – Máchův kraj", park:[50.5900,14.6420],
+ v:2, rank:6, name:"Doksy / Staré Splavy – Máchův kraj", porostData:{jehl:54,list:31,neurc:15,ploch:1330}, park:[50.5894,14.61674],
  dist:"80 km · 1:10", druh:"Hřib hnědý, klouzek, křemenáč",
  porost:"Borové písčiny kolem Máchova jezera, 260–300 m n.m.",
  kde:"Mimo turistické trasy, severně od Starých Splavů. Kolem jezera je v sezóně beznadějně vyšlapáno.",
  sezona:"Srpen–říjen",
  trasa:"Okruh severně od Starých Splavů, 6–8 km",
- park_ok:"ok", park_txt:"Placená parkoviště v Doksech a Starých Splavech, v létě přeplněná.",
+ park_ok:"warn", park_txt:"Kraj komunikace – poloha ověřená proti ZABAGED (ČÚZK), 198 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 1784 m: původní bod byl 418 m od komunikace a 1772 m od plochy.",
  konk:"<b>Vysoká v sezóně</b> – rekreační oblast",
  warn:"NPR Břehyně-Pecopala – zákaz vstupu mimo značené cesty. CHKO Kokořínsko–Máchův kraj: mimo I. zóny a NPR je sběr povolen.",
  poly:[[50.6000,14.6200],[50.6030,14.6700],[50.5800,14.6780],[50.5760,14.6300],[50.5880,14.6150]],
  route:[[50.5900,14.6420],[50.5985,14.6280],[50.6015,14.6620],[50.5820,14.6720],[50.5775,14.6350],[50.5900,14.6420]]
 },
 {
- v:2, rank:7, name:"Křivoklátsko – Křivoklát / Lány", park:[50.0380,13.8720],
+ v:2, rank:7, name:"Křivoklátsko – Křivoklát / Lány", porostData:{jehl:26,list:64,neurc:10,ploch:1944}, park:[50.02021,13.85997],
  dist:"70 km · 1:05", druh:"Hřib dubový, hřib kovář, kozák",
  porost:"Dubohabřiny a bučiny na hlinitých půdách, svahy nad Berounkou, 250–450 m n.m.",
  kde:"Severní a severovýchodní svahy nad Berounkou – drží vlhkost. Hřib dubový pod starými duby na plošinách.",
  sezona:"Červenec–září",
  trasa:"Okruh z Křivoklátu po svazích, 6–9 km, kopcovité",
- park_ok:"ok", park_txt:"Placené parkoviště pod hradem Křivoklát.",
+ park_ok:"warn", park_txt:"Kraj komunikace – poloha ověřená proti ZABAGED (ČÚZK), 23 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 2157 m: původní bod byl 108 m od komunikace a 2061 m od plochy.",
  konk:"Střední", top:"Mykoindex 59/100 – průměr",
  warn:"CHKO Křivoklátsko. NPR Týřov a Velká Pleš – tam nesbírat. Mimo rezervace a I. zóny povoleno.",
  poly:[[50.0500,13.8500],[50.0540,13.9050],[50.0250,13.9150],[50.0200,13.8600],[50.0350,13.8420]],
  route:[[50.0380,13.8720],[50.0480,13.8560],[50.0520,13.8980],[50.0270,13.9080],[50.0215,13.8640],[50.0380,13.8720]]
 },
 {
- v:2, rank:8, name:"Rožďalovické lesy / Jabkenice", park:[50.3830,15.0420],
+ v:2, rank:8, name:"Rožďalovické lesy / Jabkenice", porostData:{jehl:30,list:56,neurc:14,ploch:882}, park:[50.37058,15.03455],
  dist:"62 km · 1:00", druh:"Hřib, klouzek, kozák",
  porost:"Smíšené porosty, borové partie na píscích, 230–280 m n.m.",
  kde:"Borové partie mimo oboru. Smíšené okraje pro kozáky.",
  sezona:"Srpen–říjen",
  trasa:"Okruh po lesních cestách, 6–8 km",
- park_ok:"warn", park_txt:"Odstavná plocha u obce, ne oficiální parkoviště.",
+ park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 307 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 1479 m: původní bod byl 785 m od komunikace a 1567 m od plochy.",
  konk:"Nízká – málo známá oblast, ale i málo dat o výnosech",
  warn:"Obora Jabkenice – do obory nevstupovat.",
  poly:[[50.3920,15.0250],[50.3950,15.0700],[50.3720,15.0780],[50.3680,15.0330],[50.3800,15.0180]],
  route:[[50.3830,15.0420],[50.3905,15.0300],[50.3935,15.0650],[50.3740,15.0730],[50.3695,15.0370],[50.3830,15.0420]]
 },
 {
- v:2, rank:9, name:"Český ráj – Prachovské skály / Sobotka", park:[50.4790,15.2900],
+ v:2, rank:9, name:"Český ráj – Prachovské skály / Sobotka", porostData:{jehl:44,list:43,neurc:14,ploch:1519}, park:[50.4931,15.31558],
  dist:"90 km · 1:20", druh:"Hřib hnědý, klouzek",
  porost:"Pískovcové skalní město, borovice + buk, rokle drží vlhko, 300–450 m n.m.",
  kde:"Borové plošiny nad skalami a lesy mezi Prachovem a Sobotkou. Rokle drží vlhkost v suchu.",
  sezona:"Červenec–říjen",
  trasa:"Okruh mimo skalní město, 6–8 km",
- park_ok:"ok", park_txt:"Placené parkoviště u Prachovských skal. Vstupné do skal se platí zvlášť.",
+ park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 237 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 2395 m: původní bod byl 324 m od komunikace a 1733 m od plochy.",
  konk:"Vysoká u skal, nižší v okolních lesích", top:"Mykoindex 70/100 – druhý nejlepší v dosahu",
  warn:"CHKO Český ráj a přírodní rezervace. Mimo rezervace je sběr povolen.",
  poly:[[50.4880,15.2700],[50.4910,15.3150],[50.4680,15.3230],[50.4640,15.2780],[50.4770,15.2620]],
  route:[[50.4790,15.2900],[50.4865,15.2760],[50.4895,15.3100],[50.4700,15.3180],[50.4655,15.2820],[50.4790,15.2900]]
 },
 {
- v:2, rank:10, name:"Brdy – Obecnice / Nepomuk ⚠ nedoporučeno", park:[49.7300,13.9500],
+ v:2, rank:10, name:"Brdy – Obecnice / Nepomuk ⚠ nedoporučeno", porostData:{jehl:54,list:28,neurc:19,ploch:1119}, park:[49.72037,13.97993],
  dist:"90 km · 1:25", druh:"Hřib smrkový",
  porost:"Smrkové a smíšené porosty vyšších poloh, 550–800 m n.m.",
  kde:"Smrkové porosty severně od Obecnice, mimo dopadové plochy.",
  sezona:"Srpen–říjen",
  trasa:"Okruh od přehrady, 7–10 km, kopcovité",
- park_ok:"warn", park_txt:"Odstavná plocha u přehrady Obecnice.",
+ park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 154 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 2403 m: původní bod byl 31 m od komunikace a 1780 m od plochy.",
  konk:"Střední",
  top:"Mykoindex 50/100 – nejnižší v dosahu 100 km. Za tu vzdálenost to nestojí.",
  warn:"Dopadové plochy Jordán, Brda a Tok mají <b>zákaz vstupu kvůli nevybuchlé munici</b> a hrozí pokuta. CHKO Brdy. Doporučuju vybrat jinou lokalitu.",
@@ -724,7 +754,7 @@ L.marker(HOME, {icon: pinIcon('home','⌂',28), zIndexOffset:500}).addTo(map)
 const v1 = L.layerGroup().addTo(map);
 const v2 = L.layerGroup().addTo(map);
 
-function popupHTML(d){
+function popupHTML(d, index){
   const parkBox = d.park_ok === 'ok'
     ? `<div class="ok"><b>Parkování ✓</b> ${d.park_txt}</div>`
     : `<div class="warn"><b>Parkování ⚠</b> ${d.park_txt}</div>`;
@@ -748,15 +778,16 @@ function popupHTML(d){
       <a target="_blank" rel="noopener" href="https://mapy.cz/turisticka?y=${la}&x=${lo}&z=16&source=coor&id=${lo}%2C${la}">Mapy.cz</a>
       <a class="alt" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${la},${lo}">Navigovat</a>
     </div>
+    <button class="oblTlac" data-obl-lok="${index}">${jeOblibene('lok:'+index) ? '★ Oblíbené' : '☆ Přidat do oblíbených'}</button>
   </div>`;
 }
 
-LOC.forEach(d => {
+LOC.forEach((d, idx) => {
   const g = d.v === 1 ? v1 : v2;
   L.polygon(d.poly, {color:'#2e8b45', weight:2.5, opacity:.95, fillColor:'#2e8b45', fillOpacity:.22})
-   .bindPopup(popupHTML(d), POPOPT).addTo(g);
+   .bindPopup(() => popupHTML(d, idx), POPOPT).addTo(g);
   L.polyline(d.route, {color:'#7a4b18', weight:2.5, opacity:.75, dashArray:'7,7'}).addTo(g);
-  L.marker(d.park, {icon: pinIcon('park','P')}).bindPopup(popupHTML(d), POPOPT).addTo(g);
+  L.marker(d.park, {icon: pinIcon('park','P')}).bindPopup(() => popupHTML(d, idx), POPOPT).addTo(g);
 });
 
 L.control.layers(null, {
@@ -783,7 +814,8 @@ const state = {
   approved: null,    // null = ještě nevíme, false = nemáme přístup
   allowed: {},       // uid -> {name, ts}   (jen pro správce)
   finds: {},         // uid -> { id -> {druh, lat, lng, ts, ...} }
-  tracks: {}         // uid -> { id -> {name, ts, delka, body} }  – jen když je zapnutá historie
+  tracks: {},        // uid -> { id -> {name, ts, delka, body} }  – jen když je zapnutá historie
+  oblibene: LS.get('oblibene', {})   // 'lok:3' / 'bod:...' -> {popis, lat, lng, ts}
 };
 
 /* Přístupový kód z odkazu (#k=...). Kdo ho má, připojí se sám –
@@ -1025,6 +1057,9 @@ function obnovPark(){
   b.classList.remove('prepsat');
   b.innerHTML = '🚗 &nbsp;Zaparkoval jsem tady';
 }
+
+$('btnKam').onclick = () => kamDnes();
+$('kamClose').onclick = () => $('kamModal').classList.remove('show');
 
 $('btnPark').onclick = async () => {
   const b = $('btnPark');
@@ -1598,6 +1633,20 @@ map.on('popupopen', async e => {
       e.popup.setContent(popupNalezu(n, null).replace('načítám fotku…', 'fotku se nepodařilo načíst'));
     }
   }
+
+  const el2 = e.popup.getElement();
+  const obl = el2 && el2.querySelector('[data-obl-lok]');
+  if (obl) obl.onclick = async () => {
+    const i = +obl.dataset.oblLok;
+    const je = await prepniOblibene('lok:' + i, LOC[i].name);
+    obl.textContent = je ? '★ Oblíbené' : '☆ Přidat do oblíbených';
+  };
+  const zrus = el2 && el2.querySelector('.smazOblibene');
+  if (zrus) zrus.onclick = async () => {
+    await prepniOblibene(zrus.dataset.k);
+    map.closePopup();
+    banner('Oblíbené místo zrušeno.', false, 4000);
+  };
 
   const b = e.popup.getElement() && e.popup.getElement().querySelector('.smazNalez');
   if (!b) return;
@@ -2185,6 +2234,284 @@ map.on('moveend zoomend', () => { if (lesZap) nactiTypyLesa(); });
 if (lesZap)   zapniLes();
 if (chranZap) zapniChranena();
 
+
+/* ============================================================
+   KAM DNES NA HOUBY
+
+   Tohle je odpověď na to, že samotná mapa nic neříká. Mapa ukáže, kde
+   les je. Tohle má říct, kam má cenu dnes jet – a když nemá cenu nikam,
+   tak to.
+
+   Houby nerostou z mapy, ale z deště. Podhoubí potřebuje vodu a pak
+   zhruba týden až dva, než se objeví plodnice. Proto se počítá hlavně
+   s deštěm z okna před 6 až 18 dny, s vrcholem kolem 10–14 dnů. Déšť
+   z posledních dnů má menší váhu – udrží, co už roste, ale sám o sobě
+   nic nevykouzlí. Vedro nad 28 °C a mráz plodnice zastaví.
+
+   Nic z toho není jistota. Je to počasí a statistika, ne pohled do lesa.
+   Proto se u každého doporučení píše, z čeho je spočítané, a když jsou
+   podmínky mizerné, appka to řekne rovnou místo aby něco vymyslela.
+   ============================================================ */
+const METEO = 'https://api.open-meteo.com/v1/forecast';
+let pocasiCache = null;           // {ts, data}
+const POCASI_PLATNOST = 3*3600*1000;
+
+async function nactiPocasi(){
+  if (pocasiCache && Date.now() - pocasiCache.ts < POCASI_PLATNOST) return pocasiCache.data;
+  const lat = LOC.map(l => l.park[0].toFixed(3)).join(',');
+  const lon = LOC.map(l => l.park[1].toFixed(3)).join(',');
+  const u = METEO + '?latitude=' + lat + '&longitude=' + lon +
+    '&daily=precipitation_sum,temperature_2m_max,temperature_2m_min' +
+    '&past_days=21&forecast_days=7&timezone=Europe%2FPrague';
+  const r = await fetch(u);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  let d = await r.json();
+  if (!Array.isArray(d)) d = [d];
+  pocasiCache = {ts: Date.now(), data: d};
+  return d;
+}
+
+/* Váha deště podle toho, jak je starý. Vrchol na 10–14 dnech –
+   tou dobou se objevují plodnice po vydatném dešti. */
+function vahaDeste(dniZpet){
+  if (dniZpet < 0) return 0;
+  if (dniZpet <= 3) return 0.35;      // drží, co roste
+  if (dniZpet <= 5) return 0.6;
+  if (dniZpet <= 8) return 0.9;
+  if (dniZpet <= 15) return 1.0;      // hlavní okno
+  if (dniZpet <= 18) return 0.6;
+  return 0.15;
+}
+
+function rozborPocasi(den){
+  // den = {time:[], precipitation_sum:[], temperature_2m_max:[], temperature_2m_min:[]}
+  const dnes = new Date(); dnes.setHours(12,0,0,0);
+  let vazene = 0, celkem21 = 0, poslednivetsi = null, horko = 0, zima = 0;
+  const budouci = [];
+  den.time.forEach((t, i) => {
+    const d = new Date(t + 'T12:00:00');
+    const dni = Math.round((dnes - d) / 86400000);
+    const mm = den.precipitation_sum[i] || 0;
+    const tmax = den.temperature_2m_max[i], tmin = den.temperature_2m_min[i];
+    if (dni >= 0){
+      celkem21 += mm;
+      vazene += mm * vahaDeste(dni);
+      if (mm >= 5 && (poslednivetsi === null || dni < poslednivetsi)) poslednivetsi = dni;
+      if (dni <= 10){
+        if (tmax != null && tmax > 28) horko++;
+        if (tmin != null && tmin < 1) zima++;
+      }
+    } else {
+      budouci.push({za: -dni, mm, tmax, tmin});
+    }
+  });
+  const destVyhled = budouci.reduce((a,b) => a + (b.mm||0), 0);
+  return {vazene, celkem21, poslednivetsi, horko, zima, budouci, destVyhled};
+}
+
+/* Sezóna: hrubá křivka pro naše houby. Srpen až říjen je hlavní,
+   listopad dojezd, léto slabé, zima nic. */
+function faktorSezony(mesic, bedly){
+  const bezne = {1:0.05,2:0.05,3:0.1,4:0.2,5:0.45,6:0.5,7:0.6,8:0.9,9:1.0,10:0.9,11:0.4,12:0.1};
+  const bedlove = {1:0.02,2:0.02,3:0.05,4:0.1,5:0.2,6:0.35,7:0.5,8:0.85,9:1.0,10:0.85,11:0.25,12:0.05};
+  return (bedly ? bedlove : bezne)[mesic] || 0.3;
+}
+
+function minutyDojezdu(l){
+  const m = (l.dist || '').match(/(\d+)\s*min/);
+  return m ? +m[1] : 60;
+}
+
+function nalezyVPlose(l){
+  let skore = 0, pocet = 0, posledni = 0;
+  Object.keys(state.finds || {}).forEach(uid => {
+    const sk = state.finds[uid] || {};
+    Object.keys(sk).forEach(id => {
+      const z = sk[id];
+      if (!z || typeof z.lat !== 'number') return;
+      if (!vPolygonu([z.lat, z.lng], l.poly)) return;
+      pocet++; skore += vahaStari(z.ts);
+      if ((z.ts||0) > posledni) posledni = z.ts;
+    });
+  });
+  return {skore, pocet, posledni};
+}
+
+function vPolygonu(bod, poly){
+  const x = bod[1], y = bod[0]; let uvnitr = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++){
+    const xi = poly[i][1], yi = poly[i][0], xj = poly[j][1], yj = poly[j][0];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi + 1e-15) + xi) uvnitr = !uvnitr;
+  }
+  return uvnitr;
+}
+
+function spoctiSance(pocasi){
+  const mesic = new Date().getMonth() + 1;
+  return LOC.map((l, i) => {
+    const p = rozborPocasi(pocasi[i] ? pocasi[i].daily : pocasi[0].daily);
+    // vlhkost: 25 mm vážených srážek už je slušný základ
+    const vlhkost = Math.max(0, Math.min(1, p.vazene / 25));
+    const bedlove = /bedla/i.test(l.druh || '');
+    const sez = faktorSezony(mesic, bedlove);
+    // porost: bedly na listnaté a louky, hřiby a klouzky na jehličnaté a smíšené
+    const pd = l.porostData || {jehl:50, list:50};
+    const porost = bedlove
+      ? 0.5 + 0.5 * Math.min(1, pd.list / 60)
+      : 0.5 + 0.5 * Math.min(1, pd.jehl / 60);
+    const n = nalezyVPlose(l);
+    const nalezBonus = Math.min(0.6, n.skore * 0.2);
+    const obl = jeOblibene('lok:' + i) ? 0.15 : 0;
+    const dojezd = 1 - Math.min(0.35, minutyDojezdu(l) / 300);
+    const pocasiSrazka = (p.horko >= 4 ? 0.75 : 1) * (p.zima >= 3 ? 0.6 : 1);
+
+    const zaklad = vlhkost * sez * porost * pocasiSrazka;
+    const sance = Math.max(0, Math.min(1, zaklad * (1 + nalezBonus + obl) * dojezd));
+    return {i, l, p, vlhkost, sez, porost, n, obl: obl > 0, dojezd, sance};
+  }).sort((a,b) => b.sance - a.sance);
+}
+
+
+/* ---------- oblíbená místa ----------
+   Ukládají se ke svému uživateli do databáze, takže je vidí celá rodina.
+   Klíč „lok:3" je jedna z našich lokalit, „bod:…" vlastní špendlík. */
+function oblibena(){ return state.oblibene || {}; }
+function jeOblibene(klic){ return !!oblibena()[klic]; }
+
+async function prepniOblibene(klic, popis, lat, lng){
+  const o = Object.assign({}, oblibena());
+  if (o[klic]) delete o[klic];
+  else o[klic] = {popis: popis || '', lat: lat || null, lng: lng || null, ts: Date.now()};
+  state.oblibene = o;
+  LS.set('oblibene', o);
+  if (dbRefs && state.approved === true && state.uid){
+    try { await dbRefs.set(dbRefs.ref(dbRefs.db, 'users/' + state.uid + '/oblibene'), o); }
+    catch(e){ banner('Oblíbené místo je uložené v telefonu, ostatním se ho poslat nepodařilo.', false, 8000); }
+  }
+  kresliOblibena();
+  return !!o[klic];
+}
+
+let oblibenaVrstva = null;
+function kresliOblibena(){
+  if (oblibenaVrstva){ map.removeLayer(oblibenaVrstva); oblibenaVrstva = null; }
+  const o = oblibena();
+  const vlastni = Object.keys(o).filter(k => k.indexOf('bod:') === 0);
+  if (!vlastni.length) return;
+  oblibenaVrstva = L.layerGroup();
+  vlastni.forEach(k => {
+    const b = o[k];
+    if (typeof b.lat !== 'number') return;
+    L.marker([b.lat, b.lng], {icon: pinIcon('oblibene','★',22), zIndexOffset:700})
+      .bindPopup('<div class="pop"><h3>★ Oblíbené místo</h3><div class="sub">' +
+        (b.popis || 'bez názvu') + '</div>' +
+        '<button class="smazOblibene" data-k="' + k + '">Zrušit oblíbené</button></div>', POPOPT)
+      .addTo(oblibenaVrstva);
+  });
+  oblibenaVrstva.addTo(map);
+}
+
+/* ---------- dialog Kam dnes ---------- */
+function slovniSance(s){
+  if (s >= 0.55) return {t:'vysoká', c:'#2e7d4f'};
+  if (s >= 0.32) return {t:'střední', c:'#b07a1a'};
+  if (s >= 0.15) return {t:'nízká', c:'#a85a2a'};
+  return {t:'mizivá', c:'#8a3b1c'};
+}
+
+function duvod(x){
+  const p = x.p;
+  const kusy = [];
+  kusy.push('<tr><td>Déšť za 21 dní</td><td><b>' + Math.round(p.celkem21) + ' mm</b></td></tr>');
+  kusy.push('<tr><td>Poslední vydatný déšť</td><td>' +
+    (p.poslednivetsi === null ? '<b>žádný</b> za 21 dní' :
+     (p.poslednivetsi === 0 ? '<b>dnes</b>' : '<b>před ' + sklonuj(p.poslednivetsi,'dnem','dny','dny') + '</b>')) +
+    '</td></tr>');
+  kusy.push('<tr><td>Porost</td><td>' + (x.l.porostData
+    ? (x.l.porostData.jehl >= x.l.porostData.list ? 'spíš jehličnatý' : 'spíš listnatý') +
+      ' (' + x.l.porostData.ploch + ' ploch ZABAGED)'
+    : 'neznámý') + '</td></tr>');
+  kusy.push('<tr><td>Naše nálezy tady</td><td>' + (x.n.pocet
+    ? '<b>' + sklonuj(x.n.pocet,'nález','nálezy','nálezů') + '</b>, naposledy ' + fmtTime(x.n.posledni)
+    : 'zatím žádné') + '</td></tr>');
+  kusy.push('<tr><td>Dojezd</td><td>' + (x.l.dist || '?') + '</td></tr>');
+  if (x.obl) kusy.push('<tr><td>Oblíbené</td><td>★ ano</td></tr>');
+  if (p.horko >= 4) kusy.push('<tr><td>Pozor</td><td>' + p.horko + ' horkých dnů nad 28 °C</td></tr>');
+  if (p.zima >= 3) kusy.push('<tr><td>Pozor</td><td>' + p.zima + ' mrazivých nocí</td></tr>');
+  return '<table>' + kusy.join('') + '</table>';
+}
+
+function kdyMaCenu(nej){
+  // najdi v předpovědi den, po kterém se vyplatí jet
+  const b = nej.p.budouci || [];
+  let nej_den = null, suma = 0;
+  for (const d of b){
+    suma += d.mm || 0;
+    if (suma >= 12 && nej_den === null) nej_den = d.za;
+  }
+  if (nej_den !== null){
+    return 'Předpověď slibuje <b>' + Math.round(suma) + ' mm</b> během týdne. ' +
+           'Po dešti dej podhoubí <b>osm až čtrnáct dní</b> – reálně tedy zkus vyrazit ' +
+           'kolem <b>' + sklonuj(nej_den + 10, 'dne', 'dnů', 'dnů') + '</b> od dneška.';
+  }
+  return 'Předpověď na týden dopředu <b>žádný pořádný déšť neslibuje</b> (' +
+         Math.round(nej.p.destVyhled) + ' mm). Nemá cenu nikam jezdit – počkej, až se to zlomí.';
+}
+
+async function kamDnes(){
+  const b = $('btnKam');
+  b.disabled = true; b.innerHTML = '⏳ &nbsp;Počítám…';
+  try {
+    const pocasi = await nactiPocasi();
+    const poradi = spoctiSance(pocasi);
+    const nej = poradi[0];
+    const sl = slovniSance(nej.sance);
+    const sucho = nej.sance < 0.15;
+
+    let html = '';
+    if (sucho){
+      html += '<div class="kamsucho"><b>Dnes nikam.</b> Ani na nejlepším z našich míst nejsou podmínky ' +
+              'na to, aby houby rostly. Nebudu ti vymýšlet doporučení, které by nesedělo.<br><br>' +
+              kdyMaCenu(nej) + '</div>';
+    }
+    poradi.slice(0, 3).forEach((x, poradi_i) => {
+      const s = slovniSance(x.sance);
+      html += '<div class="kamlok' + (poradi_i === 0 && !sucho ? ' prvni' : '') + '">' +
+        '<div class="hl"><b>' + x.l.name + '</b>' +
+        '<span class="sance" style="background:' + s.c + '">' + s.t + '</span></div>' +
+        '<div class="sub">' + (x.l.druh || '').replace(/<[^>]+>/g,'') + '</div>' +
+        duvod(x) +
+        '<div class="akce">' +
+        '<button data-jed="' + x.i + '">Ukázat na mapě</button>' +
+        '<button class="ghost" data-obl="' + x.i + '">' + (x.obl ? '★ Oblíbené' : '☆ Do oblíbených') + '</button>' +
+        '</div></div>';
+    });
+
+    html += '<p class="pozn"><b>Tohle není jistota, je to počasí a statistika.</b> ' +
+            'Počítá se hlavně déšť z okna před 6 až 18 dny – tou dobou po dešti plodnice vylézají. ' +
+            'Do lesa se odsud nevidím: co tam opravdu roste, zjistíš, až tam dojedeš.</p>';
+
+    $('kamObsah').innerHTML = html;
+    $('kamModal').classList.add('show');
+
+    $('kamObsah').querySelectorAll('[data-jed]').forEach(bt => bt.onclick = () => {
+      const l = LOC[+bt.dataset.jed];
+      $('kamModal').classList.remove('show');
+      map.setView(l.park, 14);
+    });
+    $('kamObsah').querySelectorAll('[data-obl]').forEach(bt => bt.onclick = async () => {
+      const i = +bt.dataset.obl;
+      const je = await prepniOblibene('lok:' + i, LOC[i].name);
+      bt.textContent = je ? '★ Oblíbené' : '☆ Do oblíbených';
+    });
+  } catch(e){
+    banner('<b>Nepodařilo se načíst srážky.</b> Bez nich doporučit nic neumím – ' +
+           'zkus to, až budeš mít signál. (' + e.message + ')', true, 10000);
+  } finally {
+    b.disabled = false; b.innerHTML = '🍄 &nbsp;Kam dnes na houby?';
+  }
+}
+
 /* ---------- legenda + UID ---------- */
 function refreshOdchod(){
   const box = $('legendModal').querySelector('.mbox');
@@ -2406,6 +2733,17 @@ function refreshNastroje(){
     '<button class="ghost" id="btnOffline2" style="margin-bottom:8px">⬇︎ &nbsp;Stáhnout tenhle výřez na offline</button>' +
     '<p style="font-size:11.5px;color:var(--muted);margin:0 0 8px" id="mistoTxt">Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.</p>' +
     '<button class="ghost" id="btnSmazMapy" style="margin-bottom:12px">Smazat uložené mapy</button>' +
+    '<h3>Oblíbená místa</h3>' +
+    '<button class="ghost" id="btnOblibeneSem" style="margin-bottom:6px">★ &nbsp;Přidat oblíbené místo doprostřed mapy</button>' +
+    '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">' +
+    (function(){ const o = oblibena();
+      const lok = Object.keys(o).filter(k => k.indexOf('lok:')===0).length;
+      const bod = Object.keys(o).filter(k => k.indexOf('bod:')===0).length;
+      return (lok+bod) ? ('Máš ' + sklonuj(lok,'oblíbenou lokalitu','oblíbené lokality','oblíbených lokalit') +
+             ' a ' + sklonuj(bod,'vlastní místo','vlastní místa','vlastních míst') +
+             '. Do doporučování se počítají.') :
+             'Zatím žádné. Hvězdičku najdeš v bublině lokality nebo v doporučení „Kam dnes".'; })() +
+    '</p>' +
     lesHTML() +
     '<div class="toggle' + (historieZap ? ' on' : '') + '" id="tgHistorie" role="switch" tabindex="0" aria-checked="' +
       historieZap + '" aria-label="Kde jsme už hledali" style="margin-bottom:12px">' +
@@ -2454,6 +2792,14 @@ function refreshNastroje(){
   });
 
   $('btnOffline2').onclick = () => { $('legendModal').classList.remove('show'); stahniVyrez(); };
+  $('btnOblibeneSem').onclick = async () => {
+    const c = map.getCenter();
+    const klic = 'bod:' + Date.now().toString(36);
+    await prepniOblibene(klic, 'Vlastní místo', +c.lat.toFixed(5), +c.lng.toFixed(5));
+    $('legendModal').classList.remove('show');
+    banner('Oblíbené místo přidáno doprostřed mapy. Klepnutím na hvězdičku ho zrušíš.', false, 8000);
+    refreshNastroje();
+  };
   $('btnSmazMapy').onclick = () => {
     const b = $('btnSmazMapy');
     if (b.dataset.jistota !== '1'){
@@ -2777,6 +3123,9 @@ function subscribeShared(db, onValue){
 
   onValue(dbRefs.users, snap => {
     state.others = snap.val() || {};
+    // vlastní oblíbená místa se vrací z databáze – ať je mám i na druhém telefonu
+    const moje = state.others[state.uid] && state.others[state.uid].oblibene;
+    if (moje){ state.oblibene = moje; LS.set('oblibene', moje); kresliOblibena(); }
     renderPeople();
   }, err => {});
 
@@ -2894,7 +3243,8 @@ async function pushMyPosition(){
     acc: state.sharing && state.me ? state.me.acc : null,
     ts: Date.now()
   };
-  try { await dbRefs.set(dbRefs.me, payload); }
+  // update, ne set – set by smazal oblíbená místa uložená ve stejném uzlu
+  try { await dbRefs.update(dbRefs.me, payload); }
   catch(e){ /* poloha je pomíjivá, do fronty ji nedáváme */ }
 }
 
@@ -2984,6 +3334,7 @@ document.addEventListener('keydown', e => {
 });
 
 migrujFrontu();
+kresliOblibena();
 kresliHistorii();
 kresliNejlepsi();
 renderCar();
