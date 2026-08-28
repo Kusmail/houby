@@ -216,7 +216,26 @@ Poloha se sdílí **jen když je přepínač *Sdílím polohu* zapnutý**. Po za
 
 ---
 
+## Nejlepší místa — mapa z vašich vlastních nálezů
+
+ℹ️ → **Nejlepší místa**. Nálezy se sečtou do čtverců 500 × 500 m a čtverec se obarví od bledě žluté po sytě oranžovou.
+
+- **Čerstvost rozhoduje.** Nález starý rok váží polovinu, pětiletý tři procenta. Les se mění, paseka zarůstá.
+- **Filtr druhu** — chceš vidět jen kde rostou bedly? Klepni na Bedla.
+- Klepnutím na čtverec zjistíš, kolik nálezů v něm bylo, kdy naposledy a čeho.
+- Pod přepínačem je vždycky napsané, **z kolika nálezů je to počítané**. Dokud jich je pár, je to náhoda, ne znalost — a je poctivější to napsat než to schovat pod barvičky.
+
+**Proč to má cenu:** mřížka porostů je model, mých 16 lokalit je poučená domněnka. Tohle je jediná vrstva v appce, která nestojí na odhadu — vaše nálezy jsou fakt. Po dvou sezónách by měla ty ostatní přebít.
+
+---
+
 ## Řešení problémů
+
+**Auto je jinde, než jsem ho nechal**
+Pozici auta má v ruce ten, kdo klepl naposledy. Když ji někdo přepíše nebo smaže, appka ti to napíše nahoře — nedělá se to potichu. Mazání i přepsání chce **dvě klepnutí**, aby se to nedalo udělat omylem v kapse.
+
+**Ovládání bez dotyku**
+Všechny přepínače a tlačítka jdou projít tabulátorem a zapnout mezerníkem nebo Enterem, mají popisky pro VoiceOver a Escape zavírá otevřené okno.
 
 **Mapa je prázdná / šedá**
 Nemáš signál a tenhle výřez není stažený offline. Doma na Wi-Fi otevři appku, najdi oblast a klepni **Offline**. Mimo stažený výřez mapa prostě nebude — je to omezení pravidel OpenStreetMap, hromadné stahování map není povolené.

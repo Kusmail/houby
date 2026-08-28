@@ -135,6 +135,15 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 .mbox .druhy button{width:auto;padding:11px 4px;border-radius:10px;background:#f3f1ec;color:var(--ink);
   font-size:12.5px;font-weight:600;border:1.5px solid transparent}
 .mbox .druhy button.on{background:var(--green);border-color:var(--green);color:#fff}
+#druhyFiltr{grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:8px}
+.mbox #druhyFiltr button{padding:8px 2px;font-size:11.5px}
+/* Audit 6: dokud tu nebylo nic než dotyk, klávesnice ani VoiceOver
+   neměly čeho se chytit. Obrys se ukazuje jen při ovládání klávesnicí,
+   prstem po něm nikdo nechce koukat. */
+:focus-visible{outline:3px solid #2e5c3a;outline-offset:2px;border-radius:10px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.bigbtn.prepsat{background:#d99327;font-size:13.5px;line-height:1.35}
+.carnav .x.ptam{background:#d99327;color:#fff}
 .fotobtn{display:block;text-align:center;padding:13px;border:1.5px dashed var(--line);border-radius:11px;
   font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:10px}
 #fotoNahled{display:none;margin-bottom:10px}
@@ -246,55 +255,55 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
   <div class="iconbtn" id="btnLegend" title="Legenda">ℹ️</div>
 </div>
 
-<div class="recbar" id="recBar"><span class="tecka"></span><span id="recTxt">Zaznamenávám trasu</span></div>
+<div class="recbar" id="recBar" role="status" aria-live="polite"><span class="tecka"></span><span id="recTxt">Zaznamenávám trasu</span></div>
 
-<div class="banner" id="banner"><span class="close" id="bannerClose">✕</span><span id="bannerTxt"></span></div>
+<div class="banner" id="banner" role="status" aria-live="polite"><span class="close" id="bannerClose" role="button" tabindex="0" aria-label="Zavřít hlášku">✕</span><span id="bannerTxt"></span></div>
 
-<div class="updbar" id="updBar">
+<div class="updbar" id="updBar" role="status" aria-live="polite">
   <span><b>Je připravená nová verze.</b> Načte se za sekundu, o nic nepřijdeš.</span>
   <button id="btnUpdate">Načíst</button>
 </div>
 
 <div class="sheet">
  <div class="sheet-head">
-  <div class="grab"></div>
+  <div class="grab" id="grab" role="button" tabindex="0" aria-label="Vytáhnout nebo zatáhnout spodní panel"></div>
 
   <button class="bigbtn" id="btnPark">🚗 &nbsp;Zaparkoval jsem tady</button>
 
-  <div class="carnav" id="carNav" style="display:none">
+  <div class="carnav" id="carNav" style="display:none" role="group" aria-label="Navigace k autu">
     <div class="arrowwrap"><div id="arrow">↑</div></div>
     <div class="carinfo">
       <div class="d" id="carDist">–</div>
       <div class="s" id="carMeta">–</div>
     </div>
-    <button class="x" id="btnCarClear" title="Auto vyzvednuto">🗑</button>
+    <button class="x" id="btnCarClear" title="Auto vyzvednuto" aria-label="Auto vyzvednuto – smazat pozici">🗑</button>
   </div>
  </div>
 
  <div class="sheet-body">
   <div class="row">
-    <div class="toggle" id="tgShare">
-      <div class="sw"><i></i></div>
+    <div class="toggle" id="tgShare" role="switch" tabindex="0" aria-checked="false" aria-label="Sdílím polohu">
+      <div class="sw" aria-hidden="true"><i></i></div>
       <div class="lbl">Sdílím polohu<small id="shareSub">vypnuto</small></div>
     </div>
-    <div class="toggle" id="tgWake">
-      <div class="sw"><i></i></div>
+    <div class="toggle" id="tgWake" role="switch" tabindex="0" aria-checked="false" aria-label="Displej svítí">
+      <div class="sw" aria-hidden="true"><i></i></div>
       <div class="lbl">Displej svítí<small id="wakeSub">vypnuto</small></div>
     </div>
   </div>
 
-  <div class="people" id="people"></div>
+  <div class="people" id="people" role="list" aria-label="Kdo sdílí polohu"></div>
 
   <div class="minirow">
-    <div class="mini" id="btnMe"><b>◎</b>Na mě</div>
-    <div class="mini" id="btnCar"><b>🚗</b>Na auto</div>
-    <div class="mini" id="btnFind2"><b>🍄</b>Nález</div>
-    <div class="mini" id="btnTrasa"><b>⏺</b>Trasa</div>
+    <div class="mini" id="btnMe" role="button" tabindex="0" aria-label="Posunout mapu na moji polohu"><b aria-hidden="true">◎</b>Na mě</div>
+    <div class="mini" id="btnCar" role="button" tabindex="0" aria-label="Posunout mapu na zaparkované auto"><b aria-hidden="true">🚗</b>Na auto</div>
+    <div class="mini" id="btnFind2" role="button" tabindex="0" aria-label="Zapsat nález houby"><b aria-hidden="true">🍄</b>Nález</div>
+    <div class="mini" id="btnTrasa" role="button" tabindex="0" aria-label="Začít nebo ukončit záznam trasy"><b aria-hidden="true">⏺</b>Trasa</div>
   </div>
  </div>
 </div>
 
-<div class="modal" id="nameModal">
+<div class="modal" role="dialog" aria-modal="true" id="nameModal">
   <div class="mbox">
     <h2>Jak ti máme říkat?</h2>
     <p>Jméno uvidí druhý na mapě u tvojí polohy. Uloží se jen do tohohle telefonu.</p>
@@ -303,7 +312,7 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
   </div>
 </div>
 
-<div class="modal" id="findModal">
+<div class="modal" role="dialog" aria-modal="true" id="findModal">
   <div class="mbox">
     <h2>Co jsi našel?</h2>
     <div class="druhy" id="druhy">
@@ -326,12 +335,12 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
   </div>
 </div>
 
-<div class="modal" id="trackModal">
+<div class="modal" role="dialog" aria-modal="true" id="trackModal">
   <div class="mbox">
     <h2>Trasa zaznamenaná</h2>
     <div id="trackSouhrn"></div>
-    <div class="toggle" id="tgSdilet" style="margin-bottom:14px">
-      <div class="sw"><i></i></div>
+    <div class="toggle" id="tgSdilet" role="switch" tabindex="0" aria-checked="false" aria-label="Ukázat trasu ostatním" style="margin-bottom:14px">
+      <div class="sw" aria-hidden="true"><i></i></div>
       <div class="lbl">Ukázat trasu ostatním<small>Uvidí v mapě, kudy jsi šel. Živou polohu to nezapíná.</small></div>
     </div>
     <button id="trackSave">Uložit trasu</button>
@@ -339,12 +348,13 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
   </div>
 </div>
 
-<div class="modal" id="legendModal">
+<div class="modal" role="dialog" aria-modal="true" id="legendModal">
   <div class="mbox">
     <h2>Legenda a nápověda</h2>
     <p style="color:var(--ink)">
       🔴 domov (Mratín) · 🔵 parkoviště lokality · 🟢 plocha kde hledat · hnědá čárkovaná = doporučená trasa<br><br>
       🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = druhý z vás<br><br>
+      🍄 pin = váš nález · šedá čára = tvoje trasa · fialová čára = cizí trasa · žluto‑oranžové čtverce = <b>nejlepší místa spočítaná z vašich nálezů</b><br><br>
       <b>Plochy jsou orientační</b> – kreslené podle typu porostu, ne podle porostních map.
     </p>
     <p><b style="color:var(--ink)">Poloha na pozadí nefunguje.</b> Safari na iPhonu zastaví sledování, jakmile zamkneš telefon. Druhého vidíš jen dokud má appku otevřenou na displeji – proto je u jeho polohy vždy napsané, jak je stará. Na průběžné sledování používejte Sdílení polohy v aplikaci <b style="color:var(--ink)">Najít</b>.</p>
@@ -954,8 +964,30 @@ document.querySelector('.arrowwrap').addEventListener('click', initCompass);
 /* ============================================================
    OVLÁDÁNÍ
    ============================================================ */
+/* Audit 3: kdo klepne později, přepíše auto tomu prvnímu. Dva lidé u dvou aut
+   nebo jedno omylnuté klepnutí – a druhý je naváděný na špatné místo.
+   Proto se u existující pozice ptáme, ale jen jednou a rovnou na tlačítku,
+   ať se to dá odklepnout v rukavicích. */
+function obnovPark(){
+  const b = $('btnPark');
+  b.dataset.prepsat = '';
+  b.classList.remove('prepsat');
+  b.innerHTML = '🚗 &nbsp;Zaparkoval jsem tady';
+}
+
 $('btnPark').onclick = async () => {
   const b = $('btnPark');
+  if (state.car && b.dataset.prepsat !== '1'){
+    b.dataset.prepsat = '1';
+    b.classList.add('prepsat');
+    b.innerHTML = 'Auto označil ' + (state.car.byName || '?') + ' ' + fmtAge(state.car.ts) +
+                  '.<br><b>Klepni znovu, chceš-li ho přepsat</b>';
+    clearTimeout(b._t); b._t = setTimeout(obnovPark, 9000);
+    return;
+  }
+  clearTimeout(b._t);
+  b.dataset.prepsat = '';
+  b.classList.remove('prepsat');
   b.disabled = true; b.textContent = '📡  Zaměřuju…';
   initCompass();
   try {
@@ -969,12 +1001,34 @@ $('btnPark').onclick = async () => {
   } catch(e){
     banner('<b>Nepodařilo se zaměřit polohu.</b> Zkontroluj, že je povolená poloha, a zkus to znovu na otevřenějším místě.', true);
   } finally {
-    b.disabled = false; b.innerHTML = '🚗 &nbsp;Zaparkoval jsem tady';
+    b.disabled = false; obnovPark();
   }
 };
 
+/* Audit 12: nativní confirm() vypadal proti zbytku appky cize a na iOS
+   zablokuje všechno ostatní. Dvě klepnutí dělají totéž a nikam neodskočí. */
 $('btnCarClear').onclick = () => {
-  if (!confirm('Opravdu smazat pozici auta? Uvidí to i druhý.')) return;
+  const b = $('btnCarClear');
+  if (b.dataset.jistota !== '1'){
+    b.dataset.jistota = '1';
+    b.textContent = '?';
+    b.setAttribute('aria-label', 'Klepni znovu pro smazání pozice auta');
+    b.classList.add('ptam');
+    clearTimeout(b._t);
+    b._t = setTimeout(() => {
+      b.dataset.jistota = ''; b.textContent = '🗑';
+      b.setAttribute('aria-label', 'Auto vyzvednuto – smazat pozici');
+      b.classList.remove('ptam');
+    }, 5000);
+    const cizi = state.car && state.car.by && state.car.by !== state.uid;
+    banner('Smazat pozici auta' + (cizi ? ', kterou označil ' + (state.car.byName || 'někdo z vás') : '') +
+           '? <b>Klepni na otazník ještě jednou.</b> Zmizí i ostatním.', false, 5000);
+    return;
+  }
+  clearTimeout(b._t);
+  b.dataset.jistota = ''; b.textContent = '🗑';
+  b.setAttribute('aria-label', 'Auto vyzvednuto – smazat pozici');
+  b.classList.remove('ptam');
   state.car = null; LS.del('car'); renderCar(); pushCar(null);
 };
 
@@ -991,6 +1045,7 @@ $('btnCar').onclick = () => {
 function setShare(on){
   state.sharing = on;
   $('tgShare').classList.toggle('on', on);
+  $('tgShare').setAttribute('aria-checked', on ? 'true' : 'false');
   $('shareSub').textContent = on ? 'zapnuto' : 'vypnuto';
   // Stav sdílení se ZÁMĚRNĚ nikam neukládá. Po každém otevření appky
   // začínáme na vypnuto, ať nikdo nesdílí polohu, aniž by to věděl.
@@ -1007,6 +1062,7 @@ $('tgShare').onclick = () => setShare(!state.sharing);
 /* ---------- wake lock ---------- */
 async function setWake(on){
   $('tgWake').classList.toggle('on', on);
+  $('tgWake').setAttribute('aria-checked', on ? 'true' : 'false');
   if (on){
     try {
       state.wake = await navigator.wakeLock.request('screen');
@@ -1092,6 +1148,8 @@ function applySheet(animate){
 function setSheetPeek(v, animate){
   sheetPeek = !!v;
   LS.set('sheetPeek', sheetPeek);
+  const g = $('grab');
+  if (g) g.setAttribute('aria-expanded', sheetPeek ? 'false' : 'true');
   measureSheet();
   applySheet(animate !== false);
 }
@@ -1260,9 +1318,111 @@ async function ulozNalez(z){
   if (!state.finds[state.uid || 'ja']) state.finds[state.uid || 'ja'] = {};
   state.finds[state.uid || 'ja'][id] = z;
   renderFinds();
+  kresliNejlepsi();
   if (!dbRefs){ queue('find', {id, z}); return; }
   try { await dbRefs.set(dbRefs.ref(dbRefs.db, 'finds/' + state.uid + '/' + id), z); }
   catch(e){ queue('find', {id, z}); }
+}
+
+/* ============================================================
+   MAPA NEJLEPŠÍCH MÍST
+
+   Jediná vrstva v appce, která nestojí na odhadu. Mřížka porostů je model,
+   mých 16 lokalit je poučená domněnka – tohle jsou vaše skutečné nálezy.
+   Proto se taky kreslí až nad vším ostatním a proto u ní vždycky stojí,
+   z kolika nálezů je počítaná. Malý počet nálezů = mapa, které se nedá věřit,
+   a je poctivější to napsat než to schovat pod barvičky.
+   ============================================================ */
+const MRIZKA_M = 500;
+const KROK_LAT = MRIZKA_M / 111320;      // stupňů zeměpisné šířky na 500 m
+
+let nejlepsiZap  = LS.get('nejlepsi', false);
+let nejlepsiDruh = LS.get('nejlepsiDruh', null);   // null = všechny druhy
+let nejlepsiVrstva = null;
+
+function bunkaProBod(lat, lng){
+  const rada = Math.floor(lat / KROK_LAT);
+  const latStred = (rada + 0.5) * KROK_LAT;
+  const krokLng = KROK_LAT / Math.max(0.2, Math.cos(latStred * Math.PI / 180));
+  const sloupec = Math.floor(lng / krokLng);
+  return {
+    klic: rada + '_' + sloupec,
+    jih:  rada * KROK_LAT,
+    sever:(rada + 1) * KROK_LAT,
+    zapad: sloupec * krokLng,
+    vychod:(sloupec + 1) * krokLng
+  };
+}
+
+/* Čerstvost: nález starý rok váží polovinu, pětiletý tři procenta.
+   Houby rostou tam, kde rostly – ale les se mění a paseka zarůstá. */
+function vahaStari(ts){
+  const dny = (Date.now() - (ts || 0)) / 86400000;
+  if (dny < 0) return 1;
+  return Math.pow(0.5, dny / 365);
+}
+
+function vsechnyNalezy(){
+  const out = [];
+  Object.keys(state.finds || {}).forEach(uid => {
+    const sk = state.finds[uid] || {};
+    Object.keys(sk).forEach(id => {
+      const z = sk[id];
+      if (z && typeof z.lat === 'number' && typeof z.lng === 'number') out.push(z);
+    });
+  });
+  return out;
+}
+
+function spoctiBunky(){
+  const bunky = {};
+  vsechnyNalezy().forEach(z => {
+    if (nejlepsiDruh && z.druh !== nejlepsiDruh) return;
+    const b = bunkaProBod(z.lat, z.lng);
+    if (!bunky[b.klic]) bunky[b.klic] = {ramec:b, skore:0, pocet:0, posledni:0, druhy:{}};
+    const c = bunky[b.klic];
+    c.skore += vahaStari(z.ts);
+    c.pocet += 1;
+    if ((z.ts || 0) > c.posledni) c.posledni = z.ts || 0;
+    c.druhy[z.druh || 'Jiné'] = (c.druhy[z.druh || 'Jiné'] || 0) + 1;
+  });
+  return bunky;
+}
+
+function barvaSkore(podil){
+  // bledě žlutá -> sytě oranžová
+  const a = [246, 230, 168], b = [224, 123, 26];
+  const t = Math.pow(Math.max(0, Math.min(1, podil)), 0.6);
+  return 'rgb(' + a.map((v,i) => Math.round(v + (b[i]-v)*t)).join(',') + ')';
+}
+
+function kresliNejlepsi(){
+  if (nejlepsiVrstva){ map.removeLayer(nejlepsiVrstva); nejlepsiVrstva = null; }
+  if (!nejlepsiZap) return;
+  const bunky = spoctiBunky();
+  const klice = Object.keys(bunky);
+  if (!klice.length) return;
+  const max = Math.max.apply(null, klice.map(k => bunky[k].skore));
+  const v = L.layerGroup();
+  klice.forEach(k => {
+    const c = bunky[k], r = c.ramec;
+    const podil = max > 0 ? c.skore / max : 0;
+    const obd = L.rectangle([[r.jih, r.zapad], [r.sever, r.vychod]], {
+      stroke: true, color: '#c8791a', weight: 1, opacity: .35,
+      fillColor: barvaSkore(podil), fillOpacity: .25 + .45 * podil
+    });
+    const seznam = Object.keys(c.druhy).sort((x,y) => c.druhy[y] - c.druhy[x])
+                     .map(d => d + ' ×' + c.druhy[d]).join(', ');
+    obd.bindPopup('<div class="pop"><h3>Nálezové místo</h3>' +
+      '<div class="sub">čtverec 500 × 500 m</div><table>' +
+      '<tr><td>Nálezů</td><td>' + c.pocet + '</td></tr>' +
+      '<tr><td>Naposledy</td><td>' + fmtTime(c.posledni) + '</td></tr>' +
+      '<tr><td>Co tu bylo</td><td>' + seznam + '</td></tr></table></div>', POPOPT);
+    obd.addTo(v);
+  });
+  nejlepsiVrstva = v;
+  nejlepsiVrstva.addTo(map);
+  if (map.getPane('overlayPane')) nejlepsiVrstva.eachLayer(l => l.bringToBack && l.bringToBack());
 }
 
 function renderFinds(){
@@ -1457,6 +1617,7 @@ function ukonciZaznam(){
        (mezer === 1 ? ' přerušení – appka byla na pozadí.' : ' přerušení – appka byla na pozadí.') +
        ' Ty úseky jsou v mapě tečkované, protože nevíme, kudy jsi tam šel.</div>') : '');
   $('tgSdilet').classList.toggle('on', sdiletTrasu);
+  $('tgSdilet').setAttribute('aria-checked', sdiletTrasu ? 'true' : 'false');
   $('trackModal').classList.add('show');
 }
 
@@ -1464,6 +1625,7 @@ $('tgSdilet').onclick = () => {
   sdiletTrasu = !sdiletTrasu;
   LS.set('sdiletTrasy', sdiletTrasu);
   $('tgSdilet').classList.toggle('on', sdiletTrasu);
+  $('tgSdilet').setAttribute('aria-checked', sdiletTrasu ? 'true' : 'false');
 };
 
 $('btnTrasa').onclick = () => REC.aktivni ? ukonciZaznam() : spustZaznam();
@@ -1658,6 +1820,37 @@ function refreshPeopleModal(){
   el.querySelectorAll('[data-remove]').forEach(b  => b.onclick = () => removeUser(b.dataset.remove));
 }
 
+/* Blok „Nejlepší místa" v ℹ️. Píše se sem natvrdo, z kolika nálezů je mapa
+   spočítaná – dokud jich je pár, je to náhoda, ne znalost. */
+function nejlepsiHTML(){
+  const nalezy = vsechnyNalezy();
+  const celkem = nalezy.length;
+  const vFiltru = nejlepsiDruh ? nalezy.filter(z => z.druh === nejlepsiDruh).length : celkem;
+  const DRUHY = ['Bedla','Hřib','Křemenáč','Kozák','Klouzek','Jiné'];
+
+  let h = '<div class="toggle' + (nejlepsiZap ? ' on' : '') + '" id="tgNejlepsi" role="switch" tabindex="0" aria-checked="' +
+    nejlepsiZap + '" aria-label="Nejlepší místa z našich nálezů" style="margin-bottom:10px">' +
+    '<div class="sw" aria-hidden="true"><i></i></div><div class="lbl">Nejlepší místa<small>' +
+    (celkem ? sklonuj(celkem, 'nález', 'nálezy', 'nálezů') + ' · čtverce 500 m'
+            : 'zatím žádné nálezy') +
+    '</small></div></div>';
+
+  if (nejlepsiZap){
+    h += '<div class="druhy" id="druhyFiltr">' +
+      '<button' + (nejlepsiDruh ? '' : ' class="on"') + '>Vše</button>' +
+      DRUHY.map(d => '<button data-d="' + d + '"' + (nejlepsiDruh === d ? ' class="on"' : '') + '>' + d + '</button>').join('') +
+      '</div>';
+    h += '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">' +
+      (celkem === 0
+        ? 'Zatím není z čeho počítat. Každý uložený nález se sem přičte a mapa začne dávat smysl po pár desítkách – <b>tohle je jediná vrstva v appce, která nestojí na odhadu</b>.'
+        : (vFiltru < 20
+            ? '<b>Zatím jen ' + sklonuj(vFiltru, 'nález', 'nálezy', 'nálezů') + '</b> – na tomhle počtu je to spíš náhoda než znalost. Ber to jako připomínku, kde jsi byl, ne jako doporučení.'
+            : 'Počítáno z ' + sklonuj(vFiltru, 'nálezu', 'nálezů', 'nálezů') + '. Loňský nález váží polovinu, pětiletý skoro nic.')) +
+      '</p>';
+  }
+  return h;
+}
+
 function refreshNastroje(){
   const box = $('legendModal').querySelector('.mbox');
   let el = box.querySelector('#nastroje');
@@ -1680,14 +1873,25 @@ function refreshNastroje(){
     '<h3>Mapa</h3>' +
     '<button class="ghost" id="btnOffline2" style="margin-bottom:8px">⬇︎ &nbsp;Stáhnout tenhle výřez na offline</button>' +
     '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.</p>' +
-    '<div class="toggle' + (historieZap ? ' on' : '') + '" id="tgHistorie" style="margin-bottom:12px">' +
-      '<div class="sw"><i></i></div><div class="lbl">Kde jsme už hledali<small>' +
+    '<div class="toggle' + (historieZap ? ' on' : '') + '" id="tgHistorie" role="switch" tabindex="0" aria-checked="' +
+      historieZap + '" aria-label="Kde jsme už hledali" style="margin-bottom:12px">' +
+      '<div class="sw" aria-hidden="true"><i></i></div><div class="lbl">Kde jsme už hledali<small>' +
       popisek + '</small></div></div>' +
     (mojeSdilene
       ? '<button class="ghost" id="btnNesdilet" style="margin-bottom:12px">Přestat sdílet moje trasy (' + mojeSdilene + ')</button>'
-      : '');
+      : '') +
+    nejlepsiHTML();
 
   if ($('btnNesdilet')) $('btnNesdilet').onclick = () => prestanSdiletVse();
+  $('tgNejlepsi').onclick = () => {
+    nejlepsiZap = !nejlepsiZap; LS.set('nejlepsi', nejlepsiZap);
+    kresliNejlepsi(); refreshNastroje();
+  };
+  el.querySelectorAll('#druhyFiltr button').forEach(b => b.onclick = () => {
+    nejlepsiDruh = b.dataset.d || null;
+    LS.set('nejlepsiDruh', nejlepsiDruh);
+    kresliNejlepsi(); refreshNastroje();
+  });
   $('btnOffline2').onclick = () => { $('legendModal').classList.remove('show'); stahniVyrez(); };
   $('tgHistorie').onclick = () => {
     historieZap = !historieZap; LS.set('historie', historieZap);
@@ -1857,11 +2061,27 @@ function subscribeShared(db, onValue){
   if (sharedSubscribed || !dbRefs) return;
   sharedSubscribed = true;
 
+  /* Audit 3, druhá půlka: přepsat auto přes tlačítko jde jen ve chvíli, kdy
+     o cizím ještě nevíš. Zbytek případů odchytíme tady – když se pozice pod
+     rukama změní nebo zmizí, řekneme to nahlas. Tiché přesunutí auta je
+     přesně ta chyba, kterou člověk objeví až v deset večer u lesa. */
+  let predchoziAuto = state.car;
   onValue(dbRefs.car, snap => {
     const v = snap.val();
     state.car = v && typeof v.lat === 'number' ? v : null;
     if (state.car) LS.set('car', state.car); else LS.del('car');
     renderCar();
+
+    const p = predchoziAuto, n = state.car;
+    const jinaPozice = p && n && (Math.abs(p.lat - n.lat) > 1e-6 || Math.abs(p.lng - n.lng) > 1e-6);
+    if (n && n.by !== state.uid && (!p || jinaPozice)){
+      banner('<b>Auto označil ' + (n.byName || 'někdo z vás') + '</b>' +
+             (jinaPozice ? ' na jiném místě než předtím.' : '.') +
+             ' Panel dole ukazuje cestu k němu.', false, 9000);
+    } else if (p && !n && p.by !== state.uid){
+      banner('<b>Pozici auta někdo smazal.</b> Když je auto pořád na parkovišti, označ ho znovu.', false, 9000);
+    }
+    predchoziAuto = n;
   }, err => banner('Nepodařilo se načíst pozici auta – zřejmě ti chybí schválení.', true, 10000));
 
   onValue(dbRefs.users, snap => {
@@ -1872,6 +2092,8 @@ function subscribeShared(db, onValue){
   onValue(dbRefs.ref(dbRefs.db, 'finds'), snap => {
     state.finds = snap.val() || {};
     renderFinds();
+    kresliNejlepsi();
+    refreshNastroje();
   }, err => {});
 }
 
@@ -2039,8 +2261,30 @@ if ('serviceWorker' in navigator){
 /* ============================================================
    START
    ============================================================ */
+/* Klávesnice pro prvky, které nejsou <button>: mezerník a Enter je mají
+   spouštět stejně jako prst. Jeden posluchač na dokumentu stačí i pro to,
+   co se do stránky doplní až za běhu. */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  const t = e.target;
+  if (!t || !t.getAttribute || t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.tagName === 'A') return;
+  const r = t.getAttribute('role');
+  if (r !== 'button' && r !== 'switch') return;
+  e.preventDefault();
+  if (t.id === 'grab'){ setSheetPeek(!sheetPeek, true); return; }
+  t.click();
+});
+
+/* Escape zavírá otevřený dialog – na Macu i na klávesnici k iPadu. */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const otevreny = document.querySelector('.modal.show');
+  if (otevreny) otevreny.classList.remove('show');
+});
+
 migrujFrontu();
 kresliHistorii();
+kresliNejlepsi();
 renderCar();
 renderPeopleList();
 measureSheet(); applySheet(false);
