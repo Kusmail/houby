@@ -231,6 +231,17 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
   border-radius:10px;padding:8px 11px;font-size:12.5px;font-weight:600;display:none;align-items:center;gap:8px
 }
 .recbar.show{display:flex}
+.mistabar{
+  position:absolute;top:calc(var(--safe-t) + 56px + var(--updH,0px));left:8px;right:56px;z-index:1230;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 10px;
+  font-size:12px;line-height:1.35;display:none;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(0,0,0,.10)
+}
+.mistabar.show{display:flex}
+.mistabar span.t{flex:1;min-width:0}
+.mistabar button{
+  flex:0 0 auto;background:var(--card);border:1px solid var(--line);border-radius:999px;
+  padding:5px 11px;font-size:12px;font-weight:700;font-family:inherit;color:inherit;cursor:pointer
+}
 .recbar .tecka{width:10px;height:10px;border-radius:50%;background:var(--danger);flex:0 0 10px;
   animation:bliknuti 1.6s infinite}
 @keyframes bliknuti{0%,100%{opacity:1}50%{opacity:.25}}
@@ -306,6 +317,8 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 </div>
 
 <div class="recbar" id="recBar" role="status" aria-live="polite"><span class="tecka"></span><span id="recTxt">Zaznamenávám trasu</span></div>
+
+<div class="mistabar" id="mistaBar" role="status" aria-live="polite"><span class="t" id="mistaTxt"></span><button id="btnFiltr" aria-label="Nastavit filtry míst">⚙︎ Filtr</button></div>
 
 <div class="banner" id="banner" role="status" aria-live="polite"><span class="close" id="bannerClose" role="button" tabindex="0" aria-label="Zavřít hlášku">✕</span><span id="bannerTxt"></span></div>
 
@@ -393,6 +406,15 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
     <h2>Kam dnes na houby</h2>
     <div id="kamObsah"></div>
     <button class="ghost" id="kamClose">Zavřít</button>
+  </div>
+</div>
+
+<div class="modal" role="dialog" aria-modal="true" id="filtrModal">
+  <div class="mbox">
+    <h2>Co ti mám na mapě ukazovat</h2>
+    <p class="pozn">Filtry platí pro místa na mapě i pro doporučení „Kam dnes na houby".</p>
+    <div id="filtrObsah"></div>
+    <button class="ghost" id="filtrClose">Hotovo</button>
   </div>
 </div>
 
@@ -1076,6 +1098,8 @@ function obnovPark(){
 
 $('btnKam').onclick = () => kamDnes();
 $('kamClose').onclick = () => $('kamModal').classList.remove('show');
+$('btnFiltr').onclick = () => otevriFiltry();
+$('filtrClose').onclick = () => $('filtrModal').classList.remove('show');
 
 $('btnPark').onclick = async () => {
   const b = $('btnPark');
@@ -2662,13 +2686,24 @@ function filtryHTML(){
     '</div></div></div>';
 }
 
-function pripojFiltry(){
-  $('kamObsah').querySelectorAll('.fchip').forEach(b => b.onclick = () => {
+function pripojFiltry(korenId, poZmene){
+  $(korenId || 'kamObsah').querySelectorAll('.fchip').forEach(b => b.onclick = () => {
     const f = b.dataset.f, v = b.dataset.v;
     FILTR[f] = (f === 'minuty') ? +v : (f === 'chranena') ? v === '1' : v;
     ulozFiltr();
-    kamDnes();
+    if (poZmene) poZmene(); else kamDnes();
   });
+}
+
+/* Samostatné okno s filtry – dostupné z lišty nad mapou, ať se k nim
+   člověk dostane i bez spouštění doporučení. */
+function vykresliFiltrPanel(){
+  $('filtrObsah').innerHTML = filtryHTML();
+  pripojFiltry('filtrObsah', () => { vykresliFiltrPanel(); prekresliMista(); });
+}
+function otevriFiltry(){
+  vykresliFiltrPanel();
+  $('filtrModal').classList.add('show');
 }
 
 /* ---------- místa na mapě ---------- */
@@ -2690,6 +2725,77 @@ function ukazMista(mista){
      .addTo(mistaVrstva);
   });
 }
+
+/* ============================================================
+   MÍSTA PŘÍMO NA MAPĚ
+
+   Do téhle verze se sedm a půl tisíce míst dalo najít jen přes
+   „Kam dnes na houby" – na mapě samotné nebylo nic než šestnáct
+   ověřených tipů. To byla chyba: vrstva „Místa z map" v přepínači
+   existovala, ale byla vždycky prázdná.
+
+   Teď se místa kreslí podle toho, na co se zrovna díváš. Celá ČR
+   najednou nemá smysl (sedm tisíc špendlíků přes sebe), takže se
+   kreslí od zoomu 11 – zhruba od velikosti okresu.
+   ============================================================ */
+const ZOOM_MISTA = 11;
+let mistaTimer = null, mistaHlaseno = false;
+
+function prekresliMistaBrzy(){
+  clearTimeout(mistaTimer);
+  mistaTimer = setTimeout(prekresliMista, 250);
+}
+
+async function prekresliMista(){
+  const bar = $('mistaBar'), txt = $('mistaTxt');
+  if (!map.hasLayer(mistaVrstva)){
+    mistaVrstva.clearLayers();
+    bar.classList.remove('show');
+    return;
+  }
+  bar.classList.add('show');
+
+  if (map.getZoom() < ZOOM_MISTA){
+    mistaVrstva.clearLayers();
+    txt.innerHTML = '<b>Přibliž mapu</b>, ať ti ukážu místa z map. Je jich 7 656 po celé ČR, ' +
+                    'najednou by to byla jen kaše.';
+    return;
+  }
+
+  if (!MISTA){
+    txt.innerHTML = 'Stahuji seznam míst (73 kB, jednou za návštěvu)…';
+    if (!mistaHlaseno){ mistaHlaseno = true; }
+  }
+  let vse;
+  try { vse = await nactiMista(); }
+  catch(e){
+    txt.innerHTML = '<b>Místa se nepodařilo stáhnout.</b> Zkus to, až budeš mít signál. (' + e.message + ')';
+    return;
+  }
+
+  const b = map.getBounds();
+  const vidi = vse.filter(m => b.contains([m.lat, m.lng]));
+  const projde = vidi.filter(m => m.cest >= 1).filter(sedíPorost).filter(sedíDruh);
+  const strop = 300;
+  const kresli = projde.slice(0, strop);
+  ukazMista(kresli);
+
+  if (!vidi.length){
+    txt.innerHTML = 'Tady žádná evidovaná parkoviště u lesa nejsou. Zkus se posunout jinam.';
+  } else if (!projde.length){
+    txt.innerHTML = 'Ve výřezu je <b>' + sklonuj(vidi.length, 'místo', 'místa', 'míst') +
+      '</b>, ale filtr je schoval všechna. Zkus ho povolit.';
+  } else {
+    txt.innerHTML = 'Ve výřezu <b>' + sklonuj(projde.length, 'místo', 'místa', 'míst') + '</b> z map' +
+      (projde.length > kresli.length ? ' (kreslím prvních ' + kresli.length + ', přibliž víc)' : '') +
+      (vidi.length > projde.length ? ' · filtr skryl ' + (vidi.length - projde.length) : '');
+  }
+}
+
+map.on('moveend', prekresliMistaBrzy);
+map.on('zoomend', prekresliMistaBrzy);
+map.on('overlayadd', prekresliMistaBrzy);
+map.on('overlayremove', prekresliMistaBrzy);
 
 async function kamDnes(){
   const b = $('btnKam');
@@ -3093,6 +3199,18 @@ function refreshPomoc(){
   if (!el || el.dataset.hotovo) return;
   el.dataset.hotovo = '1';
   el.innerHTML =
+    '<details class="napoveda" open><summary>Jak se v appce hledají místa</summary>' +
+    '<p><b>Zelené plochy a modrá „P" jsou naše ověřené tipy</b> – šestnáct míst, ' +
+    'ke kterým máme psané poznámky, kde přesně hledat. Ta jsou vidět vždycky.<br><br>' +
+    '<b>Fialové body jsou místa z map</b> – 7 656 evidovaných parkovišť u lesa v celé ČR, ' +
+    'u kterých appka předem spočítala porost a lesní cesty v okolí. Nikdo z nás tam nebyl. ' +
+    'Kreslí se podle toho, kam se na mapě zrovna díváš, a to <b>až od přiblížení zhruba na okres</b> – ' +
+    'sedm tisíc bodů přes celou republiku by byla jen kaše. Lišta nad mapou vždycky říká, ' +
+    'kolik jich ve výřezu je a kolik jich schoval filtr.<br><br>' +
+    '<b>Filtr</b> (tlačítko v té liště) nastavuje houbu, porost, dojezd a rezervace. ' +
+    'Platí zároveň pro mapu i pro doporučení.<br><br>' +
+    '<b>Kam dnes na houby</b> projede celou republiku, přidá k tomu srážky posledních tří týdnů ' +
+    'i předpověď a vybere pár nejlepších míst. Odtud se dá skočit na mapu.</p></details>' +
     '<details class="napoveda"><summary>Co která barva na mapě znamená</summary>' +
     '<p>🔴 domov (Mratín) · 🔵 parkoviště lokality · 🟢 plocha kde hledat · hnědá čárkovaná = doporučená trasa<br><br>' +
     '🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = ostatní<br><br>' +
@@ -3608,6 +3726,7 @@ window.addEventListener('load', () => { measureSheet(); applySheet(false); });
 if (!state.name) askName(); else $('whoTxt').textContent = state.name;
 setShare(false);                 // výchozí stav je VYP, vždy
 initFirebase();
+prekresliMista();                // lišta nad mapou musí být vidět hned
 
 if (state.car && !state.fbReady){
   banner('Ukazuju <b>poslední známou pozici auta</b> uloženou v tomhle telefonu (' + fmtAge(state.car.ts) + ').', false, 7000);
