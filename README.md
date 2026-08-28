@@ -10,6 +10,8 @@ Otevírá se v prohlížeči, přidá se na plochu telefonu jako ikona. Žádný
 | Funkce | Jak to funguje |
 |---|---|
 | Mapa 16 houbařských lokalit | ✅ Vždy, i bez signálu (pokud sis oblast stáhla) |
+| **Lesy celé ČR podle typu porostu** | ✅ Oficiální data ČÚZK, se signálem |
+| **Chráněná území** | ✅ Oficiální data AOPK, se signálem |
 | **Označení zaparkovaného auta** | ✅ Spolehlivě. Jeden zápis, druhý to vidí do sekundy |
 | Navigace zpět k autu (vzdálenost + šipka) | ✅ Funguje i bez signálu, GPS signál stačí |
 | Poloha ostatních na mapě | ⚠️ **Jen dokud mají appku otevřenou na displeji** |
@@ -216,6 +218,25 @@ Poloha se sdílí **jen když je přepínač *Sdílím polohu* zapnutý**. Po za
 
 ---
 
+## Lesy celé ČR
+
+ℹ️ → **Lesy**. Zelené plochy jsou lesní půda se stromy ze ZABAGED, tedy z oficiální databáze ČÚZK. Pokrývá to celou republiku, ne jen našich 16 lokalit.
+
+- Kreslí se **od přiblížení asi na okres**. Nad tím ti server nic nepošle a stejně by z toho nic nepoznal.
+- **Od přiblížení asi na obec** se les rozliší podle porostu: světle zelená listnaté, střední smíšené, tmavá jehličnaté, šedozelená neurčeno. Nahoře se objeví čtyři tlačítka, kterými si necháš jen jeden druh.
+- **Bedly** hledej v listnatém a na okrajích luk, **hřiby a klouzky** v jehličnatém a smíšeném.
+- Klepnutím do plochy zjistíš, co je to za porost.
+
+Zelený podklad se ukládá do telefonu stejně jako mapa, takže funguje offline. **Rozlišení podle porostu se neukládá** — jedna odpověď má i sto kilobajtů a během jedné vycházky by to sežralo místo, které jinde hlídáme. Bez signálu tedy zůstane zelený podklad bez rozlišení.
+
+## Chráněná území
+
+ℹ️ → **Chráněná území**. Data AOPK ČR: národní parky, CHKO, rezervace a klidová území.
+
+> ⚠️ **V rezervacích a v klidových územích národních parků se houby sbírat nesmí**, někde se nesmí ani sejít z cesty. V CHKO sbírat lze. Tahle vrstva ti ukáže, kde si to ověřit — **není to povolenka** a nenahrazuje návštěvní řád.
+
+---
+
 ## Nejlepší místa — mapa z vašich vlastních nálezů
 
 ℹ️ → **Nejlepší místa**. Nálezy se sečtou do čtverců 500 × 500 m a čtverec se obarví od bledě žluté po sytě oranžovou.
@@ -297,6 +318,7 @@ Jediný způsob, jak by se limit vyčerpal, je zveřejnit odkaz a nechat databá
 
 - V databázi je uložené: jméno, které si každý zvolil, poslední souřadnice, přesnost a čas — plus **nálezy** a **ty trasy, které někdo vědomě nasdílel**. Nesdílené trasy databáze nikdy nevidí, zůstávají v telefonu.
 - Data vidí jen členové rodiny, tedy ti, kdo dostali rodinný odkaz s kódem. Firebase konzole je pod tvým Google účtem.
+- Vrstvy lesů a chráněných území jsou veřejné mapové služby ČÚZK a AOPK. Appka jim posílá jen výřez mapy, na který se zrovna díváš — žádné jméno, žádnou polohu, žádný nález.
 - Přepínač **živého sdílení polohy** je po každém otevření appky **vypnutý**. To je schválně a nikdy se to nemá měnit: sdílení polohy musí být pokaždé vědomé rozhodnutí. (Sdílení hotové trasy je něco jiného — tam jde o jednu dokončenou vycházku, ne o to, kde jsi teď, a volba se pamatuje.)
 - Kdo chce z rodinné mapy pryč, klepne v ℹ️ na **Odejít z rodinné mapy**. Smažou se přitom i jeho sdílené trasy a nálezy.
 - Když chceš skončit: ve Firebase konzoli **Realtime Database → Data → smazat vše**, nebo rovnou celý projekt v Nastavení projektu.

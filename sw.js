@@ -5,10 +5,10 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v10';
+const VER        = 'houby-v11';
 const SHELL      = VER + '-shell';
 const TILES      = VER + '-tiles';
-const TILE_MAX   = 3000;          // strop uložených dlaždic
+const TILE_MAX   = 4000;          // strop uložených dlaždic (OSM + lesy + chráněná území)
 
 const SHELL_FILES = [
   './',
@@ -56,8 +56,19 @@ self.addEventListener('activate', e => {
   );
 });
 
+/* Kromě dlaždic OSM ukládáme i obrázky lesů z ČÚZK a chráněných území
+   z AOPK – mění se jednou za rok a cache je svázaná s verzí appky,
+   takže se s každou aktualizací stejně natáhnou znovu.
+
+   Dotazy na druh porostu (/query) tu schválně NEJSOU. Každý posun mapy
+   je jiná adresa a jedna odpověď má i sto kilobajtů – během jedné
+   vycházky by to sežralo místo, které jinde hlídáme. Detail porostu
+   je bonus pro chvíle, kdy je signál; offline zůstane zelený podklad. */
 function isTile(url){
-  return /tile\.openstreetmap\.org/.test(url) || /\/\d+\/\d+\/\d+\.png($|\?)/.test(url);
+  return /tile\.openstreetmap\.org/.test(url)
+      || /\/\d+\/\d+\/\d+\.png($|\?)/.test(url)
+      || /ags\.cuzk\.gov\.cz\/arcgis\/rest\/services\/.*\/export\?/.test(url)
+      || /gis\.nature\.cz\/arcgis\/rest\/services\/.*\/export\?/.test(url);
 }
 
 async function trimTiles(){

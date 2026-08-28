@@ -356,6 +356,7 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
       🔴 domov (Mratín) · 🔵 parkoviště lokality · 🟢 plocha kde hledat · hnědá čárkovaná = doporučená trasa<br><br>
       🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = druhý z vás<br><br>
       🍄 pin = váš nález · šedá čára = tvoje trasa · fialová čára = cizí trasa · žluto‑oranžové čtverce = <b>nejlepší místa spočítaná z vašich nálezů</b><br><br>
+      Zapneš-li <b>Lesy</b>: světle zelená = listnaté, tmavší zelená = smíšené, tmavě zelená = jehličnaté, šedozelená = neurčeno.<br><br>
       <b>Plochy jsou orientační</b> – kreslené podle typu porostu, ne podle porostních map.
     </p>
     <p><b style="color:var(--ink)">Poloha na pozadí nefunguje.</b> Safari na iPhonu zastaví sledování, jakmile zamkneš telefon. Druhého vidíš jen dokud má appku otevřenou na displeji – proto je u jeho polohy vždy napsané, jak je stará. Na průběžné sledování používejte Sdílení polohy v aplikaci <b style="color:var(--ink)">Najít</b>.</p>
@@ -1773,6 +1774,181 @@ async function prestanSdiletVse(){
   }
 }
 
+
+/* ============================================================
+   LESY A CHRÁNĚNÁ ÚZEMÍ PRO CELOU ČR
+
+   V auditu jsem navrhoval předpočítat mřížku 500 m z OSM. Ukázalo se,
+   že je to zbytečné: ČÚZK i AOPK mají veřejné mapové služby, ze kterých
+   se dá kreslit rovnou. Data jsou oficiální, vždycky aktuální, pokrývají
+   republiku a appka kvůli tomu nezbytní ani o bajt – stahuje se jen to,
+   na co se právě díváš.
+
+   ZABAGED vrstva 142 „Lesní půda se stromy" se dá vykreslit na serveru
+   od zoomu 11. Vrstva 144 zná navíc druh porostu (listnaté / smíšené /
+   jehličnaté), ale kreslit ji server odmítá – ta se proto od zoomu 14
+   stahuje jako geometrie a kreslíme si ji sami. A právě druh porostu je
+   to, co u hub rozhoduje: bedly na loukách a v listnatém, hřiby
+   v jehličnatém a smíšeném.
+   ============================================================ */
+const CUZK_EXPORT = 'https://ags.cuzk.gov.cz/arcgis/rest/services/ZABAGED_POLOHOPIS/MapServer/export';
+const CUZK_QUERY  = 'https://ags.cuzk.gov.cz/arcgis/rest/services/ZABAGED_POLOHOPIS/MapServer/144/query';
+const AOPK_EXPORT = 'https://gis.nature.cz/arcgis/rest/services/UzemniOchrana/ChranUzemi/MapServer/export';
+
+const LES_MIN_Z = 11;   // pod tím server nic nenakreslí a stejně by to bylo k ničemu
+const LES_TYP_Z = 14;   // od tohohle přiblížení rozlišujeme druh porostu
+
+const BARVY_LESA = {
+  'listnaté':   '#7fa94a',
+  'smíšené':    '#4f9068',
+  'jehličnaté': '#2f6f57',
+  'bez určení': '#9aa58c'
+};
+
+let lesZap    = LS.get('les', false);
+let chranZap  = LS.get('chranena', false);
+let lesDruh   = LS.get('lesDruh', null);     // null = všechny
+
+/* Dlaždice z ArcGIS služby: Leaflet nám dá souřadnice dlaždice,
+   my z nich spočítáme obdélník v metrech a poprosíme server o obrázek. */
+const ArcDlazdice = L.TileLayer.extend({
+  getTileUrl: function(c){
+    const m = this._map;
+    const a = L.CRS.EPSG3857.project(m.unproject(L.point(c.x*256, c.y*256), c.z));
+    const b = L.CRS.EPSG3857.project(m.unproject(L.point((c.x+1)*256, (c.y+1)*256), c.z));
+    const bbox = [Math.min(a.x,b.x), Math.min(a.y,b.y), Math.max(a.x,b.x), Math.max(a.y,b.y)].join(',');
+    const q = new URLSearchParams({
+      bbox: bbox, bboxSR: '3857', imageSR: '3857', size: '256,256',
+      format: 'png32', transparent: 'true', dpi: '96', f: 'image'
+    });
+    if (this.options.dynamicLayers) q.set('dynamicLayers', this.options.dynamicLayers);
+    if (this.options.arcLayers)     q.set('layers', this.options.arcLayers);
+    return this.options.base + '?' + q.toString();
+  }
+});
+
+const lesDynamicky = JSON.stringify([{
+  id: 101,
+  source: {type:'mapLayer', mapLayerId: 142},
+  minScale: 0, maxScale: 0,
+  drawingInfo: {renderer: {type:'simple', symbol: {
+    type:'esriSFS', style:'esriSFSSolid', color:[86,138,74,105],
+    outline: {type:'esriSLS', style:'esriSLSSolid', color:[60,100,50,80], width:0.5}
+  }}}
+}]);
+
+let lesVrstva = null, chranVrstva = null, lesTypyVrstva = null;
+
+function zapniLes(){
+  if (!lesVrstva){
+    lesVrstva = new ArcDlazdice('', {
+      base: CUZK_EXPORT, dynamicLayers: lesDynamicky,
+      minZoom: LES_MIN_Z, maxZoom: 18, opacity: 1, errorTileUrl: PRAZDNA_DLAZDICE,
+      attribution: '&copy; ČÚZK ZABAGED'
+    });
+  }
+  if (!map.hasLayer(lesVrstva)) lesVrstva.addTo(map);
+  if (lesVrstva.bringToFront) lesVrstva.bringToFront();
+  nactiTypyLesa();
+}
+
+function vypniLes(){
+  if (lesVrstva && map.hasLayer(lesVrstva)) map.removeLayer(lesVrstva);
+  if (lesTypyVrstva){ map.removeLayer(lesTypyVrstva); lesTypyVrstva = null; }
+}
+
+function zapniChranena(){
+  if (!chranVrstva){
+    chranVrstva = new ArcDlazdice('', {
+      base: AOPK_EXPORT, arcLayers: 'show:0,3,7',
+      minZoom: 8, maxZoom: 18, opacity: .75, errorTileUrl: PRAZDNA_DLAZDICE,
+      attribution: '&copy; AOPK ČR'
+    });
+  }
+  if (!map.hasLayer(chranVrstva)) chranVrstva.addTo(map);
+}
+
+function vypniChranena(){
+  if (chranVrstva && map.hasLayer(chranVrstva)) map.removeLayer(chranVrstva);
+}
+
+/* Druh porostu: server tuhle vrstvu nakreslit odmítá, tak si stáhneme
+   geometrii a nakreslíme si ji sami. Zjednodušení podle přiblížení –
+   na hranici lesa nám metr nerozhoduje a data by jinak byla desetkrát větší. */
+let typyAbort = null, typyKlic = null, typyTimer = null;
+
+function nactiTypyLesa(){
+  clearTimeout(typyTimer);
+  typyTimer = setTimeout(nactiTypyLesaHned, 350);
+}
+
+async function nactiTypyLesaHned(){
+  if (!lesZap) return;
+  const z = map.getZoom();
+  if (z < LES_TYP_Z){
+    if (lesTypyVrstva){ map.removeLayer(lesTypyVrstva); lesTypyVrstva = null; }
+    if (lesVrstva && !map.hasLayer(lesVrstva) && z >= LES_MIN_Z) lesVrstva.addTo(map);
+    return;
+  }
+
+  /* Výřez zaokrouhlíme na kilometr. Bez toho je každé škubnutí mapou
+     jiná adresa a telefon by stahoval to samé pořád dokola. */
+  const b = map.getBounds().pad(0.25);
+  const sw = L.CRS.EPSG3857.project(b.getSouthWest());
+  const ne = L.CRS.EPSG3857.project(b.getNorthEast());
+  const K = 1000;
+  const bbox = [Math.floor(sw.x/K)*K, Math.floor(sw.y/K)*K,
+                Math.ceil(ne.x/K)*K,  Math.ceil(ne.y/K)*K].join(',');
+  const zjed = z >= 16 ? 4 : (z >= 15 ? 8 : 15);
+  const klic = bbox + '|' + zjed;
+  if (klic === typyKlic && lesTypyVrstva) return;
+
+  if (typyAbort) typyAbort.abort();
+  typyAbort = new AbortController();
+  const q = new URLSearchParams({
+    geometry: bbox, geometryType: 'esriGeometryEnvelope', inSR: '3857', outSR: '3857',
+    spatialRel: 'esriSpatialRelIntersects', where: '1=1', outFields: 'druh_p',
+    returnGeometry: 'true', f: 'geojson', resultRecordCount: '1500',
+    maxAllowableOffset: String(zjed)
+  });
+
+  try {
+    const r = await fetch(CUZK_QUERY + '?' + q.toString(), {signal: typyAbort.signal});
+    const g = await r.json();
+    if (!g || !Array.isArray(g.features)) return;
+    typyKlic = klic;
+
+    if (lesTypyVrstva) map.removeLayer(lesTypyVrstva);
+    lesTypyVrstva = L.geoJSON(g, {
+      filter: f => !lesDruh || (f.properties && f.properties.druh_p === lesDruh),
+      style: f => {
+        const d = (f.properties && f.properties.druh_p) || 'bez určení';
+        return {color: BARVY_LESA[d] || BARVY_LESA['bez určení'], weight: 1,
+                opacity: .55, fillColor: BARVY_LESA[d] || BARVY_LESA['bez určení'], fillOpacity: .45};
+      },
+      onEachFeature: (f, l) => {
+        const d = (f.properties && f.properties.druh_p) || 'bez určení';
+        l.bindPopup('<div class="pop"><h3>Les</h3><div class="sub">' + d + ' porost</div>' +
+          '<table><tr><td>Zdroj</td><td>ČÚZK ZABAGED</td></tr></table></div>', POPOPT);
+      }
+    }).addTo(map);
+    lesTypyVrstva.bringToBack();
+
+    // podkladová zelená by pod barevnými typy jen špinila barvy
+    if (lesVrstva && map.hasLayer(lesVrstva)) map.removeLayer(lesVrstva);
+    refreshNastroje();
+  } catch(e){
+    if (e.name === 'AbortError') return;
+    // bez signálu se prostě nic nedokreslí, zelený podklad zůstane
+    if (lesVrstva && !map.hasLayer(lesVrstva) && map.getZoom() >= LES_MIN_Z) lesVrstva.addTo(map);
+  }
+}
+
+map.on('moveend zoomend', () => { if (lesZap) nactiTypyLesa(); });
+
+if (lesZap)   zapniLes();
+if (chranZap) zapniChranena();
+
 /* ---------- legenda + UID ---------- */
 function refreshOdchod(){
   const box = $('legendModal').querySelector('.mbox');
@@ -1848,6 +2024,48 @@ function refreshPeopleModal(){
   el.querySelectorAll('[data-remove]').forEach(b  => b.onclick = () => removeUser(b.dataset.remove));
 }
 
+/* Blok „Lesy" v ℹ️. Chipsy s druhem porostu mají smysl teprve od chvíle,
+   kdy se druh opravdu kreslí – jinak by to bylo tlačítko, které nic nedělá. */
+function lesHTML(){
+  const z = map.getZoom();
+  const podrobne = lesZap && z >= LES_TYP_Z;
+  const DRUHY = ['listnaté','smíšené','jehličnaté'];
+
+  let h = '<div class="toggle' + (lesZap ? ' on' : '') + '" id="tgLes" role="switch" tabindex="0" aria-checked="' +
+    lesZap + '" aria-label="Lesy" style="margin-bottom:10px">' +
+    '<div class="sw" aria-hidden="true"><i></i></div><div class="lbl">Lesy<small>' +
+    (!lesZap ? 'oficiální data ČÚZK pro celou ČR'
+             : (z < LES_MIN_Z ? 'přibliž mapu, ať je co kreslit'
+                              : (podrobne ? 'rozlišené podle porostu' : 'přibliž ještě, ať se rozliší porost'))) +
+    '</small></div></div>';
+
+  if (lesZap && podrobne){
+    h += '<div class="druhy" id="druhyLesa" style="grid-template-columns:1fr 1fr 1fr 1fr;gap:5px">' +
+      '<button' + (lesDruh ? '' : ' class="on"') + '>Vše</button>' +
+      DRUHY.map(d => '<button data-d="' + d + '"' + (lesDruh === d ? ' class="on"' : '') + '>' +
+        d.charAt(0).toUpperCase() + d.slice(1,4) + '.</button>').join('') +
+      '</div>';
+    h += '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">' +
+      '<b>Bedly</b> spíš v listnatém a na okrajích luk, <b>hřiby a klouzky</b> v jehličnatém a smíšeném. ' +
+      'Porost, který ČÚZK neurčil, je šedozelený.</p>';
+  } else if (lesZap){
+    h += '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">' +
+      'Zelené plochy jsou lesní půda se stromy podle ZABAGED. ' +
+      'Přibližuj dál a lesy se rozliší na listnaté, smíšené a jehličnaté.</p>';
+  }
+
+  h += '<div class="toggle' + (chranZap ? ' on' : '') + '" id="tgChran" role="switch" tabindex="0" aria-checked="' +
+    chranZap + '" aria-label="Chráněná území" style="margin-bottom:10px">' +
+    '<div class="sw" aria-hidden="true"><i></i></div><div class="lbl">Chráněná území<small>národní parky, CHKO, rezervace</small></div></div>';
+  if (chranZap){
+    h += '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">' +
+      'Data AOPK ČR. <b>V rezervacích a v klidových územích národních parků se houby sbírat nesmí</b> ' +
+      'a někde se nesmí ani sejít z cesty. V CHKO sbírat lze. Tahle vrstva ti ukáže, kde si to ověřit – ' +
+      'není to povolenka.</p>';
+  }
+  return h;
+}
+
 /* Blok „Nejlepší místa" v ℹ️. Píše se sem natvrdo, z kolika nálezů je mapa
    spočítaná – dokud jich je pár, je to náhoda, ne znalost. */
 function nejlepsiHTML(){
@@ -1902,6 +2120,7 @@ function refreshNastroje(){
     '<button class="ghost" id="btnOffline2" style="margin-bottom:8px">⬇︎ &nbsp;Stáhnout tenhle výřez na offline</button>' +
     '<p style="font-size:11.5px;color:var(--muted);margin:0 0 8px" id="mistoTxt">Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.</p>' +
     '<button class="ghost" id="btnSmazMapy" style="margin-bottom:12px">Smazat uložené mapy</button>' +
+    lesHTML() +
     '<div class="toggle' + (historieZap ? ' on' : '') + '" id="tgHistorie" role="switch" tabindex="0" aria-checked="' +
       historieZap + '" aria-label="Kde jsme už hledali" style="margin-bottom:12px">' +
       '<div class="sw" aria-hidden="true"><i></i></div><div class="lbl">Kde jsme už hledali<small>' +
@@ -1921,6 +2140,24 @@ function refreshNastroje(){
     LS.set('nejlepsiDruh', nejlepsiDruh);
     kresliNejlepsi(); refreshNastroje();
   });
+  $('tgLes').onclick = () => {
+    lesZap = !lesZap; LS.set('les', lesZap);
+    if (lesZap) zapniLes(); else vypniLes();
+    refreshNastroje();
+  };
+  $('tgChran').onclick = () => {
+    chranZap = !chranZap; LS.set('chranena', chranZap);
+    if (chranZap) zapniChranena(); else vypniChranena();
+    refreshNastroje();
+  };
+  el.querySelectorAll('#druhyLesa button').forEach(bt => bt.onclick = () => {
+    lesDruh = bt.dataset.d || null;
+    LS.set('lesDruh', lesDruh);
+    typyKlic = null;
+    nactiTypyLesaHned();
+    refreshNastroje();
+  });
+
   $('btnOffline2').onclick = () => { $('legendModal').classList.remove('show'); stahniVyrez(); };
   $('btnSmazMapy').onclick = () => {
     const b = $('btnSmazMapy');
