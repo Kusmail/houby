@@ -124,9 +124,6 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 .people .none{flex:1;justify-content:center;color:var(--muted);font-size:11.5px;
   padding:9px;border-radius:10px;background:#fbfaf7;border:1px dashed var(--line);text-align:center;display:block}
 .iconbtn{position:relative}
-.iconbtn .badge-dot{position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;border-radius:99px;
-  background:var(--danger);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;
-  justify-content:center;padding:0 4px;border:2px solid #fff}
 .mbox .plist{margin:0 0 12px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .mbox .plist .r{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--line);font-size:13px}
 .mbox .plist .r:last-child{border-bottom:0}
@@ -657,11 +654,25 @@ const state = {
   others: {},        // uid -> {name,lat,lng,acc,ts,sharing}
   heading: null,     // kompas zařízení
   fbReady: false,
-  isOwner: false,    // smí schvalovat
-  approved: null,    // null = ještě nevíme, false = čeká na schválení
-  pending: {},       // uid -> {name, ts}   (jen pro správce)
+  isOwner: false,    // smí odebírat lidi
+  approved: null,    // null = ještě nevíme, false = nemáme přístup
   allowed: {}        // uid -> {name, ts}   (jen pro správce)
 };
+
+/* Přístupový kód z odkazu (#k=...). Kdo ho má, připojí se sám –
+   žádné schvalování. Kdo přijde na holou adresu, uvidí jen mapu lokalit.
+   Kód si uložíme, protože po přidání na plochu se odkaz otevře bez něj. */
+function prectiKod(){
+  const m = (location.hash || '').match(/[#&]k=([A-Za-z0-9_-]{8,64})/);
+  if (m){
+    LS.set('kod', m[1]);
+    // uklidit z adresního řádku, ať se kód nepovaluje na screenshotech
+    try { history.replaceState(null, '', location.pathname + location.search); } catch(e){}
+    return m[1];
+  }
+  return LS.get('kod', null);
+}
+const PRISTUPOVY_KOD = prectiKod();
 
 /* Správci – natvrdo, aby vždy existoval někdo, kdo může schvalovat.
    Uzel /owners v databázi funguje navíc, pro pozdější přidání dalšího správce. */
@@ -792,18 +803,9 @@ function renderPeopleList(){
     });
   }
   el.innerHTML = items.join('');
-  renderPendingBadge();
 }
 
-function renderPendingBadge(){
-  const btn = $('btnLegend');
-  let dot = btn.querySelector('.badge-dot');
-  const n = state.isOwner ? Object.keys(state.pending).length : 0;
-  if (n > 0){
-    if (!dot){ dot = document.createElement('span'); dot.className = 'badge-dot'; btn.appendChild(dot); }
-    dot.textContent = n;
-  } else if (dot){ dot.remove(); }
-}
+
 
 setInterval(()=>{ renderPeopleList(); if(state.car) updateCarNav(); }, 15000);
 
@@ -1089,25 +1091,10 @@ function refreshPeopleModal(){
     box.insertBefore(el, box.querySelector('#uidBlock') || box.querySelector('#legendClose'));
   }
 
-  const pend = Object.keys(state.pending);
   const allw = Object.keys(state.allowed);
-  let html = '';
-
-  html += '<h3>Čeká na schválení' + (pend.length ? ' (' + pend.length + ')' : '') + '</h3>';
-  if (!pend.length){
-    html += '<div class="plist"><div class="r" style="color:var(--muted)">Nikdo nečeká</div></div>';
-  } else {
-    html += '<div class="plist">' + pend.map(u => {
-      const p = state.pending[u] || {};
-      return '<div class="r"><b>' + (p.name || 'Bez jména') + '</b>' +
-             '<button class="ok" data-approve="' + u + '">Schválit</button>' +
-             '<button class="no" data-reject="' + u + '">Ne</button></div>';
-    }).join('') + '</div>';
-  }
-
-  html += '<h3>Schválení</h3>';
+  let html = '<h3>Kdo má přístup</h3>';
   if (!allw.length){
-    html += '<div class="plist"><div class="r" style="color:var(--muted)">Zatím nikdo (správci mají přístup vždy)</div></div>';
+    html += '<div class="plist"><div class="r" style="color:var(--muted)">Zatím nikdo další</div></div>';
   } else {
     html += '<div class="plist">' + allw.map(u => {
       const a = state.allowed[u] || {};
@@ -1116,10 +1103,9 @@ function refreshPeopleModal(){
              (own ? '' : '<button class="no" data-remove="' + u + '">Odebrat</button>') + '</div>';
     }).join('') + '</div>';
   }
+  html += '<p style="font-size:11.5px;color:var(--muted);margin:6px 0 12px">Připojí se každý, komu pošleš rodinný odkaz s kódem. Kdo přijde na holou adresu, uvidí jen mapu lokalit.</p>';
 
   el.innerHTML = html;
-  el.querySelectorAll('[data-approve]').forEach(b => b.onclick = () => approveUser(b.dataset.approve));
-  el.querySelectorAll('[data-reject]').forEach(b  => b.onclick = () => rejectUser(b.dataset.reject));
   el.querySelectorAll('[data-remove]').forEach(b  => b.onclick = () => removeUser(b.dataset.remove));
 }
 
@@ -1150,7 +1136,7 @@ function askName(){
     $('nameModal').classList.remove('show');
     $('whoTxt').textContent = v;
     renderPeopleList(); pushMyPosition();
-    if (state.approved === false) registerPending();
+    if (state.approved === false) pripojSeKodem();
   };
 }
 $('whoChip').onclick = askName;
@@ -1248,7 +1234,7 @@ async function initFirebase(){
 
       onDisconnect(ref(db, 'users/' + user.uid + '/sharing')).set(false);
 
-      // jsem už schválený? (tenhle uzel smí každý číst jen sám o sobě)
+      // mám přístup? (tenhle uzel smí každý číst jen sám o sobě)
       onValue(ref(db, 'allowed/' + user.uid), snap => {
         const before = state.approved;
         state.approved = state.isOwner || snap.exists();
@@ -1256,17 +1242,14 @@ async function initFirebase(){
           if (!before) subscribeShared(db, onValue);
           hideBanner();
         } else {
-          registerPending();
-          // trvale, dokud schválení nepřijde – jinak by ten člověk nevěděl, na co čeká
-          banner('<b>Čekáš na schválení.</b> Dej vědět Matějovi, ať tě pustí dovnitř – pak uvidíš ostatní i zaparkované auto. Mapa lokalit ti funguje už teď.', false, 0);
+          pripojSeKodem();
         }
         pushMyPosition();
         renderPeopleList();
       }, err => localOnly('Databáze odmítla čtení. Zkontroluj pravidla (soubor pravidla-databaze.json).'));
 
-      // správce navíc vidí čekající a schválené
+      // správce vidí seznam lidí a může někoho odebrat
       if (state.isOwner){
-        onValue(ref(db, 'pending'), snap => { state.pending = snap.val() || {}; renderPeopleList(); refreshPeopleModal(); });
         onValue(ref(db, 'allowed'), snap => { state.allowed = snap.val() || {}; refreshPeopleModal(); });
       }
 
@@ -1297,27 +1280,33 @@ function subscribeShared(db, onValue){
   }, err => {});
 }
 
-/* zapsat se mezi čekající */
-async function registerPending(){
-  if (!dbRefs || !state.uid || !state.name) return;
-  try { await dbRefs.set(dbRefs.ref(dbRefs.db, 'pending/' + state.uid), {name: state.name, ts: Date.now()}); }
-  catch(e){ /* nevadí, zkusí se znovu při další změně */ }
+/* Připojení bez schvalování: kdo má kód z rodinného odkazu, zapíše se
+   sám mezi lidi s přístupem. Kód ověřují pravidla databáze – bez něj
+   zápis neprojde, i kdyby si ho někdo zkusil poslat ručně. */
+let pripojovaniBezi = false;
+async function pripojSeKodem(){
+  if (!dbRefs || !state.uid || pripojovaniBezi) return;
+
+  if (!PRISTUPOVY_KOD){
+    banner('<b>Nemáš přístupový odkaz.</b> Mapa lokalit ti funguje, ale polohy ostatních a zaparkované auto uvidíš, ' +
+           'až ti Matěj pošle rodinný odkaz. Ten má na konci <code>#k=…</code>.', false, 0);
+    return;
+  }
+  if (!state.name) return;   // ještě neznáme jméno, zkusíme po jeho zadání
+
+  pripojovaniBezi = true;
+  try {
+    await dbRefs.set(dbRefs.ref(dbRefs.db, 'allowed/' + state.uid),
+                     {name: state.name, kod: PRISTUPOVY_KOD, ts: Date.now()});
+    hideBanner();
+  } catch(e){
+    banner('<b>Přístupový kód neplatí.</b> Odkaz je nejspíš starý nebo se cestou zkomolil – řekni si Matějovi o nový.', true, 0);
+  } finally {
+    pripojovaniBezi = false;
+  }
 }
 
 /* --- správa lidí (jen správce) --- */
-async function approveUser(uid){
-  if (!dbRefs || !state.isOwner) return;
-  const p = state.pending[uid] || {};
-  try {
-    await dbRefs.set(dbRefs.ref(dbRefs.db, 'allowed/' + uid), {name: p.name || 'Bez jména', ts: Date.now()});
-    await dbRefs.remove(dbRefs.ref(dbRefs.db, 'pending/' + uid));
-    banner('<b>' + (p.name || 'Nový člověk') + '</b> je schválený. Ať si u sebe načte appku znovu.', false, 9000);
-  } catch(e){ banner('Schválení se nepovedlo: ' + e.message, true, 9000); }
-}
-async function rejectUser(uid){
-  if (!dbRefs || !state.isOwner) return;
-  try { await dbRefs.remove(dbRefs.ref(dbRefs.db, 'pending/' + uid)); } catch(e){}
-}
 async function removeUser(uid){
   if (!dbRefs || !state.isOwner) return;
   if (OWNER_UIDS.indexOf(uid) >= 0){ banner('Správce odebrat nejde – je natvrdo v pravidlech databáze.', false, 8000); return; }

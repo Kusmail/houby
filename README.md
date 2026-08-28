@@ -12,7 +12,8 @@ Otevírá se v prohlížeči, přidá se na plochu telefonu jako ikona. Žádný
 | Mapa 16 houbařských lokalit | ✅ Vždy, i bez signálu (pokud sis oblast stáhla) |
 | **Označení zaparkovaného auta** | ✅ Spolehlivě. Jeden zápis, druhý to vidí do sekundy |
 | Navigace zpět k autu (vzdálenost + šipka) | ✅ Funguje i bez signálu, GPS signál stačí |
-| Poloha druhého na mapě | ⚠️ **Jen dokud má appku otevřenou na displeji** |
+| Poloha ostatních na mapě | ⚠️ **Jen dokud mají appku otevřenou na displeji** |
+| Kolik lidí | Libovolně z rodiny — každého musí schválit správce |
 
 ### Proč to poslední omezení
 
@@ -109,30 +110,56 @@ const FIREBASE_CONFIG = {
 > **`https://tvojejmeno.github.io/houby/`**
 > To je odkaz, který pošleš manželce. Otevři ho a měl bys vidět mapu.
 
-## Krok 4 — Zamknout databázi na vaše dva telefony (5 min)
+## Krok 4 — Pravidla databáze (5 min)
 
-Zatím je databáze v uzamčeném režimu a nikdo do ní nesmí. Teď do ní pustíme přesně vás dva.
+Databáze je po vytvoření v uzamčeném režimu a nikdo do ní nesmí. Pravidla rozhodují, kdo dovnitř smí.
 
-1. **Otevři odkaz na svém telefonu.** Appka se sama anonymně přihlásí.
-2. Klepni vpravo nahoře na **ℹ️**. Dole v okně uvidíš **Tvoje UID** — dlouhý řetězec písmen a čísel. Zkopíruj ho (třeba si ho pošli sám sobě do zprávy).
-3. **To samé udělá manželka** na svém telefonu a UID ti pošle.
-4. Ve Firebase konzoli jdi na **Realtime Database → karta Pravidla (Rules)**.
-5. Smaž, co tam je, a vlož tohle. **Nahraď `UID_MATEJ` a `UID_MANZELKA` skutečnými UID** (uvozovky nech):
+1. Ve Firebase konzoli jdi na **Realtime Database → karta Pravidla (Rules)**.
+2. Označ všechno (⌘A) a vlož obsah souboru **`pravidla-databaze.json`**.
+3. Klikni **Publikovat**. Tlačítko je v **modrém pruhu nahoře**, vlevo vedle „unpublished changes" — ne v panelu Rules Playground vpravo, tam je jen **Run** na simulace.
 
-```json
-{
-  "rules": {
-    ".read":  "auth != null && (auth.uid === 'UID_MATEJ' || auth.uid === 'UID_MANZELKA')",
-    ".write": "auth != null && (auth.uid === 'UID_MATEJ' || auth.uid === 'UID_MANZELKA')"
-  }
-}
-```
+> ✅ V appce se má tečka vlevo nahoře (vedle jména) rozsvítit **zeleně**.
 
-6. Klikni **Publikovat (Publish)**.
+### Jak pravidla fungují
 
-> ✅ V appce se má tečka vlevo nahoře (vedle jména) rozsvítit **zeleně** = jsi připojený. Když je šedá, nemáš signál. Když je červená, něco není v pořádku — viz Řešení problémů.
+| Uzel | Kdo čte | Kdo zapisuje |
+|---|---|---|
+| `owners` | každý jen svůj řádek | jen správce |
+| `allowed` | celý seznam správce, ostatní jen svůj řádek | **jen správce** |
+| `pending` | celý seznam správce | každý **jen sám sebe** |
+| `users` | jen schválený | každý jen svůj vlastní záznam |
+| `car` | jen schválený | kdokoli schválený, včetně mazání |
 
-> **Proč to takhle:** anonymní přihlášení dá každému telefonu trvalé UID. Pravidla pouští dovnitř jen ta dvě vyjmenovaná. Kdokoli jiný odkaz otevře, uvidí mapu lokalit, ale k vaší poloze ani k autu se nedostane.
+**Správci jsou natvrdo v pravidlech** — dvě UID Matějových zařízení. Je to schválně: do `/owners` smí zapisovat jen existující správce, takže úplně prvního by neměl kdo vytvořit. Uzel `/owners` funguje navíc, pro přidání dalšího správce z appky.
+
+**Ověřeno proti ostré databázi** (28. 8. 2026, přes REST API s reálným anonymním účtem):
+
+| Pokus neschváleného uživatele | Výsledek |
+|---|---|
+| Přečíst cizí polohy | 401 zamítnuto |
+| Přečíst pozici auta | 401 zamítnuto |
+| **Schválit sám sebe** | **401 zamítnuto** |
+| Udělat se správcem | 401 zamítnuto |
+| Zapsat svoji polohu | 401 zamítnuto |
+| Přepsat pozici auta | 401 zamítnuto |
+| Přečíst seznam schválených | 401 zamítnuto |
+| Přečíst seznam čekajících | 401 zamítnuto |
+| Zapsat se mezi čekající | 200 povoleno (tak to má být) |
+| Přečíst svůj vlastní stav | 200 povoleno (tak to má být) |
+
+## Krok 4b — Přidat člověka do rodiny (kdykoliv, 10 sekund)
+
+Tohle už je běžný provoz, ne nastavení. **Zvládneš to z telefonu v lese.**
+
+1. Pošli člověku odkaz. Otevře ho, zadá jméno.
+2. Vidí mapu lokalit, ale ne vaše polohy. Nahoře mu svítí „Čekáš na schválení".
+3. Tobě se na ikoně **ℹ️** objeví **červený puntík** s počtem čekajících.
+4. Klepni na ℹ️ → sekce **Čeká na schválení** → **Schválit**.
+5. Ať si u sebe načte appku znovu. Od té chvíle vás vidí a vy jeho.
+
+Odebrat jde tamtéž, tlačítkem **Odebrat** u schválených.
+
+> ⚠️ **Známé omezení:** po odebrání člověk přestane zapisovat, ale jeho poslední záznam v databázi zůstane — mazat vlastní záznam smí podle pravidel jen on sám. Prakticky do pěti minut zešedne a napíše „naposledy před…", takže nikoho nezmate.
 
 ## Krok 5 — Přidat na plochu iPhonu (2 min, každý zvlášť)
 
@@ -173,7 +200,9 @@ Nemáš signál a tenhle výřez není stažený offline. Doma na Wi-Fi otevři 
 **Nevidím svoji polohu**
 Zkontroluj tři věci: (1) přepínač *Sdílím polohu* je zapnutý, (2) Nastavení → Ochrana soukromí → Polohové služby je zapnuté, (3) Nastavení → Safari → Poloha je *Zeptat se* nebo *Povolit*. V hustém lese může první GPS fix trvat i minutu — vyjdi na světlejší místo.
 
-**Nevidím manželku**
+**Nevidím ostatní** Ve spodní liště jsou **jen ti, kdo mají zapnuté sdílení polohy** — kdo nesdílí, tam schválně není. Když tam není nikdo, appka to napíše. Další důvody: druhý **nemá appku otevřenou na displeji** (viz vysvětlení na začátku), nebo **není schválený** — klepni na ℹ️ a podívej se, jestli nečeká ve frontě.
+
+**UID: každé zařízení má vlastní.** Anonymní přihlášení vytvoří UID pro **konkrétní prohlížeč**, ne pro člověka. Když si appku otevřeš na iPhonu i na MacBooku, jsi pro databázi dva různí uživatelé a každý se schvaluje zvlášť. Proto se ve spodní liště dřív objevoval dvakrát „Matěj".
 Nejčastěji proto, že **nemá appku otevřenou na displeji** — viz vysvětlení na začátku. Zkontroluj taky, že má zapnutý svůj přepínač *Sdílím polohu* a že je její UID v pravidlech databáze (krok 4). U jejího jména je vždycky napsané, co se děje.
 
 **Tečka vlevo nahoře je červená**
@@ -198,13 +227,18 @@ Service worker drží starou verzi. Zavři appku úplně (vytáhni ji z přepín
 | Firebase Realtime Database | Spark (free) | viz níže | **0 Kč** |
 | Mapové podklady | OpenStreetMap | dlaždice, cache v telefonu | **0 Kč** |
 
-**Propočet Firebase.** Bezplatný tarif Spark dává 1 GB uložených dat, 10 GB stažených dat měsíčně a 100 současných připojení.
+**Propočet Firebase pro pět lidí.** Bezplatný tarif Spark dává 1 GB uložených dat, 10 GB stažených dat měsíčně a 100 současných připojení.
 
-Poloha se zapisuje maximálně jednou za 10 sekund, jeden zápis má kolem 150 bajtů. Dva lidé, kteří appku aktivně používají 8 hodin denně osm dnů v měsíci:
+Poloha se zapisuje maximálně jednou za 10 sekund, jeden zápis má kolem 150 bajtů. Každý zápis se navíc rozešle ostatním, kdo mají appku otevřenou — to je ta část, co roste rychleji než počet lidí.
 
-`2 osoby × 6 zápisů/min × 60 min × 8 h × 8 dní ≈ 46 000 zápisů ≈ 7 MB přenosu měsíčně`
+Pět lidí, kteří appku aktivně používají 8 hodin denně osm dnů v měsíci:
 
-To je **necelé promile** bezplatného limitu. Uložených dat je v databázi trvale pár set bajtů — jedna pozice auta a dva záznamy o lidech. Ani při mnohem intenzivnějším používání se do placeného tarifu nedostanete.
+`5 osob × 6 zápisů/min × 60 min × 8 h × 8 dní ≈ 115 000 zápisů`
+`115 000 × 150 B × 4 příjemci ≈ 70 MB přenosu měsíčně`
+
+To je **0,7 % z 10GB limitu**. Uložených dat je trvale pár kilobajtů — jedna pozice auta a řádek na každého člověka.
+
+Souběžných připojení je pět proti limitu sta. I kdyby vás šlo na houby patnáct a appku měli otevřenou celý den, pořád jste hluboko pod hranicí. **Placený tarif nepotřebujete.**
 
 Jediný způsob, jak by se limit vyčerpal, je zveřejnit odkaz a nechat databázi otevřenou pro kohokoli. Proto krok 4 — s pravidly omezenými na dvě UID to nehrozí.
 
