@@ -2635,7 +2635,7 @@ function duvodMista(x){
     : 'zatím žádné') + '</td></tr>');
   k.push('<tr><td>Dojezd</td><td>' + (m.minuty != null ? m.minuty + ' min' : '?') +
     (m.km ? ' · ' + m.km + ' km' : '') + (m.presnyDojezd ? '' : ' <i>(odhad)</i>') + '</td></tr>');
-  if (x.obl) k.push('<tr><td>Oblíbené</td><td>★ ano</td></tr>');
+  k.push('<tr class="oblRadek"' + (x.obl ? '' : ' style="display:none"') + '><td>Oblíbené</td><td>★ ano</td></tr>');
   if (m.chranene) k.push('<tr><td>Pozor</td><td>' + m.chranene + '</td></tr>');
   return '<table>' + k.join('') + '</table>';
 }
@@ -2763,6 +2763,10 @@ async function kamDnes(){
       const klic = x.m.overene ? ('lok:' + x.m.locIndex) : ('bod:' + x.m.id);
       const je = await prepniOblibene(klic, x.m.overene ? x.m.loc.name : 'Místo z map', x.m.lat, x.m.lng);
       bt.textContent = je ? '★ Oblíbené' : '☆ Do oblíbených';
+      x.obl = je;
+      const karta = bt.closest('.kamlok');
+      const radek = karta && karta.querySelector('.oblRadek');
+      if (radek) radek.style.display = je ? '' : 'none';
     });
   } catch(e){
     banner('<b>Nepodařilo se načíst srážky.</b> Bez nich doporučit nic neumím – ' +
