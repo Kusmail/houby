@@ -3155,7 +3155,7 @@ const VHODNOST = {
 /* Co v takovém porostu hledat – aby barva nebyla jen barva. */
 const CO_TAM_ROSTE = {
   'jehličnaté': {'do 2,5 m':'zatím nic, moc mladé', 'od 2,5 m do 8 m':'klouzci a masáci v mladém boru',
-                 'od 8 m do 20 m':'hřib smrkový a borový, křemenáč', 'nad 20 m':'hřiby ve starém poros­tu, ryzce'},
+                 'od 8 m do 20 m':'hřib smrkový a borový, křemenáč', 'nad 20 m':'hřiby ve starém porostu, ryzce'},
   'listnaté':   {'do 2,5 m':'bedly v trávě a na okraji', 'od 2,5 m do 8 m':'bedly, kozáci pod břízou',
                  'od 8 m do 20 m':'hřib dubový, kozák', 'nad 20 m':'hřib dubový ve starém doubí'},
   'smíšené':    {'do 2,5 m':'bedly na světlině', 'od 2,5 m do 8 m':'klouzci, kozáci, bedly na okraji',
@@ -3577,7 +3577,8 @@ function ukazLegenduSberu(v){
     ' · počasí dnes <b>' + Math.round(v.pocasi*100) + ' %</b>' +
     ' <span class="skala">' + BARVY_RUSTU.map((c,i) =>
       '<i style="background:rgb('+c.join(',')+')" title="' + (i+1) + ' z 5"></i>').join('') + '</span> ' +
-    '<small>' + v.pocet + ' porostů · silný obrys = kraj, tam choď. Klepni na porost.</small>');
+    '<small>' + v.pocet + ' porostů · silný obrys = kraj, tam choď. Klepni na porost.' +
+    (FILTR.druh === 'vse' ? ' <b>Vyber houbu ve filtru</b>, ať je mapa ostřejší.' : '') + '</small>');
 }
 
 function ukazLegenduRustu(mr, podilLesa){
