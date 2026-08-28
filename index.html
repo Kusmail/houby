@@ -3326,7 +3326,17 @@ async function kamDnes(){
       return;
     }
     // počasí jen pro to, co prošlo filtry – ne pro čtrnáct tisíc bodů
-    const top = vysl.slice(0, 30);
+    /* Parkoviště bývají v hloučcích – tři vjezdy do stejného lesa dají tři
+       místa vzdálená od sebe padesát metrů, se stejným porostem i dojezdem.
+       Na obrazovce to vypadá jako rozbitá appka, která opakuje jednu kartu.
+       Z každého hloučku do 600 m proto bereme jen jedno, to nejbližší;
+       ověřené tipy si drží své místo vždycky. */
+    const top = [];
+    for (const m of vysl){
+      if (top.length >= 30) break;
+      if (!m.overene && top.some(z => !z.overene && distM([m.lat,m.lng],[z.lat,z.lng]) < 600)) continue;
+      top.push(m);
+    }
     const pocasi = await nactiPocasiPro(top);
     const poradi = top.map((m, i) => skoreMista(m, pocasi[i].daily)).sort((a,b) => b.sance - a.sance);
     const nej = poradi[0];
