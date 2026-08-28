@@ -2661,8 +2661,7 @@ function duvodMista(x){
   k.push('<tr><td>Poslední vydatný déšť</td><td>' +
     (p.poslednivetsi === null ? '<b>žádný</b> za 21 dní' :
      (p.poslednivetsi === 0 ? '<b>dnes</b>' : '<b>před ' + sklonuj(p.poslednivetsi,'dnem','dny','dny') + '</b>')) + '</td></tr>');
-  k.push('<tr><td>Porost do 400 m</td><td>' +
-    (m.jehl >= m.list ? 'spíš jehličnatý' : 'spíš listnatý') + ' (' + m.jehl + ' / ' + m.list + ')</td></tr>');
+  k.push('<tr><td>Porost do 400 m</td><td>' + popisPorostu(m) + '</td></tr>');
   if (!m.overene) k.push('<tr><td>Lesních cest</td><td>' + m.cest + ' v okolí</td></tr>');
   k.push('<tr><td>Naše nálezy</td><td>' + (x.n.pocet
     ? '<b>' + sklonuj(x.n.pocet,'nález','nálezy','nálezů') + '</b>, naposledy ' + fmtTime(x.n.posledni)
@@ -2717,15 +2716,36 @@ function otevriFiltry(){
 }
 
 /* ---------- místa na mapě ---------- */
+/* Body se překreslují při každém posunu mapy. Kdyby se vrstva pokaždé
+   vysypala a naplnila znovu, otevřená bublina by zmizela dřív, než by
+   se stihla přečíst – Leaflet totiž po otevření bubliny mapou posune,
+   což je další posun. Proto se přidává a odebírá jen rozdíl a bod
+   s otevřenou bublinou se nikdy neodebírá. */
+const mistaNaMape = new Map();      // id místa -> značka
+
+function popisPorostu(m){
+  if (!m.jehl && !m.list) return 'neurčeno (ZABAGED tu porost nekategorizuje)';
+  return (m.jehl >= m.list ? 'spíš jehličnatý' : 'spíš listnatý') + ' (' + m.jehl + ' / ' + m.list + ')';
+}
+
 function ukazMista(mista){
-  mistaVrstva.clearLayers();
+  const chci = new Set();
+  mista.filter(m => !m.overene).slice(0, 300).forEach(m => chci.add(m.id));
+
+  mistaNaMape.forEach((zn, id) => {
+    if (chci.has(id)) return;
+    if (zn.isPopupOpen && zn.isPopupOpen()) return;   // otevřenou bublinu nerušíme
+    mistaVrstva.removeLayer(zn);
+    mistaNaMape.delete(id);
+  });
+
   mista.filter(m => !m.overene).slice(0, 300).forEach(m => {
-    L.circleMarker([m.lat, m.lng], {radius:6, color:'#7a5ea8', weight:2, opacity:.9,
+    if (mistaNaMape.has(m.id)) return;
+    const zn = L.circleMarker([m.lat, m.lng], {radius:6, color:'#7a5ea8', weight:2, opacity:.9,
       fillColor:'#a98fd0', fillOpacity:.75})
      .bindPopup('<div class="pop"><h3>Místo z map</h3>' +
        '<div class="sub"><span class="znacka mapa">nikdy jsme tam nebyli</span></div>' +
-       '<table><tr><td>Porost do 400 m</td><td>' + (m.jehl >= m.list ? 'spíš jehličnatý' : 'spíš listnatý') +
-       ' (' + m.jehl + ' / ' + m.list + ')</td></tr>' +
+       '<table><tr><td>Porost do 400 m</td><td>' + popisPorostu(m) + '</td></tr>' +
        '<tr><td>Lesních cest</td><td>' + m.cest + '</td></tr>' +
        '<tr><td>Dojezd</td><td>' + (m.minuty != null
           ? m.minuty + ' min' + (m.presnyDojezd ? '' : ' <i>(odhad)</i>')
@@ -2735,8 +2755,9 @@ function ukazMista(mista){
        'href="https://www.google.com/maps/dir/?api=1&destination=' + m.lat + ',' + m.lng + '">Navigovat sem</a></div>' +
        '<button class="oblTlac" data-obl-bod="' + m.id + '" data-la="' + m.lat + '" data-ln="' + m.lng + '">' +
        (jeOblibene('bod:' + m.id) ? '★ Oblíbené' : '☆ Přidat do oblíbených') + '</button>' +
-       '</div>', POPOPT)
-     .addTo(mistaVrstva);
+       '</div>', POPOPT);
+    zn.addTo(mistaVrstva);
+    mistaNaMape.set(m.id, zn);
   });
 }
 
@@ -2763,14 +2784,14 @@ function prekresliMistaBrzy(){
 async function prekresliMista(){
   const bar = $('mistaBar'), txt = $('mistaTxt');
   if (!map.hasLayer(mistaVrstva)){
-    mistaVrstva.clearLayers();
+    mistaVrstva.clearLayers(); mistaNaMape.clear();
     bar.classList.remove('show');
     return;
   }
   bar.classList.add('show');
 
   if (map.getZoom() < ZOOM_MISTA){
-    mistaVrstva.clearLayers();
+    mistaVrstva.clearLayers(); mistaNaMape.clear();
     txt.innerHTML = '<b>Přibliž mapu</b>, ať ti ukážu místa z map. Je jich 7 656 po celé ČR, ' +
                     'najednou by to byla jen kaše.';
     return;
