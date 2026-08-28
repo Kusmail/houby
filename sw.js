@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v30';
+const VER        = 'houby-v31';
 const SHELL      = VER + '-shell';
 
 /* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
@@ -85,6 +85,10 @@ self.addEventListener('activate', e => {
    vycházky by to sežralo místo, které jinde hlídáme. Detail porostu
    je bonus pro chvíle, kdy je signál; offline zůstane zelený podklad. */
 function isTile(url){
+  /* Maska lesa pro mapu růstu (hb=rust) se neukládá. Je pokaždé jiná –
+     jiný výřez, jiná adresa – a jako opaque odpověď by si každá ukousla
+     7 MB z kvóty a vytlačila dlaždice, které si člověk stáhl na cestu. */
+  if (/[?&]hb=rust/.test(url)) return false;
   return /tile\.openstreetmap\.org/.test(url)
       || /\/\d+\/\d+\/\d+\.png($|\?)/.test(url)
       || /ags\.cuzk\.gov\.cz\/arcgis\/rest\/services\/.*\/export\?/.test(url)

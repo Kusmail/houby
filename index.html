@@ -246,6 +246,19 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
   min-height:44px;min-width:64px;padding:6px 14px;font-size:13px;font-weight:700;
   font-family:inherit;color:inherit;cursor:pointer
 }
+
+/* Legenda mapy rustu. Sedi pod listou mist, at se lisity nekryji. */
+.rustlegenda{
+  position:absolute;
+  top:calc(var(--safe-t) + 56px + var(--updH,0px) + var(--bannerOnlyH,0px) + var(--recH,0px) + var(--mistaH,0px));
+  left:8px;right:56px;z-index:1225;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 10px;
+  font-size:12px;line-height:1.4;display:none;box-shadow:0 2px 8px rgba(0,0,0,.10)
+}
+.rustlegenda.show{display:block}
+.rustlegenda .skala{display:inline-flex;gap:2px;vertical-align:-2px;margin:0 5px}
+.rustlegenda .skala i{width:17px;height:12px;border-radius:2px;display:block;border:1px solid rgba(0,0,0,.15)}
+.rustlegenda small{opacity:.75}
 .recbar .tecka{width:10px;height:10px;border-radius:50%;background:var(--danger);flex:0 0 10px;
   animation:bliknuti 1.6s infinite}
 @keyframes bliknuti{0%,100%{opacity:1}50%{opacity:.25}}
@@ -323,6 +336,8 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 <div class="recbar" id="recBar" role="status" aria-live="polite"><span class="tecka"></span><span id="recTxt">Zaznamenávám trasu</span></div>
 
 <div class="mistabar" id="mistaBar" role="status" aria-live="polite"><span class="t" id="mistaTxt"></span><button id="btnFiltr" aria-label="Nastavit filtry míst">⚙︎ Filtr</button></div>
+
+<div class="rustlegenda" id="rustLegenda" role="status" aria-live="polite"></div>
 
 <div class="banner" id="banner" role="status" aria-live="polite"><span class="close" id="bannerClose" role="button" tabindex="0" aria-label="Zavřít hlášku">✕</span><span id="bannerTxt"></span></div>
 
@@ -750,9 +765,11 @@ function bannerOffset(){
   st.setProperty('--updH', hu + 'px');
   st.setProperty('--bannerOnlyH', hb + 'px');
   st.setProperty('--recH', hr + 'px');
-  /* ovládání mapy vpravo musí uhnout všem lištám i liště míst */
+  /* ovládání mapy vpravo musí uhnout všem lištám, liště míst i legendě růstu */
   const hm = vyska($('mistaBar'));
-  st.setProperty('--bannerH', (hu + hb + hr + hm) + 'px');
+  const hl = vyska($('rustLegenda'));
+  st.setProperty('--mistaH', hm + 'px');
+  st.setProperty('--bannerH', (hu + hb + hr + hm + hl) + 'px');
 }
 function hideBanner(){ $('banner').classList.remove('show'); bannerOffset(); }
 function banner(html, isErr, autoHide){
@@ -822,6 +839,9 @@ L.marker(HOME, {icon: pinIcon('home','⌂',28), zIndexOffset:500}).addTo(map)
    ověřené tipy: mají poznámky, které se z map vyčíst nedají. */
 const overeneTipy = L.layerGroup().addTo(map);
 const mistaVrstva = L.layerGroup().addTo(map);
+/* Mapa růstu: prázdná skupina, obrázek do ní dodá prekresliRust().
+   Zapnutá hned – to je ten původní úkol, kvůli kterému appka vznikla. */
+const rustVrstva = L.layerGroup().addTo(map);
 
 function popupHTML(d, index){
   const parkBox = d.park_ok === 'ok'
@@ -864,6 +884,7 @@ LOC.forEach((d, idx) => {
 });
 
 L.control.layers(null, {
+  '<b>Kde teď rostou</b> – obarvený les podle počasí': rustVrstva,
   '<b>Ověřené tipy</b> – 16 popsaných míst': overeneTipy,
   '<b>Místa z map</b> – celá ČR podle filtrů': mistaVrstva
 }, {collapsed:true}).addTo(map);
@@ -2952,7 +2973,9 @@ function pripojFiltry(korenId, poZmene){
    člověk dostane i bez spouštění doporučení. */
 function vykresliFiltrPanel(){
   $('filtrObsah').innerHTML = filtryHTML();
-  pripojFiltry('filtrObsah', () => { vykresliFiltrPanel(); prekresliMista(); });
+  /* Houba mění i mapu růstu – sezónní křivka bedly a hřibu není stejná,
+     tak se obarvení lesa po změně filtru přepočítá. */
+  pripojFiltry('filtrObsah', () => { vykresliFiltrPanel(); prekresliMista(); prekresliRustBrzy(); });
 }
 function otevriFiltry(){
   vykresliFiltrPanel();
@@ -3007,6 +3030,240 @@ function ukazMista(mista){
     zn.addTo(mistaVrstva);
     mistaNaMape.set(m.id, zn);
   });
+}
+
+/* ============================================================
+   MAPA RŮSTU — „kde teď rostou"
+
+   Tohle byl původní záměr appky a nejdéle chybějící kus. Doteď mapa
+   ukazovala parkoviště a doporučení bylo seznam karet. Tady se
+   podmínky pro růst kreslí přímo do krajiny.
+
+   Jak to funguje:
+   1. ČÚZK vykreslí lesní plochy výřezu do jednoho obrázku (maska).
+      Ověřeno: server kreslí vrstvu 142 jen do rozlišení ~25 m/px –
+      10 km výřez stojí 6 kB, 20 km 26 kB, 30 km 64 kB.
+   2. Počasí se bere na hrubé mřížce ~10 km. Vláha a teplota jsou
+      plynulé pole, na 2 km je nepotřebujeme; podrobnost dodá les.
+   3. Každý lesní pixel se obarví podle indexu spočítaného z počasí
+      nad ním. Nezelená se tedy pole ani obec – jen to, kde les je.
+
+   Index není jistota. Je to počasí, sezóna a statistika. Kdo tam
+   opravdu byl, ví víc – a od verze 30 to appka umí zapsat.
+   ============================================================ */
+const RUST_MIN_Z   = 11;      // pod tím server les nenakreslí a stejně by to byla kaše
+const RUST_MAX_KM  = 40;      // širší výřez už maska nezvládne v rozumné velikosti
+const RUST_MPX     = 25;      // metrů na pixel masky – strop, který ČÚZK ještě kreslí
+const RUST_MRIZKA  = 10000;   // hrubá mřížka počasí v metrech
+const RUST_CEKANI  = 20000;   // déle na server nečekáme, jinak visí „Počítám…"
+
+const BARVY_RUSTU = [
+  [158, 60,  40],   // 1 – mizerně
+  [198,113, 58],    // 2 – slabě
+  [206,183, 96],    // 3 – středně
+  [ 96,150, 78],    // 4 – dobře
+  [ 41,112, 66]     // 5 – výborně
+];
+
+let rustProbiha = false, rustKlic = null, rustTimer = null;
+
+function rustZapnuty(){ return !!(rustVrstva && map.hasLayer(rustVrstva)); }
+
+/* Obrázek lesních ploch pro výřez. Vrací canvas + jeho rozsah. */
+async function maskaLesa(b){
+  const sw = L.CRS.EPSG3857.project(b.getSouthWest());
+  const ne = L.CRS.EPSG3857.project(b.getNorthEast());
+  const sirkaM = (ne.x - sw.x) * Math.cos(b.getCenter().lat * Math.PI / 180);
+  if (sirkaM > RUST_MAX_KM * 1000) return {prilis: true, km: Math.round(sirkaM / 1000)};
+  const px = Math.min(1600, Math.max(300, Math.round(sirkaM / RUST_MPX)));
+  const q = new URLSearchParams({
+    bbox: [sw.x, sw.y, ne.x, ne.y].join(','), bboxSR: '3857', imageSR: '3857',
+    size: px + ',' + Math.round(px * (ne.y - sw.y) / (ne.x - sw.x)),
+    format: 'png8', transparent: 'true', dpi: '96', f: 'image',
+    dynamicLayers: lesDynamicky,
+    /* Značka pro service worker. Každý posun mapy je jiný bbox, takže
+       jiná adresa – kdyby se maska ukládala jako dlaždice, každý posun
+       by ukousl 7 MB z kvóty a vytlačil mapy stažené doma na Wi-Fi. */
+    hb: 'rust'
+  });
+  const url = CUZK_EXPORT + '?' + q.toString();
+  /* Obrázek, který se nenačte ani nespadne, by nechal appku navěky
+     v „Počítám…" a vrstva by už nikdy nic nenakreslila. Proto strop. */
+  const img = await new Promise((res, rej) => {
+    const i = new Image();
+    let hotovo = false;
+    const stop = setTimeout(() => {
+      if (hotovo) return;
+      hotovo = true; i.src = '';
+      rej(new Error('ČÚZK se do ' + Math.round(RUST_CEKANI/1000) + ' s neozval'));
+    }, RUST_CEKANI);
+    i.crossOrigin = 'anonymous';
+    i.onload  = () => { if (hotovo) return; hotovo = true; clearTimeout(stop); res(i); };
+    i.onerror = () => { if (hotovo) return; hotovo = true; clearTimeout(stop); rej(new Error('ČÚZK nevrátil obrázek lesa')); };
+    i.src = url;
+  });
+  const c = document.createElement('canvas');
+  c.width = img.width; c.height = img.height;
+  c.getContext('2d').drawImage(img, 0, 0);
+  return {canvas: c, sw, ne, px: img.width, py: img.height};
+}
+
+/* Počasí na hrubé mřížce přes výřez – jedním dotazem. */
+async function pocasiMrizka(sw, ne){
+  const kroky = [];
+  const nx = Math.max(2, Math.min(8, Math.ceil((ne.x - sw.x) / RUST_MRIZKA)));
+  const ny = Math.max(2, Math.min(8, Math.ceil((ne.y - sw.y) / RUST_MRIZKA)));
+  for (let j = 0; j < ny; j++){
+    for (let i = 0; i < nx; i++){
+      const x = sw.x + (ne.x - sw.x) * (i / (nx - 1));
+      const y = sw.y + (ne.y - sw.y) * (j / (ny - 1));
+      const ll = L.CRS.EPSG3857.unproject(L.point(x, y));
+      kroky.push({i, j, lat: ll.lat, lng: ll.lng});
+    }
+  }
+  const lat = kroky.map(k => k.lat.toFixed(3)).join(',');
+  const lon = kroky.map(k => k.lng.toFixed(3)).join(',');
+  const u = METEO + '?latitude=' + lat + '&longitude=' + lon +
+    '&daily=precipitation_sum,temperature_2m_max,temperature_2m_min' +
+    '&past_days=21&forecast_days=1&timezone=Europe%2FPrague';
+  const stopper = new AbortController();
+  const stop = setTimeout(() => stopper.abort(), RUST_CEKANI);
+  let r;
+  try { r = await fetch(u, {signal: stopper.signal}); }
+  catch(e){ throw new Error(e.name === 'AbortError'
+    ? 'předpověď počasí se do ' + Math.round(RUST_CEKANI/1000) + ' s nestáhla' : e.message); }
+  finally { clearTimeout(stop); }
+  if (!r.ok) throw new Error('Open-Meteo HTTP ' + r.status);
+  let d = await r.json();
+  if (!Array.isArray(d)) d = [d];
+  const mesic = new Date().getMonth() + 1;
+  const bedlove = FILTR.druh === 'bedly';
+  const hodnoty = kroky.map((k, idx) => {
+    const p = rozborPocasi(d[idx].daily);
+    const vlhkost = Math.max(0, Math.min(1, p.vazene / 25));
+    const teplo = (p.horko >= 4 ? 0.75 : 1) * (p.zima >= 3 ? 0.6 : 1);
+    const sez = faktorSezony(mesic, bedlove);
+    return Math.max(0, Math.min(1, vlhkost * teplo * sez));
+  });
+  return {nx, ny, hodnoty};
+}
+
+function zMrizky(m, u, v){          // u,v = 0..1 přes výřez, bilineárně
+  const fx = u * (m.nx - 1), fy = v * (m.ny - 1);
+  const x0 = Math.floor(fx), y0 = Math.floor(fy);
+  const x1 = Math.min(m.nx - 1, x0 + 1), y1 = Math.min(m.ny - 1, y0 + 1);
+  const tx = fx - x0, ty = fy - y0;
+  const h = (i, j) => m.hodnoty[j * m.nx + i];
+  return h(x0,y0)*(1-tx)*(1-ty) + h(x1,y0)*tx*(1-ty) + h(x0,y1)*(1-tx)*ty + h(x1,y1)*tx*ty;
+}
+
+function zpravaRustu(html){
+  const el = $('rustLegenda');
+  if (!el) return;
+  el.innerHTML = html;
+  el.classList.add('show');
+  bannerOffset();
+}
+
+function skryjLegenduRustu(){
+  const el = $('rustLegenda');
+  if (!el) return;
+  el.classList.remove('show');
+  bannerOffset();
+}
+
+/* Posun mapy prstem vyvolá moveend klidně desetkrát za sebou. Bez téhle
+   prodlevy by appka pokaždé sáhla na ČÚZK i na Open-Meteo. */
+function prekresliRustBrzy(){
+  clearTimeout(rustTimer);
+  rustTimer = setTimeout(prekresliRust, 400);
+}
+
+async function prekresliRust(){
+  if (!rustZapnuty()){
+    rustVrstva.clearLayers();
+    rustKlic = null;
+    skryjLegenduRustu();
+    return;
+  }
+  if (rustProbiha) return;
+
+  if (map.getZoom() < RUST_MIN_Z){
+    rustVrstva.clearLayers();
+    rustKlic = null;
+    zpravaRustu('<b>Přibliž mapu</b>, ať můžu obarvit les. Z takové dálky by ' +
+                'to stejně byla jen zelená kaše.');
+    return;
+  }
+
+  const b = map.getBounds();
+  const klic = b.getSouth().toFixed(2)+','+b.getWest().toFixed(2)+','+
+               b.getNorth().toFixed(2)+','+b.getEast().toFixed(2)+'|'+FILTR.druh;
+  if (klic === rustKlic) return;
+
+  rustProbiha = true;
+  zpravaRustu('Počítám, kde by teď mohly růst…');
+  try {
+    const m = await maskaLesa(b);
+    if (m.prilis){
+      rustVrstva.clearLayers();
+      rustKlic = null;
+      zpravaRustu('<b>Výřez je moc velký (' + m.km + ' km).</b> Les obarvím do ' +
+                  RUST_MAX_KM + ' km – přibliž mapu.');
+      return;
+    }
+    const mr = await pocasiMrizka(m.sw, m.ne);
+    const ctx = m.canvas.getContext('2d');
+    const dat = ctx.getImageData(0, 0, m.px, m.py);
+    const d = dat.data;
+    let lesnich = 0;
+    for (let y = 0; y < m.py; y++){
+      const v = y / (m.py - 1);
+      for (let x = 0; x < m.px; x++){
+        const i = (y * m.px + x) * 4;
+        if (d[i+3] < 40){ d[i+3] = 0; continue; }        // není les
+        lesnich++;
+        const idx = zMrizky(mr, x / (m.px - 1), 1 - v);   // obrázek má y dolů, Mercator nahoru
+        const st = Math.max(0, Math.min(4, Math.round(idx * 5 - 0.5)));
+        const c = BARVY_RUSTU[st];
+        d[i] = c[0]; d[i+1] = c[1]; d[i+2] = c[2];
+        d[i+3] = 175;
+      }
+    }
+    ctx.putImageData(dat, 0, 0);
+    rustVrstva.clearLayers();
+    const jz = L.CRS.EPSG3857.unproject(m.sw), sv = L.CRS.EPSG3857.unproject(m.ne);
+    L.imageOverlay(m.canvas.toDataURL('image/png'),
+                   L.latLngBounds(jz, sv), {opacity: 1, interactive: false})
+     .addTo(rustVrstva);
+    rustKlic = klic;
+    ukazLegenduRustu(mr, lesnich / (m.px * m.py));
+    /* Než se to spočítalo, mohl člověk mapou posunout. Obrázek by pak
+       ležel vedle toho, na co se dívá – tak se počítá znovu. */
+    if (map.getBounds().getCenter().distanceTo(b.getCenter()) > 100) prekresliRustBrzy();
+  } catch(e){
+    rustKlic = null;
+    zpravaRustu('<b>Mapu růstu se nepodařilo spočítat.</b> ' + e.message +
+                ' Zkus to, až budeš mít signál.');
+  } finally {
+    rustProbiha = false;
+  }
+}
+
+function ukazLegenduRustu(mr, podilLesa){
+  const prum = mr.hodnoty.reduce((a,b)=>a+b,0) / mr.hodnoty.length;
+  const nej  = Math.max.apply(null, mr.hodnoty);
+  if (!podilLesa){
+    zpravaRustu('<b>Ve výřezu není žádný les.</b> Podle ZABAGED tu nic nemám ' +
+                'co obarvit – zkus se posunout k lesu.');
+    return;
+  }
+  zpravaRustu('<b>Kde teď rostou</b> — barva lesa je index z počasí a sezóny. ' +
+    'Ve výřezu průměr <b>' + Math.round(prum*100) + ' %</b>, nejlepší kout <b>' +
+    Math.round(nej*100) + ' %</b>, lesa <b>' + Math.round(podilLesa*100) + ' %</b> plochy. ' +
+    '<span class="skala">' + BARVY_RUSTU.map((c,i) =>
+      '<i style="background:rgb('+c.join(',')+')" title="' + (i+1) + ' z 5"></i>').join('') + '</span> ' +
+    '<small>mizerně → výborně. Není to jistota, je to počasí nad lesem.</small>');
 }
 
 /* ============================================================
@@ -3374,6 +3631,12 @@ map.on('moveend', prekresliMistaBrzy);
 map.on('zoomend', prekresliMistaBrzy);
 map.on('overlayadd', prekresliMistaBrzy);
 map.on('overlayremove', prekresliMistaBrzy);
+
+map.on('moveend', prekresliRustBrzy);
+map.on('zoomend', prekresliRustBrzy);
+map.on('overlayadd', prekresliRustBrzy);
+map.on('overlayremove', prekresliRustBrzy);
+prekresliRustBrzy();
 
 async function kamDnes(){
   const b = $('btnKam');
@@ -3815,7 +4078,14 @@ function refreshPomoc(){
   el.dataset.hotovo = '1';
   el.innerHTML =
     '<details class="napoveda" open><summary>Jak se v appce hledají místa</summary>' +
-    '<p><b>Modrá „P" jsou naše ověřené tipy</b> – šestnáct míst, ke kterým máme ' +
+    '<p><b>Obarvený les je mapa růstu</b> – to hlavní, kvůli čemu appka je. ' +
+    'Vezme se lesní vrstva ČÚZK pro to, na co se zrovna díváš, a každý kousek lesa ' +
+    'se obarví podle srážek posledních tří týdnů, teplot a sezóny té houby, ' +
+    'kterou máš ve filtru. Červená = mizerně, tmavě zelená = výborně. ' +
+    'Pole ani obce se nebarví – jen les. Kreslí se od přiblížení zhruba na okres ' +
+    'a do výřezu 40 km. <b>Není to jistota</b>, je to počasí nad lesem: ' +
+    'kdo tam byl a zapsal nález, ví víc.<br><br>' +
+    '<b>Modrá „P" jsou naše ověřené tipy</b> – šestnáct míst, ke kterým máme ' +
     'psané poznámky, kde přesně hledat. Ta jsou vidět vždycky.<br><br>' +
     '<b>Zelená plocha „kde hledat" se dokresluje na vyžádání</b> – tlačítkem v bublině ' +
     'místa nebo z doporučení „Kam dnes". Odvodí se z map ČÚZK: porost správného druhu ' +
@@ -3833,7 +4103,9 @@ function refreshPomoc(){
     '<b>Kam dnes na houby</b> projede celou republiku, přidá k tomu srážky posledních tří týdnů ' +
     'i předpověď a vybere pár nejlepších míst. Odtud se dá skočit na mapu.</p></details>' +
     '<details class="napoveda"><summary>Co která barva na mapě znamená</summary>' +
-    '<p>🔴 domov (Mratín) · 🔵 parkoviště lokality · hnědá čárkovaná = doporučená trasa<br><br>' +
+    '<p><b>Obarvený les</b> = mapa růstu. Pět stupňů od cihlové (mizerně) ' +
+    'přes okrovou (středně) po tmavě zelenou (výborně). Barvu má jen les.<br><br>' +
+    '🔴 domov (Mratín) · 🔵 parkoviště lokality · hnědá čárkovaná = doporučená trasa<br><br>' +
     '🟢 <b>zelená plocha = kde hledat</b>, dokreslí se až když si o ni řekneš<br><br>' +
     '🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = ostatní<br><br>' +
     '🟣 fialová tečka = <b>evidované parkoviště u lesa</b> z map ČÚZK – ne houby, ale místo, ' +
