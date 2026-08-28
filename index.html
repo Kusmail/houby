@@ -1689,7 +1689,7 @@ map.on('popupopen', async e => {
   };
   const oblB = el2 && el2.querySelector('[data-obl-bod]');
   if (oblB) oblB.onclick = async () => {
-    const je = await prepniOblibene('bod:' + oblB.dataset.oblBod, 'Místo z map',
+    const je = await prepniOblibene('bod:' + oblB.dataset.oblBod, 'Parkoviště u lesa',
                                     +oblB.dataset.la, +oblB.dataset.ln);
     oblB.textContent = je ? '★ Oblíbené' : '☆ Přidat do oblíbených';
   };
@@ -2745,8 +2745,11 @@ function ukazMista(mista){
     if (mistaNaMape.has(m.id)) return;
     const zn = L.circleMarker([m.lat, m.lng], {radius:6, color:'#7a5ea8', weight:2, opacity:.9,
       fillColor:'#a98fd0', fillOpacity:.75})
-     .bindPopup('<div class="pop"><h3>Místo z map</h3>' +
-       '<div class="sub"><span class="znacka mapa">nikdy jsme tam nebyli</span></div>' +
+     .bindPopup('<div class="pop"><h3>Parkoviště u lesa</h3>' +
+       '<div class="sub"><span class="znacka mapa">z map, nikdy jsme tam nebyli</span></div>' +
+       '<div class="ok" style="background:#f2efe6;border-color:#d8d0bd">' +
+       '<b>Tečka je místo, kde zaparkuješ.</b> Houby jsou v lese kolem – ' +
+       'čísla níž popisují okolí do 400 metrů, ne bod samotný.</div>' +
        '<table><tr><td>Porost do 400 m</td><td>' + popisPorostu(m) + '</td></tr>' +
        '<tr><td>Lesních cest</td><td>' + m.cest + '</td></tr>' +
        '<tr><td>Dojezd</td><td>' + (m.minuty != null
@@ -2904,7 +2907,7 @@ async function kamDnes(){
     $('kamObsah').querySelectorAll('[data-obl]').forEach(bt => bt.onclick = async () => {
       const x = poradi[+bt.dataset.obl];
       const klic = x.m.overene ? ('lok:' + x.m.locIndex) : ('bod:' + x.m.id);
-      const je = await prepniOblibene(klic, x.m.overene ? x.m.loc.name : 'Místo z map', x.m.lat, x.m.lng);
+      const je = await prepniOblibene(klic, x.m.overene ? x.m.loc.name : 'Parkoviště u lesa', x.m.lat, x.m.lng);
       bt.textContent = je ? '★ Oblíbené' : '☆ Do oblíbených';
       x.obl = je;
       const karta = bt.closest('.kamlok');
@@ -3239,7 +3242,7 @@ function refreshPomoc(){
     '<details class="napoveda" open><summary>Jak se v appce hledají místa</summary>' +
     '<p><b>Zelené plochy a modrá „P" jsou naše ověřené tipy</b> – šestnáct míst, ' +
     'ke kterým máme psané poznámky, kde přesně hledat. Ta jsou vidět vždycky.<br><br>' +
-    '<b>Fialové body jsou místa z map</b> – 7 656 evidovaných parkovišť u lesa v celé ČR, ' +
+    '<b>Fialová tečka je evidované parkoviště u lesa</b> – 7 656 jich je v celé ČR, ' +
     'u kterých appka předem spočítala porost a lesní cesty v okolí. Nikdo z nás tam nebyl. ' +
     'Kreslí se podle toho, kam se na mapě zrovna díváš, a to <b>až od přiblížení zhruba na okres</b> – ' +
     'sedm tisíc bodů přes celou republiku by byla jen kaše. Lišta nad mapou vždycky říká, ' +
@@ -3251,6 +3254,8 @@ function refreshPomoc(){
     '<details class="napoveda"><summary>Co která barva na mapě znamená</summary>' +
     '<p>🔴 domov (Mratín) · 🔵 parkoviště lokality · 🟢 plocha kde hledat · hnědá čárkovaná = doporučená trasa<br><br>' +
     '🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = ostatní<br><br>' +
+    '🟣 fialová tečka = <b>evidované parkoviště u lesa</b> z map ČÚZK – ne houby, ale místo, ' +
+    'odkud se do lesa vychází<br><br>' +
     '🍄 pin = váš nález · šedá čára = tvoje trasa · fialová čára = cizí trasa · žluto‑oranžové čtverce = ' +
     '<b>nejlepší místa spočítaná z vašich nálezů</b><br><br>' +
     'Zapneš-li <b>Lesy</b>: žlutozelená = listnaté, zelená = smíšené, tmavě modrozelená = jehličnaté, šedá = neurčeno.<br><br>' +
