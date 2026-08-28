@@ -117,7 +117,24 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 .mini b{font-size:15px;font-weight:400;line-height:1}
 
 /* stav lidí */
-.people{display:flex;gap:6px;margin-top:8px;font-size:11.5px}
+.people{display:flex;gap:6px;margin-top:8px;font-size:11.5px;overflow-x:auto;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+.people::-webkit-scrollbar{display:none}
+.people .person{flex:0 0 auto;min-width:132px}
+.people .none{flex:1;justify-content:center;color:var(--muted);font-size:11.5px;
+  padding:9px;border-radius:10px;background:#fbfaf7;border:1px dashed var(--line);text-align:center;display:block}
+.iconbtn{position:relative}
+.iconbtn .badge-dot{position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;border-radius:99px;
+  background:var(--danger);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;
+  justify-content:center;padding:0 4px;border:2px solid #fff}
+.mbox .plist{margin:0 0 12px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.mbox .plist .r{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--line);font-size:13px}
+.mbox .plist .r:last-child{border-bottom:0}
+.mbox .plist .r b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.mbox .plist .r button{width:auto;padding:6px 10px;font-size:12px;border-radius:8px;font-weight:600}
+.mbox .plist .r .ok{background:var(--green)}
+.mbox .plist .r .no{background:#eee9e0;color:var(--ink)}
+.mbox h3{font-size:13px;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .person{flex:1;display:flex;align-items:center;gap:6px;padding:7px 9px;border-radius:10px;background:#fbfaf7;border:1px solid var(--line);min-width:0}
 .person .pd{width:10px;height:10px;border-radius:50%;flex:0 0 10px}
 .person span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
@@ -620,8 +637,16 @@ const state = {
   car: LS.get('car', null),
   others: {},        // uid -> {name,lat,lng,acc,ts,sharing}
   heading: null,     // kompas zařízení
-  fbReady: false
+  fbReady: false,
+  isOwner: false,    // smí schvalovat
+  approved: null,    // null = ještě nevíme, false = čeká na schválení
+  pending: {},       // uid -> {name, ts}   (jen pro správce)
+  allowed: {}        // uid -> {name, ts}   (jen pro správce)
 };
+
+/* Správci – natvrdo, aby vždy existoval někdo, kdo může schvalovat.
+   Uzel /owners v databázi funguje navíc, pro pozdější přidání dalšího správce. */
+const OWNER_UIDS = ['SMFzcIPHPDYnH0peeKpPaJi1myf1', 'VRih1jnQQ5SWOBlO0q2p62xEolS2'];
 
 let meMarker = null, meCircle = null, carMarker = null;
 const otherMarkers = {};
@@ -694,7 +719,7 @@ function renderPeople(){
   Object.keys(state.others).forEach(uid => {
     const o = state.others[uid];
     if (uid === state.uid) return;
-    const valid = o && o.sharing && typeof o.lat === 'number';
+    const valid = o && o.sharing === true && typeof o.lat === 'number';
     if (!valid){
       if (otherMarkers[uid]){ map.removeLayer(otherMarkers[uid].m); map.removeLayer(otherMarkers[uid].c); delete otherMarkers[uid]; }
       return;
@@ -719,24 +744,47 @@ function renderPeople(){
 function renderPeopleList(){
   const el = $('people');
   const items = [];
+
+  // já jsem v liště vždycky, ať vidím svůj vlastní stav
+  const meTxt = state.approved === false ? 'čekám na schválení'
+              : state.me ? ('poloha ' + fmtAge(state.me.ts))
+              : (state.sharing ? 'čekám na GPS…' : 'nesdílím polohu');
   items.push(`<div class="person"><span class="pd" style="background:var(--me)"></span>
-    <span><b>${state.name||'Já'}</b><em>${state.me ? ('poloha ' + fmtAge(state.me.ts)) : (state.sharing ? 'čekám na GPS…' : 'nesdílím polohu')}</em></span></div>`);
-  const others = Object.keys(state.others).filter(u => u !== state.uid);
-  if (!others.length){
-    items.push(`<div class="person"><span class="pd" style="background:var(--stale)"></span>
-      <span><b>Druhý</b><em>${state.fbReady ? 'zatím se nepřipojil' : 'sdílení není nastavené'}</em></span></div>`);
+    <span><b>${state.name||'Já'}</b><em>${meTxt}</em></span></div>`);
+
+  // ostatní jen když opravdu sdílejí polohu
+  const sharing = Object.keys(state.others)
+    .filter(u => u !== state.uid)
+    .filter(u => state.others[u] && state.others[u].sharing === true);
+
+  if (!sharing.length){
+    items.push(`<div class="person none">${
+      state.approved === false ? 'Až tě Matěj schválí, uvidíš tu ostatní'
+      : state.fbReady ? 'Nikdo další teď nesdílí polohu'
+      : 'Sdílení není nastavené'}</div>`);
   } else {
-    others.forEach(u => {
+    sharing.forEach(u => {
       const o = state.others[u];
       const stale = (Date.now() - (o.ts||0)) > STALE_MS;
-      const txt = !o.sharing ? 'nesdílí polohu'
-                : (stale ? 'naposledy ' + fmtAge(o.ts) : 'poloha ' + fmtAge(o.ts));
-      items.push(`<div class="person"><span class="pd" style="background:${(!o.sharing||stale)?'var(--stale)':'var(--other)'}"></span>
-        <span><b>${o.name||'Druhý'}</b><em>${txt}</em></span></div>`);
+      const txt = stale ? 'naposledy ' + fmtAge(o.ts) : 'poloha ' + fmtAge(o.ts);
+      items.push(`<div class="person"><span class="pd" style="background:${stale?'var(--stale)':'var(--other)'}"></span>
+        <span><b>${o.name||'Bez jména'}</b><em>${txt}</em></span></div>`);
     });
   }
   el.innerHTML = items.join('');
+  renderPendingBadge();
 }
+
+function renderPendingBadge(){
+  const btn = $('btnLegend');
+  let dot = btn.querySelector('.badge-dot');
+  const n = state.isOwner ? Object.keys(state.pending).length : 0;
+  if (n > 0){
+    if (!dot){ dot = document.createElement('span'); dot.className = 'badge-dot'; btn.appendChild(dot); }
+    dot.textContent = n;
+  } else if (dot){ dot.remove(); }
+}
+
 setInterval(()=>{ renderPeopleList(); if(state.car) updateCarNav(); }, 15000);
 
 /* ============================================================
@@ -978,6 +1026,50 @@ window.addEventListener('resize', () => { measureSheet(); applySheet(false); });
 window.addEventListener('orientationchange', () => setTimeout(()=>{ measureSheet(); applySheet(false); }, 300));
 
 /* ---------- legenda + UID ---------- */
+function refreshPeopleModal(){
+  const box = $('legendModal').querySelector('.mbox');
+  let el = box.querySelector('#peopleAdmin');
+  if (!state.isOwner){ if (el) el.remove(); return; }
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'peopleAdmin';
+    box.insertBefore(el, box.querySelector('#uidBlock') || box.querySelector('#legendClose'));
+  }
+
+  const pend = Object.keys(state.pending);
+  const allw = Object.keys(state.allowed);
+  let html = '';
+
+  html += '<h3>Čeká na schválení' + (pend.length ? ' (' + pend.length + ')' : '') + '</h3>';
+  if (!pend.length){
+    html += '<div class="plist"><div class="r" style="color:var(--muted)">Nikdo nečeká</div></div>';
+  } else {
+    html += '<div class="plist">' + pend.map(u => {
+      const p = state.pending[u] || {};
+      return '<div class="r"><b>' + (p.name || 'Bez jména') + '</b>' +
+             '<button class="ok" data-approve="' + u + '">Schválit</button>' +
+             '<button class="no" data-reject="' + u + '">Ne</button></div>';
+    }).join('') + '</div>';
+  }
+
+  html += '<h3>Schválení</h3>';
+  if (!allw.length){
+    html += '<div class="plist"><div class="r" style="color:var(--muted)">Zatím nikdo (správci mají přístup vždy)</div></div>';
+  } else {
+    html += '<div class="plist">' + allw.map(u => {
+      const a = state.allowed[u] || {};
+      const own = OWNER_UIDS.indexOf(u) >= 0;
+      return '<div class="r"><b>' + (a.name || 'Bez jména') + (own ? ' · správce' : '') + '</b>' +
+             (own ? '' : '<button class="no" data-remove="' + u + '">Odebrat</button>') + '</div>';
+    }).join('') + '</div>';
+  }
+
+  el.innerHTML = html;
+  el.querySelectorAll('[data-approve]').forEach(b => b.onclick = () => approveUser(b.dataset.approve));
+  el.querySelectorAll('[data-reject]').forEach(b  => b.onclick = () => rejectUser(b.dataset.reject));
+  el.querySelectorAll('[data-remove]').forEach(b  => b.onclick = () => removeUser(b.dataset.remove));
+}
+
 $('btnLegend').onclick = () => {
   const box = $('legendModal').querySelector('.mbox');
   let uidEl = box.querySelector('#uidBlock');
@@ -986,9 +1078,10 @@ $('btnLegend').onclick = () => {
     uidEl.id = 'uidBlock';
     box.insertBefore(uidEl, box.querySelector('#legendClose'));
   }
-  uidEl.innerHTML = '<b style="color:var(--ink)">Tvoje UID</b> (potřebné jednou při nastavení databáze):<br>' +
+  uidEl.innerHTML = '<b style="color:var(--ink)">Tvoje UID</b> (každý prohlížeč a telefon má vlastní):<br>' +
     '<code style="font-size:11px;word-break:break-all;background:#f2efe9;padding:4px 6px;border-radius:5px;display:inline-block;margin-top:4px">' +
     (state.uid || 'není přihlášeno – Firebase není nastavený') + '</code>';
+  refreshPeopleModal();
   $('legendModal').classList.add('show');
 };
 $('legendClose').onclick = () => $('legendModal').classList.remove('show');
@@ -1004,6 +1097,7 @@ function askName(){
     $('nameModal').classList.remove('show');
     $('whoTxt').textContent = v;
     renderPeopleList(); pushMyPosition();
+    if (state.approved === false) registerPending();
   };
 }
 $('whoChip').onclick = askName;
@@ -1074,9 +1168,9 @@ async function initFirebase(){
       import(`https://www.gstatic.com/firebasejs/${V}/firebase-database.js`)
     ]);
 
-    const app = initializeApp(FIREBASE_CONFIG);
+    const app  = initializeApp(FIREBASE_CONFIG);
     const auth = getAuth(app);
-    const db = getDatabase(app);
+    const db   = getDatabase(app);
 
     await signInAnonymously(auth);
 
@@ -1084,44 +1178,96 @@ async function initFirebase(){
       if (!user) return;
       state.uid = user.uid;
       state.fbReady = true;
+      state.isOwner = OWNER_UIDS.indexOf(user.uid) >= 0;
+
       dbRefs = {
         db, ref, set, update, remove,
-        car: ref(db, 'car'),
-        me: ref(db, 'users/' + user.uid),
+        car:   ref(db, 'car'),
+        me:    ref(db, 'users/' + user.uid),
         users: ref(db, 'users')
       };
 
-      // stav spojení
       onValue(ref(db, '.info/connected'), snap => {
         const on = snap.val() === true;
         $('connDot').className = 'dot' + (on ? ' on' : '');
         if (on) flushPending();
       });
 
-      // po odpojení označit, že už nesdílím
       onDisconnect(ref(db, 'users/' + user.uid + '/sharing')).set(false);
 
-      // auto
-      onValue(dbRefs.car, snap => {
-        const v = snap.val();
-        state.car = v && typeof v.lat === 'number' ? v : null;
-        if (state.car) LS.set('car', state.car); else LS.del('car');
-        renderCar();
-      }, err => localOnly('Databáze odmítla čtení – zkontroluj pravidla a obě UID (README, krok 4).'));
+      // jsem už schválený? (tenhle uzel smí každý číst jen sám o sobě)
+      onValue(ref(db, 'allowed/' + user.uid), snap => {
+        const before = state.approved;
+        state.approved = state.isOwner || snap.exists();
+        if (state.approved){
+          if (!before) subscribeShared(db, onValue);
+          hideBanner();
+        } else {
+          registerPending();
+          banner('<b>Čekáš na schválení.</b> Dej vědět Matějovi, ať tě pustí dovnitř – pak uvidíš ostatní i zaparkované auto. Mapa lokalit ti funguje už teď.', false, 20000);
+        }
+        pushMyPosition();
+        renderPeopleList();
+      }, err => localOnly('Databáze odmítla čtení. Zkontroluj pravidla (soubor pravidla-databaze.json).'));
 
-      // lidé
-      onValue(dbRefs.users, snap => {
-        state.others = snap.val() || {};
-        renderPeople();
-      });
+      // správce navíc vidí čekající a schválené
+      if (state.isOwner){
+        onValue(ref(db, 'pending'), snap => { state.pending = snap.val() || {}; renderPeopleList(); refreshPeopleModal(); });
+        onValue(ref(db, 'allowed'), snap => { state.allowed = snap.val() || {}; refreshPeopleModal(); });
+      }
 
-      pushMyPosition();
       flushPending();
     });
 
   } catch(e){
     localOnly('Nepodařilo se připojit k Firebase (' + (e && e.message ? e.message : 'neznámá chyba') + ').');
   }
+}
+
+/* sdílená data si předplácíme, teprve až jsme schválení */
+let sharedSubscribed = false;
+function subscribeShared(db, onValue){
+  if (sharedSubscribed || !dbRefs) return;
+  sharedSubscribed = true;
+
+  onValue(dbRefs.car, snap => {
+    const v = snap.val();
+    state.car = v && typeof v.lat === 'number' ? v : null;
+    if (state.car) LS.set('car', state.car); else LS.del('car');
+    renderCar();
+  }, err => banner('Nepodařilo se načíst pozici auta – zřejmě ti chybí schválení.', true, 10000));
+
+  onValue(dbRefs.users, snap => {
+    state.others = snap.val() || {};
+    renderPeople();
+  }, err => {});
+}
+
+/* zapsat se mezi čekající */
+async function registerPending(){
+  if (!dbRefs || !state.uid || !state.name) return;
+  try { await dbRefs.set(dbRefs.ref(dbRefs.db, 'pending/' + state.uid), {name: state.name, ts: Date.now()}); }
+  catch(e){ /* nevadí, zkusí se znovu při další změně */ }
+}
+
+/* --- správa lidí (jen správce) --- */
+async function approveUser(uid){
+  if (!dbRefs || !state.isOwner) return;
+  const p = state.pending[uid] || {};
+  try {
+    await dbRefs.set(dbRefs.ref(dbRefs.db, 'allowed/' + uid), {name: p.name || 'Bez jména', ts: Date.now()});
+    await dbRefs.remove(dbRefs.ref(dbRefs.db, 'pending/' + uid));
+    banner('<b>' + (p.name || 'Nový člověk') + '</b> je schválený. Ať si u sebe načte appku znovu.', false, 9000);
+  } catch(e){ banner('Schválení se nepovedlo: ' + e.message, true, 9000); }
+}
+async function rejectUser(uid){
+  if (!dbRefs || !state.isOwner) return;
+  try { await dbRefs.remove(dbRefs.ref(dbRefs.db, 'pending/' + uid)); } catch(e){}
+}
+async function removeUser(uid){
+  if (!dbRefs || !state.isOwner) return;
+  if (OWNER_UIDS.indexOf(uid) >= 0){ banner('Správce odebrat nejde – je natvrdo v pravidlech databáze.', false, 8000); return; }
+  try { await dbRefs.remove(dbRefs.ref(dbRefs.db, 'allowed/' + uid)); } catch(e){ banner('Odebrání se nepovedlo: ' + e.message, true, 9000); }
 }
 
 /* ---------- zápisy, s frontou pro offline ---------- */
@@ -1156,6 +1302,7 @@ async function pushCar(car){
 
 async function pushMyPosition(){
   if (!dbRefs || !state.uid) return;
+  if (state.approved !== true) return;   // neschválený do /users nezapisuje
   const payload = {
     name: state.name || 'Bez jména',
     sharing: !!state.sharing,
