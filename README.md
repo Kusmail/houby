@@ -13,7 +13,9 @@ Otevírá se v prohlížeči, přidá se na plochu telefonu jako ikona. Žádný
 | **Označení zaparkovaného auta** | ✅ Spolehlivě. Jeden zápis, druhý to vidí do sekundy |
 | Navigace zpět k autu (vzdálenost + šipka) | ✅ Funguje i bez signálu, GPS signál stačí |
 | Poloha ostatních na mapě | ⚠️ **Jen dokud mají appku otevřenou na displeji** |
-| Kolik lidí | Libovolně z rodiny — každého musí schválit správce |
+| **Záznam nachozené trasy** | ✅ Jen dokud máš appku na displeji — díry v trase se kreslí tečkovaně |
+| **Zápis nálezu s fotkou** | ✅ Fotka zůstane v telefonu i v mapě, určení předá Google Lens |
+| Kolik lidí | Libovolně z rodiny — připojí se každý, kdo dostane rodinný odkaz |
 
 ### Proč to poslední omezení
 
@@ -125,41 +127,45 @@ Databáze je po vytvoření v uzamčeném režimu a nikdo do ní nesmí. Pravidl
 | Uzel | Kdo čte | Kdo zapisuje |
 |---|---|---|
 | `owners` | každý jen svůj řádek | jen správce |
-| `allowed` | celý seznam správce, ostatní jen svůj řádek | **jen správce** |
-| `pending` | celý seznam správce | každý **jen sám sebe** |
-| `users` | jen schválený | každý jen svůj vlastní záznam |
-| `car` | jen schválený | kdokoli schválený, včetně mazání |
+| `allowed` | celý seznam správce, ostatní jen svůj řádek | **sám sebe jen s platným kódem** z rodinného odkazu; správce kohokoliv |
+| `users` | jen člen | každý jen svůj vlastní záznam; správce smí cizí záznam **smazat** (ne přepsat) |
+| `car` | jen člen | kdokoli z členů, včetně mazání |
+| `finds` | jen člen | každý jen svoje nálezy |
+| `tracks` | jen člen | každý jen svoje trasy |
 
 **Správci jsou natvrdo v pravidlech** — dvě UID Matějových zařízení. Je to schválně: do `/owners` smí zapisovat jen existující správce, takže úplně prvního by neměl kdo vytvořit. Uzel `/owners` funguje navíc, pro přidání dalšího správce z appky.
 
-**Ověřeno proti ostré databázi** (28. 8. 2026, přes REST API s reálným anonymním účtem):
+**Ověřeno proti ostré databázi** (28. 8. 2026, přes REST API s reálnými anonymními účty, 16 pokusů z 16 dopadlo, jak mělo):
 
-| Pokus neschváleného uživatele | Výsledek |
+| Pokus | Výsledek |
 |---|---|
-| Přečíst cizí polohy | 401 zamítnuto |
-| Přečíst pozici auta | 401 zamítnuto |
-| **Schválit sám sebe** | **401 zamítnuto** |
-| Udělat se správcem | 401 zamítnuto |
-| Zapsat svoji polohu | 401 zamítnuto |
-| Přepsat pozici auta | 401 zamítnuto |
-| Přečíst seznam schválených | 401 zamítnuto |
-| Přečíst seznam čekajících | 401 zamítnuto |
-| Zapsat se mezi čekající | 200 povoleno (tak to má být) |
-| Přečíst svůj vlastní stav | 200 povoleno (tak to má být) |
+| Připojit se **bez kódu** | 401 zamítnuto |
+| Přečíst cizí polohy, auto, nálezy nebo trasy bez členství | 401 zamítnuto |
+| Zapsat trasu na cizí jméno | 401 zamítnuto |
+| Smazat cizí trasu | 401 zamítnuto |
+| Přepsat cizí polohu | 401 zamítnuto |
+| Odhlásit někoho jiného | 401 zamítnuto |
+| Číst cokoliv **po odchodu** z rodiny | 401 zamítnuto |
+| Připojit se **s kódem** | 200 povoleno |
+| Uložit a smazat svoji trasu | 200 povoleno |
+| Zapsat svoji polohu | 200 povoleno |
+| **Sám odejít** z rodinné mapy | 200 povoleno |
+
+**Kód z rodinného odkazu se nikdy neposílá na server jako heslo** — je součástí zápisu, který pravidla porovnají. Je ale v odkazu, takže odkaz je klíč: koho v rodině nechceš, tomu ho neposílej.
 
 ## Krok 4b — Přidat člověka do rodiny (kdykoliv, 10 sekund)
 
-Tohle už je běžný provoz, ne nastavení. **Zvládneš to z telefonu v lese.**
+Tohle už je běžný provoz, ne nastavení. **Zvládneš to z telefonu v lese.** Žádné schvalování — kdo dostane odkaz, ten se připojí sám.
 
-1. Pošli člověku odkaz. Otevře ho, zadá jméno.
-2. Vidí mapu lokalit, ale ne vaše polohy. Nahoře mu svítí „Čekáš na schválení".
-3. Tobě se na ikoně **ℹ️** objeví **červený puntík** s počtem čekajících.
-4. Klepni na ℹ️ → sekce **Čeká na schválení** → **Schválit**.
-5. Ať si u sebe načte appku znovu. Od té chvíle vás vidí a vy jeho.
+1. Pošli člověku **rodinný odkaz** — ten, který má na konci `#k=…`. Najdeš ho v ℹ️.
+2. Otevře ho, zadá jméno. Hotovo, od té chvíle vás vidí a vy jeho.
+3. Ať si ho hned **přidá na plochu** (Krok 5) — kód si appka pamatuje, takže z plochy se otevře už přihlášená.
 
-Odebrat jde tamtéž, tlačítkem **Odebrat** u schválených.
+**Kdo přijde na holou adresu bez `#k=…`, uvidí jen mapu lokalit** a nic víc. To je záměr: appka je veřejná webová stránka, klíčem je odkaz.
 
-> ⚠️ **Známé omezení:** po odebrání člověk přestane zapisovat, ale jeho poslední záznam v databázi zůstane — mazat vlastní záznam smí podle pravidel jen on sám. Prakticky do pěti minut zešedne a napíše „naposledy před…", takže nikoho nezmate.
+Odebrat člověka jde v ℹ️ tlačítkem **Odebrat** u jeho jména. Sám může odejít v ℹ️ → **Odejít z rodinné mapy**.
+
+> ⚠️ **Co po odebraném zůstane:** jeho poslední polohu appka smaže. Trasy a nálezy, které nasdílel, ne — mazat je smí podle pravidel jen on sám (proto to udělá tlačítko **Odejít**, když odchází dobrovolně). Appka ti to při odebrání napíše.
 
 ## Krok 5 — Přidat na plochu iPhonu (2 min, každý zvlášť)
 
@@ -188,7 +194,25 @@ Poloha se sdílí **jen když je přepínač *Sdílím polohu* zapnutý**. Po za
 1. **Doma na Wi-Fi**: přibliž mapu na oblast, kam jedete, a klepni **Offline**. Stáhnou se dlaždice mapy pro ten výřez, takže mapa pojede i bez signálu.
 2. **U auta**: klepni na velké oranžové **🚗 Zaparkoval jsem tady**. Objeví se oranžový pin a manželka ho hned vidí.
 3. **V lese**: zapni **Sdílím polohu**. Panel nahoře ukazuje vzdálenost k autu a šipku k němu. Chceš-li, aby displej nezhasínal, zapni **Displej svítí** (bere to baterku).
-4. **Zpátky u auta**: klepni na koš 🗑 v panelu, aby se pozice smazala a příště tě nemátla.
+4. **Když něco najdeš**: klepni **🍄 Nález**, vyfoť houbu a ulož. Fotka se zmenší a zůstane u nálezu v mapě. Chceš-li vědět, co to je, klepni **🔍 Určit v jiné appce** — telefon nabídne Google Lens nebo cokoliv, co máš nainstalované.
+5. **Chceš vidět, kudy jsi už chodil**: na začátku vycházky klepni **⏺ Trasa**, na konci **⏹ Ukončit** a **Uložit**. Trasa se nakreslí šedě do mapy pod přepínačem „Kde jsme už hledali" (ℹ️ → Mapa).
+6. **Zpátky u auta**: klepni na koš 🗑 v panelu, aby se pozice smazala a příště tě nemátla.
+
+---
+
+## Trasy a nálezy — co je čí
+
+**Nález** se ukládá rovnou do databáze a vidí ho celá rodina. Fotka je v něm zmenšená na 320 px, aby se databáze nezanesla.
+
+> 🍄 **Appka neurčuje, co je jedlé.** Nabídne ti Google Lens nebo jinou určovačku, ale rozhodnutí, jestli tu houbu sníš, je jenom tvoje. Žádný obrázkový hledač na světě nemá spolehlivost, na kterou se dá vsadit večeře.
+
+**Trasa** se ukládá **do telefonu**. Ostatním ji ukážeš jen tehdy, když v dialogu po ukončení zapneš **„Ukázat trasu ostatním"**. Volbu si appka pamatuje na příště.
+
+- Cizí trasy se stahují **jen když máš zapnuté „Kde jsme už hledali"**. Kdo si to nezapne, nestáhne ani bajt navíc — trasy jsou z celé databáze zdaleka největší.
+- V mapě jsou **tvoje trasy šedé, cizí fialové**. Na cizí se dá klepnout a ukáže, kdo a kdy.
+- Sdílení se dá vzít zpět: ℹ️ → **Přestat sdílet moje trasy**. Z databáze zmizí, v telefonu ti zůstanou.
+- Trasa nahraná v telefonu má **díry, kdykoliv byla appka na pozadí**. Kreslí se tečkovaně a u trasy je napsané, kolik procent času se opravdu zaznamenalo. Rovnou čarou se to schválně nespojuje — netvrdíme, že jsi tudy šel.
+- Appka si pamatuje **posledních 30 vycházek**, starší zahazuje.
 
 ---
 
@@ -200,9 +224,9 @@ Nemáš signál a tenhle výřez není stažený offline. Doma na Wi-Fi otevři 
 **Nevidím svoji polohu**
 Zkontroluj tři věci: (1) přepínač *Sdílím polohu* je zapnutý, (2) Nastavení → Ochrana soukromí → Polohové služby je zapnuté, (3) Nastavení → Safari → Poloha je *Zeptat se* nebo *Povolit*. V hustém lese může první GPS fix trvat i minutu — vyjdi na světlejší místo.
 
-**Nevidím ostatní** Ve spodní liště jsou **jen ti, kdo mají zapnuté sdílení polohy** — kdo nesdílí, tam schválně není. Když tam není nikdo, appka to napíše. Další důvody: druhý **nemá appku otevřenou na displeji** (viz vysvětlení na začátku), nebo **není schválený** — klepni na ℹ️ a podívej se, jestli nečeká ve frontě.
+**Nevidím ostatní** Ve spodní liště jsou **jen ti, kdo mají zapnuté sdílení polohy** — kdo nesdílí, tam schválně není. Když tam není nikdo, appka to napíše. Další důvody: druhý **nemá appku otevřenou na displeji** (viz vysvětlení na začátku), nebo se **nepřipojil rodinným odkazem** — pošli mu ten s `#k=…` na konci.
 
-**UID: každé zařízení má vlastní.** Anonymní přihlášení vytvoří UID pro **konkrétní prohlížeč**, ne pro člověka. Když si appku otevřeš na iPhonu i na MacBooku, jsi pro databázi dva různí uživatelé a každý se schvaluje zvlášť. Proto se ve spodní liště dřív objevoval dvakrát „Matěj".
+**UID: každé zařízení má vlastní.** Anonymní přihlášení vytvoří UID pro **konkrétní prohlížeč**, ne pro člověka. Když si appku otevřeš na iPhonu i na MacBooku, jsi pro databázi dva různí uživatelé a každý se připojuje zvlášť. Proto se ve spodní liště dřív objevoval dvakrát „Matěj".
 Nejčastěji proto, že **nemá appku otevřenou na displeji** — viz vysvětlení na začátku. Zkontroluj taky, že má zapnutý svůj přepínač *Sdílím polohu* a že je její UID v pravidlech databáze (krok 4). U jejího jména je vždycky napsané, co se děje.
 
 **Tečka vlevo nahoře je červená**
@@ -246,7 +270,8 @@ Jediný způsob, jak by se limit vyčerpal, je zveřejnit odkaz a nechat databá
 
 ## Ochrana soukromí
 
-- V databázi je uložené: jméno, které si každý zvolil, poslední souřadnice, přesnost a čas. Nic víc. Žádná historie pohybu, žádné ukládání trasy.
-- Data vidí jen ty dvě UID v pravidlech. Firebase konzole je pod tvým Google účtem.
-- Přepínač sdílení je po každém otevření appky **vypnutý**. Sdílení musí být pokaždé vědomé rozhodnutí.
+- V databázi je uložené: jméno, které si každý zvolil, poslední souřadnice, přesnost a čas — plus **nálezy** a **ty trasy, které někdo vědomě nasdílel**. Nesdílené trasy databáze nikdy nevidí, zůstávají v telefonu.
+- Data vidí jen členové rodiny, tedy ti, kdo dostali rodinný odkaz s kódem. Firebase konzole je pod tvým Google účtem.
+- Přepínač **živého sdílení polohy** je po každém otevření appky **vypnutý**. To je schválně a nikdy se to nemá měnit: sdílení polohy musí být pokaždé vědomé rozhodnutí. (Sdílení hotové trasy je něco jiného — tam jde o jednu dokončenou vycházku, ne o to, kde jsi teď, a volba se pamatuje.)
+- Kdo chce z rodinné mapy pryč, klepne v ℹ️ na **Odejít z rodinné mapy**. Smažou se přitom i jeho sdílené trasy a nálezy.
 - Když chceš skončit: ve Firebase konzoli **Realtime Database → Data → smazat vše**, nebo rovnou celý projekt v Nastavení projektu.

@@ -330,6 +330,10 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
   <div class="mbox">
     <h2>Trasa zaznamenaná</h2>
     <div id="trackSouhrn"></div>
+    <div class="toggle" id="tgSdilet" style="margin-bottom:14px">
+      <div class="sw"><i></i></div>
+      <div class="lbl">Ukázat trasu ostatním<small>Uvidí v mapě, kudy jsi šel. Živou polohu to nezapíná.</small></div>
+    </div>
     <button id="trackSave">Uložit trasu</button>
     <button class="ghost" id="trackDrop">Zahodit</button>
   </div>
@@ -717,7 +721,8 @@ const state = {
   isOwner: false,    // smí odebírat lidi
   approved: null,    // null = ještě nevíme, false = nemáme přístup
   allowed: {},       // uid -> {name, ts}   (jen pro správce)
-  finds: {}          // uid -> { id -> {druh, lat, lng, ts, ...} }
+  finds: {},         // uid -> { id -> {druh, lat, lng, ts, ...} }
+  tracks: {}         // uid -> { id -> {name, ts, delka, body} }  – jen když je zapnutá historie
 };
 
 /* Přístupový kód z odkazu (#k=...). Kdo ho má, připojí se sám –
@@ -1304,7 +1309,14 @@ let recVrstva = null;         // právě nahrávaná trasa
 let historieVrstva = null;    // starší trasy
 let historieZap = LS.get('historie', false);
 
+/* Sdílení HOTOVÉ trasy je něco jiného než sdílení živé polohy.
+   Živá poloha se záměrně nikde neukládá a po každém otevření je vypnutá –
+   viz komentář u tgShare. Tohle je jednorázové rozhodnutí o jedné
+   dokončené vycházce, takže volbu si zapamatovat můžeme. */
+let sdiletTrasu = LS.get('sdiletTrasy', false);
+
 function ulozeneTrasy(){ return LS.get('trasy', []); }
+function trasaDoBodu(b){ return b.map(x => ({lat:x.a, lng:x.o, mezera:!!x.m})); }
 
 function bodDoTrasy(p){
   if (!REC.aktivni) return;
@@ -1444,8 +1456,15 @@ function ukonciZaznam(){
     (mezer ? ('<div class="warn"><b>Zaznamenáno ' + podil + ' % času.</b> ' + mezer +
        (mezer === 1 ? ' přerušení – appka byla na pozadí.' : ' přerušení – appka byla na pozadí.') +
        ' Ty úseky jsou v mapě tečkované, protože nevíme, kudy jsi tam šel.</div>') : '');
+  $('tgSdilet').classList.toggle('on', sdiletTrasu);
   $('trackModal').classList.add('show');
 }
+
+$('tgSdilet').onclick = () => {
+  sdiletTrasu = !sdiletTrasu;
+  LS.set('sdiletTrasy', sdiletTrasu);
+  $('tgSdilet').classList.toggle('on', sdiletTrasu);
+};
 
 $('btnTrasa').onclick = () => REC.aktivni ? ukonciZaznam() : spustZaznam();
 
@@ -1459,14 +1478,17 @@ $('trackSave').onclick = () => {
     body: zjed.map(b => b.mezera ? {a:+b.lat.toFixed(5), o:+b.lng.toFixed(5), m:1}
                                  : {a:+b.lat.toFixed(5), o:+b.lng.toFixed(5)})
   };
+  t.sdilena = sdiletTrasu;
   const vse = ulozeneTrasy(); vse.push(t);
   LS.set('trasy', vse.slice(-30));    // víc než třicet vycházek si pamatovat nemusíme
+  if (sdiletTrasu) posliTrasu(t);
   $('trackModal').classList.remove('show');
   if (recVrstva){ map.removeLayer(recVrstva); recVrstva = null; }
   REC.body = [];
   if (!historieZap){ historieZap = true; LS.set('historie', true); }
   kresliHistorii();
-  banner('Trasa uložena (' + sklonuj(zjed.length, 'bod', 'body', 'bodů') + ' po zjednodušení). Najdeš ji pod „Kde jsme už hledali".', false, 8000);
+  banner('Trasa uložena (' + sklonuj(zjed.length, 'bod', 'body', 'bodů') + ' po zjednodušení)' +
+         (sdiletTrasu ? ' a poslána ostatním' : '') + '. Najdeš ji pod „Kde jsme už hledali".', false, 8000);
 };
 
 $('trackDrop').onclick = () => {
@@ -1478,17 +1500,133 @@ $('trackDrop').onclick = () => {
 function kresliHistorii(){
   if (historieVrstva){ map.removeLayer(historieVrstva); historieVrstva = null; }
   if (!historieZap) return;
-  const vse = ulozeneTrasy();
-  if (!vse.length) return;
-  historieVrstva = L.layerGroup();
-  vse.forEach(t => {
-    const body = t.body.map(b => ({lat:b.a, lng:b.o, mezera:!!b.m}));
-    kresliUseky(body, {color:'#6b6560', weight:3, opacity:.45}).addTo(historieVrstva);
+  const vrstva = L.layerGroup();
+  let pocet = 0;
+
+  ulozeneTrasy().forEach(t => {
+    kresliUseky(trasaDoBodu(t.body), {color:'#6b6560', weight:3, opacity:.45}).addTo(vrstva);
+    pocet++;
   });
+
+  // trasy ostatních – fialově, ať je poznáš od svých
+  const ciz = state.tracks || {};
+  Object.keys(ciz).forEach(uid => {
+    if (uid === state.uid) return;          // svoje kreslíme z telefonu, ne z databáze
+    const skupina = ciz[uid] || {};
+    Object.keys(skupina).forEach(id => {
+      const t = skupina[id];
+      if (!t || !Array.isArray(t.body) || t.body.length < 2) return;
+      const g = kresliUseky(trasaDoBodu(t.body), {color:'#7a5ea8', weight:3, opacity:.5});
+      const popis = '<div class="pop"><h3>Trasa</h3><div class="sub">' +
+        (t.name || 'Někdo z rodiny') + ' · ' + fmtTime(t.ts) + '</div>' +
+        '<table><tr><td>Délka</td><td>' + fmtDist(t.delka || 0) + '</td></tr>' +
+        (t.trvani ? '<tr><td>Trvání</td><td>' + fmtTrvani(t.trvani) + '</td></tr>' : '') + '</table></div>';
+      g.eachLayer(l => { if (l.bindPopup) l.bindPopup(popis, POPOPT); });
+      g.addTo(vrstva);
+      pocet++;
+    });
+  });
+
+  if (!pocet) return;
+  historieVrstva = vrstva;
   historieVrstva.addTo(map);
 }
 
+/* ---------- sdílené trasy ----------
+   Cizí trasy stahujeme jen když je historie zapnutá. Kdo si ji nezapne,
+   nestáhne ani bajt navíc – trasy jsou z celé databáze zdaleka největší. */
+let odhlasTrasy = null;
+
+function sledujCiziTrasy(){
+  if (odhlasTrasy || !dbRefs || !dbRefs.onValue || state.approved !== true) return;
+  odhlasTrasy = dbRefs.onValue(dbRefs.ref(dbRefs.db, 'tracks'), snap => {
+    state.tracks = snap.val() || {};
+    kresliHistorii();
+    refreshNastroje();
+  }, err => {});
+}
+
+function prestanSledovatTrasy(){
+  if (odhlasTrasy){ try { odhlasTrasy(); } catch(e){} odhlasTrasy = null; }
+  state.tracks = {};
+}
+
+async function posliTrasu(t){
+  if (!dbRefs || state.approved !== true){
+    banner('Trasa je uložená v telefonu, ale zatím ji nemám komu poslat – nejsi připojený.', false, 9000);
+    return;
+  }
+  try {
+    await dbRefs.set(dbRefs.ref(dbRefs.db, 'tracks/' + state.uid + '/' + t.id), {
+      name:   state.name || 'Bez jména',
+      ts:     t.ts,
+      trvani: t.trvani,
+      delka:  t.delka,
+      body:   t.body
+    });
+  } catch(e){
+    banner('Trasu se nepodařilo poslat ostatním: ' + e.message + ' Uloženou v telefonu ji máš.', true, 10000);
+  }
+}
+
+async function prestanSdiletVse(){
+  if (!dbRefs || state.approved !== true) return;
+  try {
+    await dbRefs.remove(dbRefs.ref(dbRefs.db, 'tracks/' + state.uid));
+    const vse = ulozeneTrasy().map(t => { t.sdilena = false; return t; });
+    LS.set('trasy', vse);
+    sdiletTrasu = false; LS.set('sdiletTrasy', false);
+    banner('Tvoje trasy jsem smazal z databáze. V telefonu je máš dál.', false, 8000);
+    refreshNastroje();
+  } catch(e){
+    banner('Nepovedlo se to smazat: ' + e.message, true, 9000);
+  }
+}
+
 /* ---------- legenda + UID ---------- */
+function refreshOdchod(){
+  const box = $('legendModal').querySelector('.mbox');
+  let el = box.querySelector('#odchodBlok');
+  const ukaz = state.approved === true && !state.isOwner;
+  if (!ukaz){ if (el) el.remove(); return; }
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'odchodBlok';
+    box.insertBefore(el, box.querySelector('#uidBlock') || box.querySelector('#legendClose'));
+  }
+  el.innerHTML =
+    '<h3>Rodinná mapa</h3>' +
+    '<p style="font-size:11.5px;color:var(--muted);margin:0 0 8px">Odejdeš-li, přestaneš vidět polohy ostatních, auto i nálezy. ' +
+    'Trasy a nálezy, které jsi sdílel, se přitom smažou – v telefonu ti zůstanou.</p>' +
+    '<button class="ghost" id="btnOdejit" style="margin-bottom:14px">Odejít z rodinné mapy</button>';
+  $('btnOdejit').onclick = () => odejit();
+}
+
+async function odejit(){
+  if (!dbRefs || state.approved !== true) return;
+  const b = $('btnOdejit');
+  if (b.dataset.jistota !== '1'){
+    b.dataset.jistota = '1';
+    b.textContent = 'Opravdu odejít? Klepni znovu';
+    b.classList.add('no');
+    setTimeout(() => { if (b){ b.dataset.jistota = ''; b.textContent = 'Odejít z rodinné mapy'; b.classList.remove('no'); } }, 6000);
+    return;
+  }
+  try {
+    // Pořadí je důležité: dokud jsem člen, smím po sobě uklidit.
+    // Po odchodu už do databáze nesáhnu – ani na svoje věci.
+    try { await dbRefs.remove(dbRefs.ref(dbRefs.db, 'tracks/' + state.uid)); } catch(e){}
+    try { await dbRefs.remove(dbRefs.ref(dbRefs.db, 'finds/'  + state.uid)); } catch(e){}
+    await dbRefs.remove(dbRefs.me);
+    await dbRefs.remove(dbRefs.ref(dbRefs.db, 'allowed/' + state.uid));
+    LS.del('kod');
+    banner('Odešel jsi z rodinné mapy. Zpátky se dostaneš přes rodinný odkaz s kódem.', false, 12000);
+    $('legendModal').classList.remove('show');
+  } catch(e){
+    banner('Odejít se nepovedlo: ' + e.message, true, 9000);
+  }
+}
+
 function refreshPeopleModal(){
   const box = $('legendModal').querySelector('.mbox');
   let el = box.querySelector('#peopleAdmin');
@@ -1529,18 +1667,31 @@ function refreshNastroje(){
     box.insertBefore(el, box.querySelector('#peopleAdmin') || box.querySelector('#uidBlock') || box.querySelector('#legendClose'));
   }
   const pocet = ulozeneTrasy().length;
+  const mojeSdilene = ulozeneTrasy().filter(t => t.sdilena).length;
+  let cizich = 0;
+  Object.keys(state.tracks || {}).forEach(u => {
+    if (u !== state.uid) cizich += Object.keys(state.tracks[u] || {}).length;
+  });
+  const popisek = pocet
+    ? (sklonuj(pocet, 'tvoje trasa', 'tvoje trasy', 'tvých tras') +
+       (cizich ? ' + ' + sklonuj(cizich, 'cizí', 'cizí', 'cizích') : ''))
+    : (cizich ? sklonuj(cizich, 'cizí trasa', 'cizí trasy', 'cizích tras') : 'zatím žádná trasa');
   el.innerHTML =
     '<h3>Mapa</h3>' +
     '<button class="ghost" id="btnOffline2" style="margin-bottom:8px">⬇︎ &nbsp;Stáhnout tenhle výřez na offline</button>' +
     '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.</p>' +
     '<div class="toggle' + (historieZap ? ' on' : '') + '" id="tgHistorie" style="margin-bottom:12px">' +
       '<div class="sw"><i></i></div><div class="lbl">Kde jsme už hledali<small>' +
-      (pocet ? sklonuj(pocet, 'uložená trasa', 'uložené trasy', 'uložených tras') : 'zatím žádná trasa') +
-      '</small></div></div>';
+      popisek + '</small></div></div>' +
+    (mojeSdilene
+      ? '<button class="ghost" id="btnNesdilet" style="margin-bottom:12px">Přestat sdílet moje trasy (' + mojeSdilene + ')</button>'
+      : '');
 
+  if ($('btnNesdilet')) $('btnNesdilet').onclick = () => prestanSdiletVse();
   $('btnOffline2').onclick = () => { $('legendModal').classList.remove('show'); stahniVyrez(); };
   $('tgHistorie').onclick = () => {
     historieZap = !historieZap; LS.set('historie', historieZap);
+    if (historieZap) sledujCiziTrasy(); else prestanSledovatTrasy();
     kresliHistorii(); refreshNastroje();
   };
 }
@@ -1558,6 +1709,7 @@ $('btnLegend').onclick = () => {
     (state.uid || 'není přihlášeno – Firebase není nastavený') + '</code>';
   refreshNastroje();
   refreshPeopleModal();
+  refreshOdchod();
   $('legendModal').classList.add('show');
 };
 $('legendClose').onclick = () => $('legendModal').classList.remove('show');
@@ -1657,7 +1809,7 @@ async function initFirebase(){
       state.isOwner = OWNER_UIDS.indexOf(user.uid) >= 0;
 
       dbRefs = {
-        db, ref, set, update, remove,
+        db, ref, set, update, remove, onValue,
         car:   ref(db, 'car'),
         me:    ref(db, 'users/' + user.uid),
         users: ref(db, 'users')
@@ -1677,6 +1829,7 @@ async function initFirebase(){
         state.approved = state.isOwner || snap.exists();
         if (state.approved){
           if (!before) subscribeShared(db, onValue);
+          if (historieZap) sledujCiziTrasy();
           hideBanner();
         } else {
           pripojSeKodem();
@@ -1752,7 +1905,20 @@ async function pripojSeKodem(){
 async function removeUser(uid){
   if (!dbRefs || !state.isOwner) return;
   if (OWNER_UIDS.indexOf(uid) >= 0){ banner('Správce odebrat nejde – je natvrdo v pravidlech databáze.', false, 8000); return; }
-  try { await dbRefs.remove(dbRefs.ref(dbRefs.db, 'allowed/' + uid)); } catch(e){ banner('Odebrání se nepovedlo: ' + e.message, true, 9000); }
+  try {
+    await dbRefs.remove(dbRefs.ref(dbRefs.db, 'allowed/' + uid));
+    // ať po odebraném nezůstane viset poslední poloha – tohle pravidla správci dovolí
+    try { await dbRefs.remove(dbRefs.ref(dbRefs.db, 'users/' + uid)); } catch(e){}
+    const mel = state.tracks && state.tracks[uid] ? Object.keys(state.tracks[uid]).length : 0;
+    const nal = state.finds  && state.finds[uid]  ? Object.keys(state.finds[uid]).length  : 0;
+    if (mel || nal){
+      // Smazat cizí trasy a nálezy pravidla nedovolí nikomu, ani správci –
+      // každý sahá jen na svoje. Radši to řeknu, než abych mlčky selhal.
+      banner('Odebráno. <b>Ale ' + (mel ? sklonuj(mel, 'trasa', 'trasy', 'tras') : '') +
+             (mel && nal ? ' a ' : '') + (nal ? sklonuj(nal, 'nález', 'nálezy', 'nálezů') : '') +
+             ', které nasdílel, zůstávají v mapě.</b> Smazat je může jen on sám ve své appce (Legenda → Odejít z rodinné mapy).', false, 14000);
+    }
+  } catch(e){ banner('Odebrání se nepovedlo: ' + e.message, true, 9000); }
 }
 
 /* ---------- zápisy, s frontou pro offline ---------- */
