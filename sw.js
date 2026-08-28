@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v3';
+const VER        = 'houby-v4';
 const SHELL      = VER + '-shell';
 const TILES      = VER + '-tiles';
 const TILE_MAX   = 3000;          // strop uložených dlaždic
@@ -22,12 +22,30 @@ const SHELL_FILES = [
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js'
 ];
 
+/* Předuložení skořápky nesmí instalaci zaseknout. Když je síť pomalá
+   nebo CDN nedostupné, jednotlivé soubory se prostě nepředuloží –
+   ale nová verze se musí nainstalovat, jinak by uživateli nikdy
+   nedošlo, že nějaká je. */
+const PRECACHE_TIMEOUT = 8000;
+function pridejSCasovymLimitem(c, url){
+  return Promise.race([
+    c.add(url),
+    new Promise(res => setTimeout(res, PRECACHE_TIMEOUT))
+  ]).catch(() => {});
+}
+
 self.addEventListener('install', e => {
+  // Záměrně tu NENÍ skipWaiting. Nová verze počká, dokud uživatel
+  // neklepne na „Načíst" – jinak by se stránka mohla přenačíst
+  // uprostřed cesty k autu.
   e.waitUntil(
-    caches.open(SHELL)
-      .then(c => Promise.allSettled(SHELL_FILES.map(u => c.add(u))))
-      .then(() => self.skipWaiting())
+    caches.open(SHELL).then(c => Promise.all(SHELL_FILES.map(u => pridejSCasovymLimitem(c, u))))
   );
+});
+
+// appka řekne, že je vhodná chvíle přepnout na novou verzi
+self.addEventListener('message', e => {
+  if (e.data === 'prevzit-rizeni') self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {

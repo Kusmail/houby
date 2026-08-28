@@ -143,7 +143,7 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 
 /* bannery */
 .banner{
-  position:absolute;top:calc(var(--safe-t) + 56px);left:8px;right:8px;z-index:1250;
+  position:absolute;top:calc(var(--safe-t) + 56px + var(--updH,0px));left:8px;right:8px;z-index:1250;
   background:#fdf3e3;border:1px solid #e6bd7a;border-left:4px solid #d99327;
   border-radius:10px;padding:9px 11px;font-size:12px;line-height:1.45;
   box-shadow:0 3px 12px rgba(0,0,0,.14);display:none
@@ -151,6 +151,18 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 .banner.err{background:#fdeceb;border-color:#e8a9a3;border-left-color:var(--danger)}
 .banner.show{display:block}
 .banner b{display:block;margin-bottom:2px}
+.updbar{
+  position:absolute;top:calc(var(--safe-t) + 56px);left:8px;right:8px;z-index:2100;
+  background:var(--green);color:#fff;border-radius:10px;padding:10px 12px;
+  box-shadow:0 3px 14px rgba(0,0,0,.25);font-size:12.5px;line-height:1.4;
+  display:none;align-items:center;gap:10px
+}
+.updbar.show{display:flex}
+.updbar span{flex:1;min-width:0}
+.updbar b{display:block}
+.updbar button{flex:0 0 auto;padding:9px 16px;border:0;border-radius:8px;background:#fff;
+  color:var(--green);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.updbar button[disabled]{opacity:.6}
 .banner .close{position:absolute;top:5px;right:7px;font-size:15px;color:var(--muted);cursor:pointer;padding:3px 6px}
 
 /* modal */
@@ -212,6 +224,11 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 </div>
 
 <div class="banner" id="banner"><span class="close" id="bannerClose">✕</span><span id="bannerTxt"></span></div>
+
+<div class="updbar" id="updBar">
+  <span><b>Je připravená nová verze.</b> Načte se za sekundu, o nic nepřijdeš.</span>
+  <button id="btnUpdate">Načíst</button>
+</div>
 
 <div class="sheet">
  <div class="sheet-head">
@@ -544,7 +561,9 @@ const LS = {
 let bannerTimer = null;
 function bannerOffset(){
   const b = $('banner');
-  const h = b.classList.contains('show') ? (b.offsetHeight + 8) : 0;
+  const u = $('updBar');
+  const hu = u.classList.contains('show') ? (u.offsetHeight + 8) : 0;
+  const h = (b.classList.contains('show') ? (b.offsetHeight + 8) : 0) + hu;
   document.documentElement.style.setProperty('--bannerH', h + 'px');
 }
 function hideBanner(){ $('banner').classList.remove('show'); bannerOffset(); }
@@ -555,7 +574,7 @@ function banner(html, isErr, autoHide){
   b.classList.add('show');
   bannerOffset();
   clearTimeout(bannerTimer);
-  bannerTimer = setTimeout(hideBanner, autoHide || 14000);   // nikdy nezůstane viset napořád
+  if (autoHide !== 0) bannerTimer = setTimeout(hideBanner, autoHide || 14000);
 }
 $('bannerClose').onclick = hideBanner;
 
@@ -746,8 +765,9 @@ function renderPeopleList(){
   const items = [];
 
   // já jsem v liště vždycky, ať vidím svůj vlastní stav
+  const meStale = state.me && (Date.now() - state.me.ts) > ZAMRZLA_MS;
   const meTxt = state.approved === false ? 'čekám na schválení'
-              : state.me ? ('poloha ' + fmtAge(state.me.ts))
+              : state.me ? ((meStale ? '⚠ poloha stojí — ' : 'poloha ') + fmtAge(state.me.ts))
               : (state.sharing ? 'čekám na GPS…' : 'nesdílím polohu');
   items.push(`<div class="person"><span class="pd" style="background:var(--me)"></span>
     <span><b>${state.name||'Já'}</b><em>${meTxt}</em></span></div>`);
@@ -903,7 +923,10 @@ function setShare(on){
   state.sharing = on;
   $('tgShare').classList.toggle('on', on);
   $('shareSub').textContent = on ? 'zapnuto' : 'vypnuto';
-  LS.set('share', on);
+  // Stav sdílení se ZÁMĚRNĚ nikam neukládá. Po každém otevření appky
+  // začínáme na vypnuto, ať nikdo nesdílí polohu, aniž by to věděl.
+  // Kdyby sem někdy někdo doplnil ukládání, rozbije tím to nejdůležitější
+  // soukromé pravidlo celé appky.
   if (on){ startWatch(); }
   else { stopWatch(); state.me = null;
          if (meMarker){ map.removeLayer(meMarker); map.removeLayer(meCircle); meMarker = null; meCircle = null; } }
@@ -932,9 +955,39 @@ async function setWake(on){
   }
 }
 $('tgWake').onclick = () => setWake(!$('tgWake').classList.contains('on'));
+/* Safari na iOS zastaví sledování polohy, jakmile appka zmizí z displeje.
+   Tady si pamatujeme, kdy jsme šli na pozadí, a po návratu to řekneme
+   nahlas – místo aby poloha jen tiše zestárla. */
+let odchodNaPozadi = null;
+const ZAMRZLA_MS = 90*1000;   // od kdy má smysl na to upozorňovat
+
 document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && $('tgWake').classList.contains('on') && !state.wake) setWake(true);
+  if (document.visibilityState === 'hidden'){
+    odchodNaPozadi = state.sharing ? Date.now() : null;
+    return;
+  }
+  // vrátili jsme se do appky
+  if ($('tgWake').classList.contains('on') && !state.wake) setWake(true);
+
+  if (odchodNaPozadi && state.sharing){
+    const pryc = Date.now() - odchodNaPozadi;
+    odchodNaPozadi = null;
+    if (pryc > ZAMRZLA_MS){
+      banner('<b>Poloha stála ' + fmtTrvani(pryc) + '.</b> Appka byla na pozadí a Safari na iPhonu tam sledování polohy zastaví. ' +
+             'Ostatní tě celou tu dobu viděli tam, kde jsi byl naposledy. Chceš-li tomu předejít, zapni <b>Displej svítí</b>.', false, 12000);
+    }
+  }
+  // po návratu si hned vyžádat čerstvou pozici, ať se lišta nekouká na starou
+  if (state.sharing) startWatch();
 });
+
+function fmtTrvani(ms){
+  const s = Math.round(ms/1000);
+  if (s < 120) return s + ' s';
+  if (s < 3600) return Math.round(s/60) + ' min';
+  const h = Math.floor(s/3600), m = Math.round((s%3600)/60);
+  return h + ' h ' + m + ' min';
+}
 
 /* ============================================================
    VYTAHOVACÍ SPODNÍ PANEL
@@ -1204,7 +1257,8 @@ async function initFirebase(){
           hideBanner();
         } else {
           registerPending();
-          banner('<b>Čekáš na schválení.</b> Dej vědět Matějovi, ať tě pustí dovnitř – pak uvidíš ostatní i zaparkované auto. Mapa lokalit ti funguje už teď.', false, 20000);
+          // trvale, dokud schválení nepřijde – jinak by ten člověk nevěděl, na co čeká
+          banner('<b>Čekáš na schválení.</b> Dej vědět Matějovi, ať tě pustí dovnitř – pak uvidíš ostatní i zaparkované auto. Mapa lokalit ti funguje už teď.', false, 0);
         }
         pushMyPosition();
         renderPeopleList();
@@ -1271,15 +1325,22 @@ async function removeUser(uid){
 }
 
 /* ---------- zápisy, s frontou pro offline ---------- */
-function pending(){ return LS.get('pending', []); }
+/* Fronta zápisů, které se nepodařilo odeslat (např. bez signálu).
+   Pozor na názvy: tahle fronta je „queue". Uzel /pending v databázi
+   je něco úplně jiného – lidé čekající na schválení. */
+function migrujFrontu(){
+  const stara = LS.get('pending', null);
+  if (stara){ LS.set('queue', stara); LS.del('pending'); }
+}
+function frontaZapisu(){ return LS.get('queue', []); }
 function queue(kind, payload){
-  const q = pending(); q.push({kind, payload, ts:Date.now()});
-  LS.set('pending', q.slice(-20));
+  const q = frontaZapisu(); q.push({kind, payload, ts:Date.now()});
+  LS.set('queue', q.slice(-20));
 }
 async function flushPending(){
   if (!dbRefs) return;
-  const q = pending(); if (!q.length) return;
-  LS.del('pending');
+  const q = frontaZapisu(); if (!q.length) return;
+  LS.del('queue');
   for (const item of q){
     try {
       if (item.kind === 'car'){
@@ -1318,15 +1379,68 @@ async function pushMyPosition(){
 /* ============================================================
    SERVICE WORKER
    ============================================================ */
+/* Service worker drží appku offline. Nevýhoda je, že by taky navěky
+   držel starou verzi – proto tenhle blok: novou verzi nenainstalujeme
+   potichu, ale nabídneme ji a přepneme, až uživatel klepne. */
+let updatePripravena = null;     // registrace s čekající novou verzí
+let chystamePrenacteni = false;
+
+function nabidniAktualizaci(reg){
+  updatePripravena = reg;
+  // vlastní pruh, ne obyčejné hlášení – jinak by ho přebilo první další
+  // hlášení a uživatel by se o nové verzi už nedozvěděl
+  const bar = $('updBar');
+  bar.classList.add('show');
+  document.documentElement.style.setProperty('--updH', (bar.offsetHeight + 8) + 'px');
+  bannerOffset();
+  const btn = $('btnUpdate');
+  btn.disabled = false; btn.textContent = 'Načíst';
+  btn.onclick = () => {
+    chystamePrenacteni = true;
+    btn.disabled = true; btn.textContent = 'Načítám…';
+    if (reg.waiting) reg.waiting.postMessage('prevzit-rizeni');
+    setTimeout(() => location.reload(), 3000);   // pojistka
+  };
+}
+
 if ('serviceWorker' in navigator){
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+  window.addEventListener('load', async () => {
+    try {
+      // updateViaCache:'none' – sw.js se nikdy nebere z HTTP cache,
+      // jinak by prohlížeč mohl novou verzi přehlédnout až na den
+      const reg = await navigator.serviceWorker.register('sw.js', {updateViaCache: 'none'});
+
+      if (reg.waiting && navigator.serviceWorker.controller) nabidniAktualizaci(reg);
+
+      reg.addEventListener('updatefound', () => {
+        const novy = reg.installing;
+        if (!novy) return;
+        novy.addEventListener('statechange', () => {
+          // controller != null znamená, že tohle není první instalace
+          if (novy.state === 'installed' && navigator.serviceWorker.controller) nabidniAktualizaci(reg);
+        });
+      });
+
+      // zeptat se na novou verzi při návratu do appky a jednou za půl hodiny
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update().catch(()=>{});
+      });
+      setInterval(() => reg.update().catch(()=>{}), 30*60*1000);
+    } catch(e){ /* bez service workeru appka funguje dál, jen bez offline režimu */ }
+  });
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // přenačítáme jen když si o to uživatel řekl, ne sami od sebe
+    if (!chystamePrenacteni) return;
+    chystamePrenacteni = false;
+    location.reload();
   });
 }
 
 /* ============================================================
    START
    ============================================================ */
+migrujFrontu();
 renderCar();
 renderPeopleList();
 measureSheet(); applySheet(false);
