@@ -676,9 +676,12 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
     <section class="sekce" id="sekceFiltr">
       <h3>Co ti mám ukazovat na mapě</h3>
       <div id="filtrObsah"></div>
-      <p class="pozn">Houba a porost platí pro mapu i pro doporučení. <b>Dojezd a chráněná
-      území platí jen pro doporučení</b> – u dojezdu se musí ptát navigace a u rezervací
-      server AOPK, a to bod po bodu; při posouvání mapy by to znamenalo tisíce dotazů.</p>
+      <p class="pozn"><b>Houba</b> mění obarvení lesa, jeho hodnocení v procentech
+      i to, která parkoviště se ukážou. <b>Porost</b> mění, které porosty se obarví a
+      která parkoviště projdou. Obojí platí pro mapu i pro doporučení.<br>
+      <b>Dojezd a chráněná území mění jen „Kam vyrazit autem"</b> – na mapě nepoznáš
+      nic. U dojezdu se musí ptát navigace a u rezervací server AOPK, a to bod po bodu;
+      při posouvání mapy by to znamenalo tisíce dotazů.</p>
     </section>
 
     <section class="sekce" id="sekceDomov">
@@ -3364,6 +3367,19 @@ function sedíPorost(m){
   if (FILTR.porost === 'listnate')   return m.list >= 55;
   return m.jehl >= 30 && m.list >= 30;      // smíšené
 }
+/* Audit 20: Nastavení tvrdilo „Houba a porost platí pro mapu i pro
+   doporučení". U houby to pravda byla, u porostu ne – vrstva Kde sbírat
+   filtr porostu ignorovala úplně a barvila i jehličnaté, když jsi měl
+   nastavené listnaté. Naměřeno: 122 ha „na houby" stejných pro všechny
+   čtyři volby. Teď se porosty, které filtru neodpovídají, nekreslí. */
+function porostSedi(druhP){
+  if (FILTR.porost === 'vse') return true;
+  if (FILTR.porost === 'listnate')   return druhP === 'listnaté';
+  if (FILTR.porost === 'jehlicnate') return druhP === 'jehličnaté';
+  if (FILTR.porost === 'smisene')    return druhP === 'smíšené';
+  return true;
+}
+
 function sedíDruh(m){
   if (FILTR.druh === 'vse') return true;
   if (FILTR.druh === 'bedly') return m.list >= 45;      // listnaté a louky
@@ -3950,6 +3966,7 @@ async function kresliSber(b){
   for (const f of features){
     const a = f.properties || {};
     const druh = a.druh_p || 'bez určení', vyska = a.vyska_p || 'bez určení';
+    if (!porostSedi(druh)) continue;
     const g = f.geometry;
     if (!g) continue;
     const prvni = g.type === 'Polygon' ? g.coordinates[0] : (g.coordinates[0] || [])[0];
@@ -4318,8 +4335,14 @@ async function prekresliRust(){
 
   /* Dokud je vidět jen to, co už je nakreslené, není důvod na nic sahat. */
   const b = map.getBounds();
+  /* Audit 20: tenhle test si pamatoval jen houbu, ne porost. Přepnul jsi
+     filtr na listnatý a mapa zůstala nakreslená podle „vše" – dokud jsi
+     neposunul mapu tak daleko, že se musela překreslit sama. Filtr tím
+     vypadal, že nedělá nic. Naměřeno: 122 ha „na houby" zůstalo stejných
+     pro všechny čtyři volby porostu. */
   if (rustPokryti && rustPokryti.zoom === map.getZoom() &&
-      rustPokryti.druh === FILTR.druh && rustPokryti.meze.contains(b)) return;
+      rustPokryti.druh === FILTR.druh && rustPokryti.porost === FILTR.porost &&
+      rustPokryti.meze.contains(b)) return;
 
   /* Přiblíženo na les: kreslí se jednotlivé porosty, ne barevná plocha.
      Tohle je odpověď na „kde v tomhle lese", kterou barva podle počasí
@@ -4341,7 +4364,7 @@ async function prekresliRust(){
         return;
       }
       /* Pokrytí je to, co je opravdu stažené – ne obrazovka. */
-      rustPokryti = {meze: v.meze, zoom: map.getZoom(), druh: FILTR.druh};
+      rustPokryti = {meze: v.meze, zoom: map.getZoom(), druh: FILTR.druh, porost: FILTR.porost};
       ukazLegenduSberu(v);
       return;
     } catch(e){
@@ -4391,7 +4414,7 @@ async function prekresliRust(){
     const meze = L.latLngBounds(jz, sv);
     L.imageOverlay(m.canvas.toDataURL('image/png'), meze, {opacity: 1, interactive: false})
      .addTo(rustVrstva);
-    rustPokryti = {meze, zoom: map.getZoom(), druh: FILTR.druh};
+    rustPokryti = {meze, zoom: map.getZoom(), druh: FILTR.druh, porost: FILTR.porost};
     ukazLegenduRustu(mr, lesnich / (m.px * m.py));
     /* Než se to spočítalo, mohl člověk mapou posunout. */
     if (!meze.contains(map.getBounds())) prekresliRustBrzy();
@@ -4784,7 +4807,12 @@ async function prekresliMista(){
   const b = map.getBounds();
   const vseVcetneTipu = vse.concat(LOC.map((_, i) => mistoZTipu(i)));
   const vidi = vseVcetneTipu.filter(m => b.contains([m.lat, m.lng]));
-  const projde = vidi.filter(m => m.cest >= 1).filter(sedíPorost).filter(sedíDruh);
+  /* Audit 20: filtry se skládaly jedním výrazem, takže hláška vždycky
+     tvrdila „filtr porostu" – i když místa ve skutečnosti odstranil filtr
+     houby. Teď se ví, který krok to byl. */
+  const poCestach = vidi.filter(m => m.cest >= 1);
+  const poPorostu = poCestach.filter(sedíPorost);
+  const projde    = poPorostu.filter(sedíDruh);
   const strop = 300;
   const kresli = projde.slice(0, strop);
   ukazMista(kresli);
@@ -4810,7 +4838,12 @@ async function prekresliMista(){
       txt.innerHTML = 'Tady žádná evidovaná parkoviště nejsou';
     }
   } else if (!projde.length){
-    txt.innerHTML = '<b>' + vidi.length + '</b> míst schoval filtr porostu';
+    const vinik = (poPorostu.length < poCestach.length)
+      ? (projde.length < poPorostu.length ? 'filtr porostu i houby' : 'filtr porostu')
+      : (projde.length < poPorostu.length ? 'filtr houby'
+        : (poCestach.length < vidi.length ? 'chybějící lesní cesty' : 'filtr'));
+    txt.innerHTML = '<b>' + vidi.length + '</b> ' +
+      (vidi.length === 1 ? 'parkoviště schoval ' : 'parkovišť schoval ') + vinik;
   } else {
     const ov = projde.filter(m => m.overene).length;
     txt.innerHTML = '<b>' + projde.length + '</b> ' + (projde.length === 1 ? 'parkoviště' : 'parkovišť') +
