@@ -868,7 +868,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v68';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v69';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -5944,7 +5944,36 @@ async function odejit(){
    do záložek nebo poslat znovu – jinak se po smazání dat nikdo nepřipojí. */
 function blokOdkaz(){
   const odkaz = rodinnyOdkaz();
-  if (!odkaz) return '';
+
+  /* ============================================================
+     Audit 39: PROČ SE Z IKONKY HLÁSÍ „NEMÁŠ PŘÍSTUPOVÝ ODKAZ"
+
+     U kódu stál komentář „Kód si uložíme, protože po přidání na plochu
+     se odkaz otevře bez něj." Uložíme – ale do úložiště Safari.
+     Appka spuštěná z ikonky má na iOS ÚPLNĚ VLASTNÍ úložiště a se
+     Safari ho nesdílí. Takže: rodinný odkaz otevřeš v Safari (kód se
+     uloží tam), přidáš appku na plochu, ta se spustí z `start_url`
+     bez `#k=…` a ve svém prázdném úložišti nenajde nic.
+
+     A není odkud to spravit: když v Safari klepneš na rodinný odkaz
+     znovu, otevře se zase Safari, ne appka z plochy. Kód se do ní
+     odkazem nedostane nikdy.
+
+     Jediná spolehlivá cesta je vložit ho jednou přímo tady.
+     ============================================================ */
+  if (!odkaz){
+    return '<h3>Rodinný odkaz</h3>' +
+      '<p style="font-size:12px;color:var(--muted);margin:0 0 8px">' +
+      'Appka spuštěná z ikonky má vlastní úložiště a se Safari ho nesdílí – ' +
+      'kód z rodinného odkazu se sem proto sám nedostane. ' +
+      '<b>Vlož ho jednou sem a bude pokoj.</b> Odkaz najdeš tam, kam ti přišel; ' +
+      'zkopíruj ho celý, končí na <code>#k=…</code>.</p>' +
+      '<input id="kodVstup" type="text" inputmode="url" autocomplete="off" ' +
+      'autocapitalize="off" spellcheck="false" placeholder="Sem vlož celý rodinný odkaz">' +
+      '<button class="ghost" id="btnKodUloz" style="margin:0 0 6px">Připojit</button>' +
+      '<p class="pozn" id="kodStav" style="margin:0 0 14px"></p>';
+  }
+
   const stav = uloztrvale === true
     ? '<b style="color:#2e7d4f">Prohlížeč slíbil, že tvoje data nesmaže.</b>'
     : (uloztrvale === false
@@ -6328,6 +6357,29 @@ function otevriNastaveni(kam){
     '<b style="color:var(--ink)">Tvoje UID</b> (každý prohlížeč a telefon má vlastní):<br>' +
     '<code style="font-size:11px;word-break:break-all;background:#f2efe9;padding:4px 6px;border-radius:5px;display:inline-block;margin-top:4px">' +
     (state.uid || 'není přihlášeno – Firebase není nastavený') + '</code>';
+  const ku = uidEl.querySelector('#btnKodUloz');
+  if (ku) ku.onclick = () => {
+    const vstup = (uidEl.querySelector('#kodVstup').value || '').trim();
+    const stav = uidEl.querySelector('#kodStav');
+    /* Bereme celý odkaz i holý kód – kdo kopíruje z telefonu, občas
+       chytne jen konec, a odmítnout ho kvůli tomu by bylo protivné. */
+    const m = vstup.match(/[#&?]k=([A-Za-z0-9_-]{8,64})/) || vstup.match(/^([A-Za-z0-9_-]{8,64})$/);
+    if (!m){
+      stav.innerHTML = '<b style="color:#b4451f">Tohle není rodinný odkaz.</b> ' +
+        'Má v sobě <code>#k=</code> a za tím aspoň osm znaků. Zkus ho zkopírovat celý.';
+      return;
+    }
+    if (!LS.set('kod', m[1])){
+      stav.innerHTML = '<b style="color:#b4451f">Kód se nepodařilo uložit.</b> ' +
+        'Prohlížeč nemá místo, nebo je v soukromém režimu.';
+      return;
+    }
+    stav.innerHTML = '<b style="color:#2e7d4f">Uloženo.</b> Načítám appku znovu…';
+    /* Kód se čte jednou při startu, takže se musí načíst znovu.
+       Je to jednorázový krok při zakládání, ne něco, co se opakuje. */
+    setTimeout(() => location.reload(), 700);
+  };
+
   const bo = uidEl.querySelector('#btnOdkaz');
   if (bo) bo.onclick = async () => {
     try {
@@ -6782,8 +6834,13 @@ async function pripojSeKodem(){
   if (!dbRefs || !state.uid || pripojovaniBezi) return;
 
   if (!PRISTUPOVY_KOD){
-    banner('<b>Nemáš přístupový odkaz.</b> Mapa lokalit ti funguje, ale polohy ostatních a zaparkované auto uvidíš, ' +
-           'až ti Matěj pošle rodinný odkaz. Ten má na konci <code>#k=…</code>.', false, 0);
+    banner('<b>Nemáš přístupový odkaz.</b> Mapa lokalit ti funguje, ale polohy ostatních a ' +
+           'zaparkované auto uvidíš, až sem vložíš rodinný odkaz – ten s <code>#k=…</code> na konci. ' +
+           '<button id="bnrKod" style="display:block;margin-top:8px;min-height:44px;padding:0 16px;' +
+           'border:0;border-radius:9px;background:var(--green);color:#fff;font-size:13px;' +
+           'font-weight:650;cursor:pointer">Vložit odkaz</button>', false, 0);
+    const bk = document.getElementById('bnrKod');
+    if (bk) bk.onclick = () => otevriNastaveni('uidBlock');
     return;
   }
   if (!state.name) return;   // ještě neznáme jméno, zkusíme po jeho zadání
