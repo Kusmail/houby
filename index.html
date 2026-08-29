@@ -143,7 +143,13 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
 .sheet.peek .grab{background:#b9b2a6}
 .sheet-head{position:relative}
 .sheet-body{transition:opacity .2s}
-.sheet.peek .sheet-body{opacity:.35}
+/* Audit 39: ve složeném stavu bylo tělo panelu ztlumené na 35 %, ale
+   pořád vidět – a protože nad čárkou pro domovskou obrazovku zbývá
+   pruh bezpečné zóny, prosvítalo do něj „Najdi les kolem mě". Složený
+   panel má ukázat úchyt a první řádek, nic víc; ten pruh pod řádkem
+   je teď prázdný, jak má být. Tělo se odsud vynořuje plynule, protože
+   .sheet-body má přechod opacity. */
+.sheet.peek .sheet-body{opacity:0; pointer-events:none}
 /* hlavní řádek: široké tlačítko na les + čtvercové na auto */
 .hlavniradek{display:flex; gap:8px; margin-bottom:8px; align-items:stretch}
 .hlavniradek .lens{flex:1}
@@ -868,7 +874,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v69';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v70';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1940,14 +1946,35 @@ function isWide(){ return window.innerWidth >= 820; }
    „100 % vlastní výšky minus hlava" – procenta si prohlížeč dopočítá
    sám ze skutečné výšky panelu, ať je jakákoli. */
 let headVyska = 0;
+/* ============================================================
+   Audit 39: VÝŠKA SLOŽENÉHO PANELU
+
+   Počítala se z výšky celé hlavy panelu (`.sheet-head`). Jenže do té
+   spadá i všechno ostatní, co v hlavě je nebo přibude, a k tomu se
+   přičítaly čtyři konstanty. Naměřeno: na iPhonu 15 Pro (393×852)
+   bylo ze složeného panelu vidět 193 px, zatímco stejná verze na
+   stejném rozměru v prohlížeči dala 136 px. Rozdíl 57 px znamenal, že
+   pod dvěma tlačítky prosvítalo ztlumené „Najdi les kolem mě" a kus
+   dalšího – a na každém telefonu jinak.
+
+   Teď se výška neodvozuje od hlavy, ale od toho, co má být vidět:
+   spodní hrana prvního řádku (Určit houbu / Označit auto), a když
+   se zrovna naviguje k autu, spodní hrana panelu navigace – ten
+   musí být vidět, i když je panel složený, protože kvůli němu se
+   člověk na telefon dívá cestou z lesa. Co je pod tím, jde celé pod
+   okraj. `offsetTop` se počítá od horní hrany panelu včetně jeho
+   odsazení, takže se nic nepřičítá dvakrát.
+   ============================================================ */
 function measureSheet(){
-  const head = sheetEl.querySelector('.sheet-head');
-  const padTop = parseFloat(getComputedStyle(sheetEl).paddingTop) || 0;
-  /* Ke hlavě se přičítá i bezpečná zóna dole – jinak by tlačítka ve
-     složeném stavu skončila pod čárkou pro domovskou obrazovku. */
+  const carNav = document.getElementById('carNav');
+  const naviguju = carNav && carNav.offsetParent !== null;
+  const posledni = naviguju ? carNav : sheetEl.querySelector('.hlavniradek');
   const safeB = parseFloat(getComputedStyle(document.documentElement)
                   .getPropertyValue('--safe-b')) || 0;
-  headVyska = Math.round(head.offsetHeight + padTop + 6 + safeB + 4);
+  const MEZERA = 10;                       // aby řádek nesplýval s okrajem displeje
+  headVyska = posledni
+    ? Math.round(posledni.offsetTop + posledni.offsetHeight + MEZERA + safeB)
+    : Math.round(120 + safeB);             // kdyby prvek chyběl, ať panel nezmizí
   peekOffset = Math.max(0, Math.round(sheetEl.offsetHeight - headVyska));
 }
 
