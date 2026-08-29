@@ -1063,7 +1063,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v87';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v88';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1457,9 +1457,39 @@ function gbifSedi(skupina){
   return skupina === FILTR.druh;
 }
 
+/* ============================================================
+   Audit 57: BUBLINA U BODU ZE ZDROJE SE SAMA ZAVIRALA
+
+   Klepnuti na hnedy nebo okrovy bod GBIF otevrelo bublinu, ktera do
+   vteriny zmizela. Vypadalo to, ze detail neni - pritom se stihl
+   vykreslit a hned zase zahodit.
+
+   Retez: bublina se otevre -> Leaflet posune mapu, aby se vesla
+   (POPOPT ma odsazeni 110 px shora a 240 px zdola, takze posune skoro
+   vzdy) -> posun konci udalosti moveend -> na moveend visi kresliGbif
+   -> ta zacina gbifVrstva.clearLayers() -> znacka s otevrenou bublinou
+   je smazana a bublina s ni.
+
+   Uplne stejnou past uz appka jednou resila u parkovist (Audit u
+   mistaVrstva: "otevrenou bublinu nerusime"). U teto vrstvy se na to
+   zapomnelo.
+
+   Reprodukovano v prohlizeci: po klepnuti byla otevrena 1 bublina,
+   po 1,2 s 0. Zadna chyba v konzoli - proto to nebylo videt nikde
+   jinde nez na displeji.
+
+   Reseni: dokud je otevrena bublina z teto vrstvy, vrstva se
+   neprekresluje. Jakmile se zavre, dozene se to jednim vykreslenim. */
+function gbifBublinaOtevrena(){
+  const p = map._popup;
+  return !!(p && p._source && gbifVrstva.hasLayer && gbifVrstva.hasLayer(p._source));
+}
+
 async function kresliGbif(){
   if (!map.hasLayer(gbifVrstva)) return;
+  if (gbifBublinaOtevrena()) return;
   const d = await nactiGbif();
+  if (gbifBublinaOtevrena()) return;      // bublina se mohla otevrit behem cekani
   gbifVrstva.clearLayers();
   if (!d) return;
   const meze = map.getBounds().pad(0.2);
@@ -1520,6 +1550,10 @@ map.on('overlayadd', async (e) => {
     'kde nikdo nefotí, není bod, a to o houbách neříká nic.', false, 11000);
 });
 map.on('moveend zoomend', () => { if (map.hasLayer(gbifVrstva)) kresliGbif(); });
+/* Po zavreni bubliny se vrstva dozene - mezitim se mohlo posouvat. */
+map.on('popupclose', () => {
+  if (map.hasLayer(gbifVrstva)) setTimeout(() => kresliGbif(), 0);
+});
 map.on('overlayremove', (e) => { if (e.layer === gbifVrstva) gbifVrstva.clearLayers(); });
 
 /* ============================================================
