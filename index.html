@@ -445,6 +445,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
 
 .pin{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;
   border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);font-size:11px;font-weight:700;color:#fff}
+/* Audit 19: .pin.park už nikdo nepoužívá – v appce není jediné modré P. */
 .pin.park{background:var(--park)}
 .pin.home{background:var(--home);width:28px;height:28px;font-size:14px}
 .pin.car{background:var(--car);width:40px;height:40px;font-size:20px;border-width:3px;
@@ -4938,7 +4939,12 @@ async function kdeZaparkovat(lat, lng, jmenoPorostu){
     parkVrstva = L.layerGroup([
       L.polyline([[cil.lat, cil.lng], [lat, lng]],
                  {color:'#c2701a', weight:3, dashArray:'6,6', opacity:.9}),
-      L.marker([cil.lat, cil.lng], {icon: pinIcon('park','P')})
+      /* Audit 19: poslední modré „P" v celé appce. Parkoviště ukazuje
+         vrstva Parkoviště – tohle byl jen konec oranžové čáry, tak to
+         tak i vypadá: oranžové kolečko v barvě té čáry, ne další značka
+         parkoviště. */
+      L.circleMarker([cil.lat, cil.lng], {radius:9, color:'#fff', weight:3,
+        fillColor:'#c2701a', fillOpacity:1})
         .bindPopup('<div class="pop"><h3>Zaparkuj tady</h3>' +
           '<div class="sub">' + zdroj + '</div>' +
           '<table><tr><td>K porostu</td><td><b>' + fmtDist(cil.d) + '</b> vzdušnou čarou</td></tr></table>' +
@@ -5598,6 +5604,7 @@ function refreshPomoc(){
     '<p><b>Obarvený les</b> = mapa růstu. Pět stupňů od cihlové (mizerně) ' +
     'přes okrovou (středně) po tmavě zelenou (výborně). Barvu má jen les.<br><br>' +
     '🔴 domov (Stodolní 411) · 🟣 parkoviště · tmavší fialová = s poznámkami<br><br>' +
+    '🟠 oranžové kolečko = konec čáry „kde zaparkovat", ruší se křížkem vpravo nahoře<br><br>' +
     '🟤 hnědá tečka = ověřený nález hřibovité houby · 🟡 okrová = bedla<br><br>' +
     '🟢 <b>zelená plocha = kde hledat</b>, dokreslí se až když si o ni řekneš<br><br>' +
     '🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = ostatní<br><br>' +
