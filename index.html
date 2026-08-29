@@ -69,15 +69,15 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
   font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer
 }
 
-/* Audit 9: jediné tlačítko na mapě – sedí pod ovladačem vrstev,
-   stejně velké jako on, ať se trefí i v rukavicích. */
+/* Audit 12: kolo bylo napozicované natvrdo nad mapou a na počítači
+   sedělo přes plusko zoomu. Teď je z něj opravdový ovladač Leafletu,
+   takže se řadí do stejného sloupce jako vrstvy a zoom a překrýt je
+   nemůže na žádné šířce. */
 .mapbtn{
-  position:absolute;right:8px;z-index:1210;
-  top:calc(var(--safe-t) + 8px + var(--bannerH,0px) + 56px);
   width:48px;height:48px;border-radius:10px;background:var(--card);
   border:2px solid rgba(0,0,0,.2);box-shadow:0 1px 5px rgba(0,0,0,.4);
   font-size:22px;line-height:1;cursor:pointer;color:var(--ink);
-  display:flex;align-items:center;justify-content:center;transition:top .2s
+  display:flex;align-items:center;justify-content:center;padding:0
 }
 
 /* nadepsané části v Nastavení */
@@ -109,7 +109,13 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 /* hlavní řádek: široké tlačítko na les + čtvercové na auto */
 .hlavniradek{display:flex; gap:8px; margin-bottom:8px}
 .hlavniradek .sber{flex:1; margin-bottom:0}
-.bigbtn.auto{flex:0 0 68px; background:#c2701a; font-size:24px; padding:0; margin-bottom:0}
+/* Audit 12: tlačítko mělo pevných 68 px a text „Označit auto" z něj
+   lezl ven přes okraj. Buď popiska, nebo šířka – tady obojí:
+   ikona nad dvouřádkovou popiskou, jako v dolní liště. */
+.bigbtn.auto{flex:0 0 96px; background:#c2701a; padding:4px 2px; margin-bottom:0;
+  flex-direction:column; gap:2px; font-size:22px; line-height:1;
+  overflow:hidden; text-align:center}
+.bigbtn.auto .pop2{font-size:10.5px; font-weight:700; line-height:1.15; letter-spacing:-.01em}
 
 .bigbtn{
   width:100%;min-height:60px;border:0;border-radius:14px;
@@ -132,8 +138,6 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
   color:var(--ink);font-size:13.5px;font-weight:650;cursor:pointer;padding:0 8px;
   display:inline-flex;align-items:center;justify-content:center;text-align:center}
 .carbtn.del{color:#8a3b1c}
-.jen-siroke{display:none}
-@media(min-width:380px){ .jen-siroke{display:inline} }
 .carbtn.ano{background:#b03a1a;border-color:#b03a1a;color:#fff}
 .carnav-ptam{margin-top:9px;border-top:1px dashed #e2c9a4;padding-top:9px}
 .carnav-ptam .ot{font-size:12.5px;line-height:1.4;font-weight:600}
@@ -398,7 +402,21 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
   color:#fff;font-size:15px;font-weight:650;cursor:pointer}
 .mbox .ghost{background:#eee9e0;color:var(--ink);margin-top:8px}
 
+/* Audit 12: v Nastavení bylo tlačítko až úplně dole pod vysvětlivkami,
+   takže se k němu muselo dorolovat. Teď drží u spodní hrany okna
+   a je vidět pořád. */
+.mbox .dole{
+  position:sticky; bottom:-20px; z-index:5;
+  margin:14px -20px -20px; padding:12px 20px calc(14px + var(--safe-b, 0px));
+  background:var(--card); border-top:1px solid var(--line);
+  border-radius:0 0 16px 16px
+}
+.mbox .dole button{margin-top:0}
+
 /* leaflet doplňky */
+.leaflet-popup-close-button{width:var(--tap)!important;height:var(--tap)!important;
+  font-size:22px!important;line-height:var(--tap)!important;padding:0!important;
+  display:flex!important;align-items:center;justify-content:center}
 .leaflet-popup-content{margin:12px 14px;font-size:13px;line-height:1.5;width:250px !important;max-height:52vh;overflow-y:auto}
 .pop h3{margin:0 0 2px;font-size:14px;line-height:1.3}
 .pop .sub{font-size:11px;color:var(--muted);margin-bottom:7px}
@@ -442,7 +460,6 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
   .banner{left:12px;right:auto;width:var(--sloupec)}
   .recbar{left:12px;right:auto;width:var(--sloupec)}
   .mistabar{left:12px;right:auto;width:var(--sloupec)}
-  .mapbtn{top:calc(var(--safe-t) + 8px + 56px)}
   .updbar{left:12px;right:auto;width:var(--sloupec)}
   .leaflet-top.leaflet-right{margin-top:12px}
 }
@@ -464,7 +481,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      samostatné panely a spolu s hláškou ukrajovaly na iPhonu skoro
      polovinu displeje. Je z toho jeden panel o dvou řádcích; každý
      řádek je useknutý na jednu řádku a klepnutím se rozbalí celý. -->
-<button class="mapbtn" id="btnLegend" aria-label="Nastavení a nápověda" title="Nastavení">⚙</button>
+<button class="mapbtn leaflet-control" id="btnLegend" aria-label="Nastavení a nápověda" title="Nastavení">⚙</button>
 
 <div class="mistabar" id="mistaBar" role="status" aria-live="polite">
   <div class="txt" id="stavTxt">
@@ -491,7 +508,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
        „Kam dnes" se plánuje doma, ta patří do vytaženého panelu. -->
   <div class="hlavniradek">
     <button class="bigbtn sber" id="btnSber">🌲 &nbsp;Najdi mi les</button>
-    <button class="bigbtn auto" id="btnPark" aria-label="Označit, kde stojí auto">🚗<span class="jen-siroke">&nbsp;&nbsp;Označit auto</span></button>
+    <button class="bigbtn auto" id="btnPark" aria-label="Označit, kde stojí auto">🚗<span class="pop2">Označit<br>auto</span></button>
   </div>
 
   <!-- Audit 8: koš se při potvrzování měnil na otazník. Ikona, která
@@ -591,7 +608,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
   <div class="mbox">
     <h2>Kam dnes na houby</h2>
     <div id="kamObsah"></div>
-    <button class="ghost" id="kamClose">Zavřít</button>
+    <div class="dole"><button class="ghost" id="kamClose">Zavřít</button></div>
   </div>
 </div>
 
@@ -617,7 +634,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
   <div class="mbox">
     <h2>Určit houbu</h2>
     <div id="lupaObsah"></div>
-    <button class="ghost" id="lupaClose">Zavřít</button>
+    <div class="dole"><button class="ghost" id="lupaClose">Zavřít</button></div>
   </div>
 </div>
 
@@ -636,6 +653,13 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
       server AOPK, a to bod po bodu; při posouvání mapy by to znamenalo tisíce dotazů.</p>
     </section>
 
+    <section class="sekce" id="sekceDomov">
+      <h3>Domov</h3>
+      <p class="pozn" id="domovKde"></p>
+      <button class="ghost" id="btnDomovTady">📍 &nbsp;Domov je tam, kde teď stojím</button>
+      <button class="ghost" id="btnDomovZpet" hidden>↺ &nbsp;Vrátit na Stodolní 411</button>
+    </section>
+
     <section class="sekce" id="sekceJa">
       <h3>Kdo jsi na mapě</h3>
       <div class="jmenoradek">
@@ -650,7 +674,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
          každou vycházku – tak jsou vysvětlivky sbalené a ovládání nahoře.
          Dynamické bloky se vkládají před tenhle prvek. -->
     <div id="pomoc"></div>
-    <button class="ghost" id="legendClose">Zavřít</button>
+    <div class="dole"><button id="legendClose">Uložit</button></div>
   </div>
 </div>
 
@@ -659,7 +683,18 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
 /* ============================================================
    DATA LOKALIT – převzato z houby-mapa.html beze změny
    ============================================================ */
-const HOME = [50.1985, 14.5735];
+/* Audit 11: tahle souřadnice byla dva měsíce špatně – ukazovala
+   domeček 1 630 m do polí jihovýchodně od baráku. Nikdo ji neověřil,
+   protože se odnikud nebrala; byla prostě napsaná. Dojezd „z domova"
+   se od ní přitom počítá.
+   Přeměřeno 29. 8. 2026 proti dvěma nezávislým zdrojům:
+     ČÚZK RÚIAN, adresní místo 73556190, ulice 833711 „Stodolní, Mratín",
+       č. p. 411, PSČ 250 63       → 50.209465, 14.558299
+     OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
+   Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
+   tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
+const HOME_RUIAN = [50.209465, 14.558299];
+let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
 /* Od tohohle přiblížení kreslí appka jednotlivé porosty („kde sbírat").
    Deklarace patří sem, ne k ostatnímu kódu vrstvy: hned po startu se
@@ -933,6 +968,13 @@ const LS = {
   del(k){ try { localStorage.removeItem('hb_'+k); } catch(e){} }
 };
 
+/* Audit 11: tahle funkce nejdřív seděla nahoře u HOME, v obyčejném
+   <script>. Jenže LS žije až tady v modulu a moduly svoje const ven
+   nepouštějí – appka na klepnutí spadla s „LS is not defined".
+   Proměnná HOME nahoře zůstat může (let v klasickém skriptu modul
+   vidí), ale kód, který sahá na LS, musí být tady. */
+function domovJeVlastni(){ const v = LS.get('domov', null); return !!(v && typeof v.lat === 'number'); }
+
 /* ---------- bannery ---------- */
 let bannerTimer = null;
 /* Audit 3: hláška, lišta záznamu trasy a lišta míst seděly všechny na
@@ -976,6 +1018,11 @@ $('banner').addEventListener('click', (e) => {
    ============================================================ */
 /* Tlačítko „+" bylo schované za horní lištou se jménem – zoom je proto
    vpravo pod přepínačem vrstev, kde na něj palec dosáhne a nic ho nekryje. */
+/* Vlastní domov se načítá tady, ne u deklarace: LS vzniká až pod ní
+   a startovací kód, který sáhne na proměnnou dřív, appku shodí. */
+{ const v = LS.get('domov', null);
+  if (v && typeof v.lat === 'number' && typeof v.lng === 'number') HOME = [v.lat, v.lng]; }
+
 const map = L.map('map', {zoomControl:false, tap:false}).setView(HOME, 10);
 const POPOPT = {maxWidth:280, autoPanPaddingTopLeft:L.point(16,110), autoPanPaddingBottomRight:L.point(16,240)};
 
@@ -1079,8 +1126,19 @@ function pinIcon(cls, txt, size){
     iconSize:[s,s], iconAnchor:[s/2,s/2], popupAnchor:[0,-s/2-2]});
 }
 
-L.marker(HOME, {icon: pinIcon('home','⌂',28), zIndexOffset:500}).addTo(map)
- .bindPopup('<div class="pop"><h3>Domov</h3><div class="sub">Stodolní 411, 250 63 Mratín</div></div>', POPOPT);
+const domovMarker = L.marker(HOME, {icon: pinIcon('home','⌂',28), zIndexOffset:500}).addTo(map);
+function popisDomova(){
+  return domovJeVlastni()
+    ? '<div class="pop"><h3>Domov</h3><div class="sub">Místo, kde jsi stál, když jsi ho nastavil.<br>' +
+      HOME[0].toFixed(5) + ', ' + HOME[1].toFixed(5) + '</div></div>'
+    : '<div class="pop"><h3>Domov</h3><div class="sub">Stodolní 411, 250 63 Mratín<br>' +
+      'Adresní bod z RÚIAN (ČÚZK)</div></div>';
+}
+domovMarker.bindPopup(popisDomova, POPOPT);
+function prekresliDomov(){
+  domovMarker.setLatLng(HOME);
+  domovMarker.bindPopup(popisDomova, POPOPT);
+}
 
 /* Varianta 1 a Varianta 2 byly dělení z první verze appky – „blízko domova"
    a „do sta kilometrů". Nahradil je filtr na dojezd, který umí totéž lépe
@@ -1160,6 +1218,17 @@ L.control.layers({
 map.on('baselayerchange', (e) => {
   document.getElementById('map').classList.toggle('letecka', e.name.indexOf('Letecká') === 0);
 });
+
+/* Kolo se vkládá mezi vrstvy a zoom – Leaflet je skládá v pořadí,
+   v jakém se přidávají, takže se nepřekryjí ani na širokém displeji. */
+const OvladacNastaveni = L.Control.extend({
+  options: {position:'topright'},
+  onAdd(){ const el = document.getElementById('btnLegend');
+           L.DomEvent.disableClickPropagation(el);
+           L.DomEvent.disableScrollPropagation(el);
+           return el; }
+});
+map.addControl(new OvladacNastaveni());
 
 L.control.zoom({position:'topright', zoomInTitle:'Přiblížit', zoomOutTitle:'Oddálit'}).addTo(map);
 
@@ -1467,7 +1536,7 @@ function obnovPark(){
   const b = $('btnPark');
   b.dataset.prepsat = '';
   b.classList.remove('prepsat');
-  b.innerHTML = '🚗<span class="jen-siroke">&nbsp;&nbsp;Označit auto</span>';
+  b.innerHTML = '🚗<span class="pop2">Označit<br>auto</span>';
 }
 
 $('btnKam').onclick = () => kamDnes();
@@ -1483,7 +1552,7 @@ async function oznacAuto(){
   b.dataset.prepsat = '';
   b.classList.remove('prepsat');
   const puvodni = b.innerHTML;
-  b.disabled = true; b.textContent = '📡  Zaměřuju…';
+  b.disabled = true; b.innerHTML = '📡<span class="pop2">Zaměřuju…</span>';
   skryjPtani();
   initCompass();
   try {
@@ -4971,7 +5040,7 @@ function refreshOdchod(){
   if (!el){
     el = document.createElement('div');
     el.id = 'odchodBlok';
-    box.insertBefore(el, box.querySelector('#uidBlock') || box.querySelector('#pomoc') || box.querySelector('#legendClose'));
+    box.insertBefore(el, box.querySelector('#uidBlock') || box.querySelector('#pomoc') || box.querySelector('.dole'));
   }
   el.innerHTML =
     '<h3>Rodinná mapa</h3>' +
@@ -5044,7 +5113,7 @@ function refreshPeopleModal(){
   if (!el){
     el = document.createElement('div');
     el.id = 'peopleAdmin';
-    box.insertBefore(el, box.querySelector('#uidBlock') || box.querySelector('#pomoc') || box.querySelector('#legendClose'));
+    box.insertBefore(el, box.querySelector('#uidBlock') || box.querySelector('#pomoc') || box.querySelector('.dole'));
   }
 
   const allw = Object.keys(state.allowed);
@@ -5179,7 +5248,7 @@ function refreshNastroje(){
   if (!el){
     el = document.createElement('div');
     el.id = 'nastroje';
-    box.insertBefore(el, box.querySelector('#peopleAdmin') || box.querySelector('#uidBlock') || box.querySelector('#pomoc') || box.querySelector('#legendClose'));
+    box.insertBefore(el, box.querySelector('#peopleAdmin') || box.querySelector('#uidBlock') || box.querySelector('#pomoc') || box.querySelector('.dole'));
   }
   const pocet = ulozeneTrasy().length;
   /* Audit 9: dřív se počítalo z tras v telefonu. Jenže strop třiceti
@@ -5384,7 +5453,7 @@ function otevriNastaveni(kam){
   if (!uidEl){
     uidEl = document.createElement('p');
     uidEl.id = 'uidBlock';
-    box.insertBefore(uidEl, box.querySelector('#pomoc') || box.querySelector('#legendClose'));
+    box.insertBefore(uidEl, box.querySelector('#pomoc') || box.querySelector('.dole'));
   }
   uidEl.innerHTML = blokOdkaz() +
     '<b style="color:var(--ink)">Tvoje UID</b> (každý prohlížeč a telefon má vlastní):<br>' +
@@ -5401,6 +5470,7 @@ function otevriNastaveni(kam){
     }
   };
   vykresliFiltrPanel();
+  refreshDomov();
   $('whoTxt').textContent = state.name || 'bez jména';
   refreshPomoc();
   refreshNastroje();
@@ -5415,6 +5485,41 @@ function otevriNastaveni(kam){
     if (m) m.scrollTop = 0;
   }
 }
+/* Audit 11: aby se špatná souřadnice domova nemohla znovu měsíce
+   tiše vézt, jde přepsat z místa, kde člověk zrovna stojí. Dojezd
+   „z domova" se pak počítá odsud. */
+function refreshDomov(){
+  const vlastni = domovJeVlastni();
+  $('domovKde').innerHTML = vlastni
+    ? 'Vlastní bod, který jsi nastavil: <b>' + HOME[0].toFixed(5) + ', ' + HOME[1].toFixed(5) + '</b>.<br>' +
+      'Odsud se počítá dojezd v „Kam dnes na houby".'
+    : '<b>Stodolní 411, 250 63 Mratín</b> – adresní bod z RÚIAN (ČÚZK), ' +
+      'ověřený proti OpenStreetMap.<br>Odsud se počítá dojezd v „Kam dnes na houby".';
+  $('btnDomovZpet').hidden = !vlastni;
+}
+$('btnDomovTady').onclick = async () => {
+  const b = $('btnDomovTady');
+  b.disabled = true; const puv = b.innerHTML; b.textContent = '📡  Zaměřuju…';
+  try {
+    const p = await getPositionOnce();
+    LS.set('domov', {lat:p.lat, lng:p.lng, acc:p.acc, ts:Date.now()});
+    HOME = [p.lat, p.lng];
+    prekresliDomov();
+    refreshDomov();
+    banner('Domov je teď tam, kde stojíš' + (p.acc > 20 ? ' (GPS byla nepřesná, ±' + Math.round(p.acc) + ' m)' : '') +
+           '. Dojezd se počítá odsud.', false, 8000);
+  } catch(e){
+    banner('<b>Nepodařilo se zaměřit polohu.</b> Zkontroluj, že je povolená, a zkus to venku.', true);
+  } finally { b.disabled = false; b.innerHTML = puv; }
+};
+$('btnDomovZpet').onclick = () => {
+  LS.del('domov');
+  HOME = HOME_RUIAN.slice();
+  prekresliDomov();
+  refreshDomov();
+  banner('Domov je zpátky na Stodolní 411.', false, 6000);
+};
+
 $('btnLegend').onclick = () => otevriNastaveni();
 $('btnJmeno').onclick = () => { $('legendModal').classList.remove('show'); askName(); };
 $('legendClose').onclick = () => $('legendModal').classList.remove('show');
