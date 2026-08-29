@@ -307,7 +307,10 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   line-height:1;cursor:pointer}
 .nejlepsi b{font-size:16px;font-weight:800}
-.nejlepsi i{font-style:normal;font-size:9.5px;font-weight:700;opacity:.9;margin-top:1px}
+/* Audit 37: dřív tu stálo „100 %", teď hektary („6,2 ha", „12 ha").
+   Delší text se nesmí zlomit do dvou řádků ani vylézt z kolečka. */
+.nejlepsi i{font-style:normal;font-size:9.5px;font-weight:700;opacity:.9;margin-top:1px;
+  white-space:nowrap;max-width:42px;overflow:hidden}
 .bigbtn.prepsat{background:#d99327;font-size:13.5px;line-height:1.35}
 .fotobtn{display:block;text-align:center;padding:13px;border:1.5px dashed var(--line);border-radius:11px;
   font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:10px}
@@ -560,11 +563,11 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      ozubené kolo – dvě šedá kolečka vedle sebe, obě otevírala totéž
      okno. A hlavní sdělení byla barevná škála, tedy legenda k tomu,
      co je stejně vidět na mapě. Teď lišta odpovídá na otázku, kvůli
-     které se člověk dívá: jaká je dneska šance. Celá je klikací a
+     které se člověk dívá: jaké jsou dneska podmínky. Celá je klikací a
      vede do nastavení na filtry; ozubené kolo na mapě zůstává jediné
      kulaté tlačítko. -->
 <div class="mistabar" id="mistaBar" role="button" tabindex="0" aria-live="polite"
-     aria-label="Šance na nález – klepnutím otevřeš filtry">
+     aria-label="Podmínky pro sběr – klepnutím otevřeš filtry">
   <span class="sanceTecka" id="sanceTecka" aria-hidden="true"></span>
   <div class="txt" id="stavTxt">
     <span class="t" id="rustLegenda"></span>
@@ -849,7 +852,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v65';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v66';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -3866,11 +3869,16 @@ map.on('contextmenu', async (e) => {
 });
 
 /* ---------- dialog Kam dnes ---------- */
+/* Audit 37: číslo se dřív jmenovalo „šance na houby". Měří ale
+   podmínky – počasí, sezónu a porost. Jestli v té ploše podhoubí
+   vůbec je a jestli tam včera nebyl někdo před tebou, do toho appka
+   nevidí, takže slovo „šance" slibovalo víc, než čím se to počítá.
+   Stupně jsou proto v množném čísle, ať sedí k „podmínkám". */
 function slovniSance(s){
-  if (s >= 0.55) return {t:'vysoká', c:'#2e7d4f'};
-  if (s >= 0.32) return {t:'střední', c:'#b07a1a'};
-  if (s >= 0.15) return {t:'nízká', c:'#a85a2a'};
-  return {t:'mizivá', c:'#8a3b1c'};
+  if (s >= 0.55) return {t:'dobré', c:'#2e7d4f'};
+  if (s >= 0.32) return {t:'průměrné', c:'#b07a1a'};
+  if (s >= 0.15) return {t:'slabé', c:'#a85a2a'};
+  return {t:'mizivé', c:'#8a3b1c'};
 }
 
 
@@ -4532,25 +4540,52 @@ async function kresliSber(b){
     if (vybrani.some(z => distM([z.lat, z.lng], [k.lat, k.lng]) < 400)) continue;
     vybrani.push(k);
   }
+  /* ============================================================
+     Audit 37: odznak ukazoval VHODNOST POROSTU, ale vypadal úplně
+     stejně jako procento podmínek v liště nad mapou a jako procenta
+     v kolečkách krajů. Tři různé veličiny, jeden zápis – a ta na
+     odznaku navíc skoro vždycky vyšla na sto.
+
+     Změřeno na skutečných datech ZABAGED pro výřez Kostelec nad
+     Labem (791 porostů nad 0,2 ha, dotaz na ČÚZK 29. 8. 2026):
+     517 z nich, tedy 65 %, mělo vhodnost přesně 1,000. Všech 517
+     přitom přeteklo přes strop – nezaokrouhlená hodnota šla až na
+     1,150 a strop ji usekl. První tři odznaky proto vycházely na
+     100 % vždycky a ve stejné výši; pořadí mezi nimi ve skutečnosti
+     rozhodovala plocha, ne to číslo. Procento na odznaku tak
+     nenosilo žádnou informaci a přitom se četlo jako jistota.
+
+     Odznak proto procento neukazuje vůbec. Podmínky jsou vlastnost
+     celého výřezu – ne jednotlivého porostu – a stojí v liště nad
+     mapou; opakovat je třikrát pod sebou nic nepřidá. Na odznaku je
+     to, čím se ty tři plochy od sebe opravdu liší: pořadí a hektary.
+     Rozpis (podmínky, vhodnost porostu, počasí, plocha) je v bublině,
+     každá položka pojmenovaná, takže se splést nedá.
+     ============================================================ */
+  const haKratce = (x) => x < 10 ? x.toFixed(1).replace('.', ',') : Math.round(x);
+
   vybrani.forEach((k, i) => {
-    const proc = Math.round(k.skore * 100);
+    const vhodnost = Math.round(k.skore * 100);
+    const sance = Math.round(Math.max(0, Math.min(1, k.skore * k.pocasi)) * 100);
     L.marker([k.lat, k.lng], {
       icon: L.divIcon({className:'', iconSize:[46,46], iconAnchor:[23,23],
-        html:'<div class="nejlepsi"><b>' + (i+1) + '</b><i>' + proc + ' %</i></div>'}),
+        html:'<div class="nejlepsi"><b>' + (i+1) + '</b><i>' + haKratce(k.ha) + ' ha</i></div>'}),
       zIndexOffset: 950
     }).bindPopup('<div class="pop"><h3>' + (i+1) + '. nejlepší tady</h3>' +
       '<div class="sub">' + druhSlovy(k.druh) +
         (k.vyska === 'bez určení' ? ' porost, výška neurčená' : ' porost, ' + k.vyska) + '</div>' +
       '<table>' +
-      '<tr><td>Hodnocení</td><td><b>' + proc + ' %</b> pro ' +
+      '<tr><td>Podmínky tady</td><td><b>' + sance + ' %</b></td></tr>' +
+      '<tr><td>Vhodnost porostu</td><td>' + vhodnost + ' % pro ' +
         ((HOUBY[houbaZaSkore(k.druh, k.vyska)] || {}).kratce || jmenoHouby) + '</td></tr>' +
-      '<tr><td>Plocha</td><td>' + (k.ha < 10 ? k.ha.toFixed(1).replace('.', ',') : Math.round(k.ha)) + ' ha' +
+      '<tr><td>Počasí a sezóna</td><td>' + Math.round(k.pocasi*100) + ' %</td></tr>' +
+      '<tr><td>Plocha</td><td>' + haKratce(k.ha) + ' ha' +
         (k.okraj > 0.6 ? ' – skoro celé okraj' : '') + '</td></tr>' +
-      '<tr><td>Počasí tady</td><td>' + Math.round(k.pocasi*100) + ' %</td></tr>' +
       '</table>' +
       '<button class="popbtn" data-park="' + k.lat + ',' + k.lng + '">🚗 Kde zaparkovat</button>' +
-      '<p class="pozn" style="margin:8px 0 0;font-size:11px">Pořadí platí jen pro tenhle výřez ' +
-      'a pro houbu z filtru. Posuň mapu a přepočítá se.</p></div>', POPOPT)
+      '<p class="pozn" style="margin:8px 0 0;font-size:11px">Podmínky = vhodnost porostu × počasí ' +
+      'a sezóna. Vhodnost porostu je vlastnost lesa – platí i příští týden; mění se počasí. ' +
+      'Pořadí platí jen pro tenhle výřez a pro houbu z filtru. Posuň mapu a přepočítá se.</p></div>', POPOPT)
       .addTo(zacniTadyVrstva);
   });
 
@@ -4846,7 +4881,7 @@ async function kresliPrehled(){
       keyboard: false
     }).bindPopup('<div class="pop"><h3>' + k.jmeno + '</h3>' +
       '<div class="sub">odhad z počasí a sezóny, ne z nálezů</div>' +
-      '<table><tr><td>Šance dnes</td><td><b>' + proc + ' %</b></td></tr>' +
+      '<table><tr><td>Podmínky dnes</td><td><b>' + proc + ' %</b></td></tr>' +
       '<tr><td>Vážený déšť za 21 dní</td><td>' + k.dest + ' mm</td></tr>' +
       '<tr><td>Poslední vydatný déšť</td><td>' + (k.dni == null ? 'žádný' : 'před ' + k.dni + ' dny') + '</td></tr>' +
       '</table><div class="sub">Přibliž se sem a appka vybere konkrétní porosty.</div></div>', POPOPT)
@@ -4868,7 +4903,7 @@ async function prekresliRust(){
   if (rustProbiha) return;
 
   /* Oddálená mapa: místo „přibliž" se ukáže, kde v republice je dnes
-     vůbec šance. Klepnutím na kolečko se dá na kraj skočit. */
+     vůbec podmínky. Klepnutím na kolečko se dá na kraj skočit. */
   if (map.getZoom() <= PREHLED_MAX_Z){
     zacniTadyVrstva.clearLayers();
     rustPokryti = null;
@@ -4985,7 +5020,7 @@ async function prekresliRust(){
 
 function ukazLegenduSberu(v){
   /* Audit 30: „911 ha na houby" je inventura, ne odpověď. Člověk se
-     dívá kvůli tomu, jestli má cenu vyrazit. Šance = nejlepší porost
+     dívá kvůli tomu, jestli má cenu vyrazit. Podmínky = nejlepší porost
      ve výřezu × počasí a sezóna – obojí appka počítá už dřív, jen se
      to nikde nesešlo do jednoho čísla. Není to věštba a je to tak
      i napsané: druhý řádek říká, z čeho to číslo vzniklo. */
@@ -4996,7 +5031,7 @@ function ukazLegenduSberu(v){
   const t = $('sanceTecka');
   if (t) t.style.background = s.c;
   zpravaRustu(
-    '<b>' + s.t.charAt(0).toUpperCase() + s.t.slice(1) + ' šance</b> na ' + houba +
+    '<b>' + s.t.charAt(0).toUpperCase() + s.t.slice(1) + ' podmínky</b> pro ' + houba +
     ' · <b>' + Math.round(sance*100) + ' %</b>',
     'nejlepší porost ' + Math.round((v.nejlepsi||0)*100) + ' % × počasí a sezóna ' +
     Math.round((v.pocasi||0)*100) + ' % · ' +
