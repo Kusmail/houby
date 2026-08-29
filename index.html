@@ -110,7 +110,7 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 .sheet.peek .sheet-body{opacity:.35}
 /* hlavní řádek: široké tlačítko na les + čtvercové na auto */
 .hlavniradek{display:flex; gap:8px; margin-bottom:8px; align-items:stretch}
-.hlavniradek .sber{flex:1}
+.hlavniradek .lens{flex:1}
 /* Audit 12: tlačítko mělo pevných 68 px a text „Označit auto" z něj
    lezl ven přes okraj. Buď popiska, nebo šířka – tady obojí:
    ikona nad dvouřádkovou popiskou, jako v dolní liště. */
@@ -217,10 +217,10 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
    prstem po něm nikdo nechce koukat. */
 :focus-visible{outline:3px solid #2e5c3a;outline-offset:2px;border-radius:10px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.bigbtn.sber{background:#1f4a2e}
+.bigbtn.sber{background:#1f4a2e;margin-bottom:8px}
 /* Audit 13: tenhle margin byl v souboru níž než .hlavniradek .sber,
    takže ho přebil a řádek byl o 8 px vyšší než tlačítka v něm. */
-.hlavniradek .sber, .hlavniradek .auto{margin-bottom:0}
+.hlavniradek .lens, .hlavniradek .auto{margin-bottom:0}
 .bigbtn.sber:disabled{opacity:.6}
 .bigbtn.kam{background:#2e5c3a;margin-bottom:8px}
 .bigbtn.lens{background:#585048;margin-bottom:8px}
@@ -284,6 +284,7 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .person span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
 .person b{display:block;font-size:11.5px}
 .person em{font-style:normal;color:var(--muted);font-size:10.5px}
+.person.auto{cursor:pointer;border-color:#e2c9a4;background:#fdf4e8}
 
 /* bannery */
 .banner{
@@ -522,8 +523,11 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
        přes sebe. Na iPhonu 390x844 pak z mapy zbýval pruh dvou set pixelů.
        V hlavě zůstává jen to, co se mačká v lese: najdi les + auto.
        „Kam dnes" se plánuje doma, ta patří do vytaženého panelu. -->
+  <!-- Audit 24: ve složeném panelu má být jen to, co se mačká s košem
+       v jedné ruce a houbou v druhé: auto a určení houby. Hledání lesa
+       a plánování výjezdu se dělá vsedě, s vytaženým panelem. -->
   <div class="hlavniradek">
-    <button class="bigbtn sber" id="btnSber">🌲 &nbsp;Najdi les kolem mě</button>
+    <button class="bigbtn lens" id="btnLupa" aria-label="Vyfotit houbu nebo vybrat fotku z galerie a poslat ji do Google Lens">🔍 &nbsp;Určit houbu</button>
     <button class="bigbtn auto" id="btnPark" aria-label="Označit, kde stojí auto">🚗<span class="pop2">Označit<br>auto</span></button>
   </div>
 
@@ -554,14 +558,11 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
  </div>
 
  <div class="sheet-body">
+  <button class="bigbtn sber" id="btnSber">🌲 &nbsp;Najdi les kolem mě</button>
   <button class="bigbtn kam" id="btnKam">🚗 &nbsp;Kam vyrazit autem?</button>
-  <p class="podtitulek">Nahoře <b>les kolem mě</b> – nejbližší vhodný porost do 15 km od místa,
-  kde právě stojíš. Hned, bez počasí. Tady <b>kam vyrazit autem</b> – projde 7 672 míst v celé ČR,
+  <p class="podtitulek"><b>Les kolem mě</b> – nejbližší vhodný porost do 15 km od místa,
+  kde právě stojíš. Hned, bez počasí. <b>Kam vyrazit autem</b> – projde 7 672 míst v celé ČR,
   spočítá dojezd od domova a přidá srážky za tři týdny.</p>
-  <!-- Audit 13: kontrola houby byla schovaná v drobné liště jako „Určit".
-       Zápis nálezu je přitom pro nečleny zamčený, takže tohle je jediná
-       věc, kterou s houbou v ruce udělat jde – patří na plné tlačítko. -->
-  <button class="bigbtn lens" id="btnLupa" aria-label="Vyfotit houbu nebo vybrat fotku z galerie a poslat ji do Google Lens">🔍 &nbsp;Určit houbu přes Lens</button>
   <div class="row">
     <div class="toggle" id="tgShare" role="switch" tabindex="0" aria-checked="false" aria-label="Sdílím polohu">
       <div class="sw" aria-hidden="true"><i></i></div>
@@ -724,7 +725,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v54';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v55';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1532,6 +1533,7 @@ function renderCar(){
   if (!c){
     if (carMarker){ map.removeLayer(carMarker); carMarker = null; }
     if ($('carPtam')){ $('carPtam').hidden = true; $('carAkce').hidden = false; }
+    if (typeof renderPeopleList === 'function') renderPeopleList();
     $('btnPark').style.display = '';
     $('carNav').style.display = 'none';
     if (typeof measureSheet === 'function'){ measureSheet(); applySheet(false); }
@@ -1554,6 +1556,7 @@ function renderCar(){
 
   $('btnPark').style.display = 'none';
   $('carNav').style.display = 'block';
+  if (typeof renderPeopleList === 'function') renderPeopleList();
   updateCarNav();
   if (typeof measureSheet === 'function'){ measureSheet(); applySheet(false); }
 }
@@ -1629,10 +1632,25 @@ function renderPeopleList(){
   items.push(`<div class="person"><span class="pd" style="background:var(--me)"></span>
     <span><b>${state.name||'Já'}</b><em>${meTxt}</em></span></div>`);
 
-  // ostatní jen když opravdu sdílejí polohu
-  const sharing = Object.keys(state.others)
+  /* Audit 26: UID patří prohlížeči, ne člověku. Kdo si appku otevře na
+     iPhonu i na MacBooku, je pro databázi dvakrát – a v liště pak stál
+     „Matěj" dvakrát, jednou jako já a jednou jako cizí. Sjednocuje se
+     to podle jména: záznamy se stejným jménem jako moje se do lišty
+     nedostanou (jsem to já z jiného zařízení) a ze zbytku se u každého
+     jména nechá ten nejčerstvější. */
+  const mojeJmeno = (state.name || '').trim().toLowerCase();
+  const podleJmena = new Map();
+  Object.keys(state.others)
     .filter(u => u !== state.uid)
-    .filter(u => state.others[u] && state.others[u].sharing === true);
+    .filter(u => state.others[u] && state.others[u].sharing === true)
+    .forEach(u => {
+      const o = state.others[u];
+      const jm = (o.name || '').trim().toLowerCase();
+      if (jm && jm === mojeJmeno) return;                 // to jsem já z druhého zařízení
+      const stav = podleJmena.get(jm || u);
+      if (!stav || (o.ts || 0) > (stav.ts || 0)) podleJmena.set(jm || u, o);
+    });
+  const sharing = Array.from(podleJmena.values());
 
   if (!sharing.length){
     items.push(`<div class="person none">${
@@ -1640,15 +1658,26 @@ function renderPeopleList(){
       : state.fbReady ? 'Nikdo další teď nesdílí polohu'
       : 'Sdílení není nastavené'}</div>`);
   } else {
-    sharing.forEach(u => {
-      const o = state.others[u];
+    sharing.forEach(o => {
       const stale = (Date.now() - (o.ts||0)) > STALE_MS;
       const txt = stale ? 'naposledy ' + fmtAge(o.ts) : 'poloha ' + fmtAge(o.ts);
       items.push(`<div class="person"><span class="pd" style="background:${stale?'var(--stale)':'var(--other)'}"></span>
         <span><b>${o.name||'Bez jména'}</b><em>${txt}</em></span></div>`);
     });
   }
+
+  /* Auto patří do stejné lišty – je to třetí věc, kterou na mapě hledáš
+     vedle sebe a druhého. Klepnutím se na něj mapa posune. */
+  if (state.car){
+    const kdo = state.car.by === state.uid ? 'označil jsi ho ty' : 'označil ' + (state.car.byName || 'někdo z vás');
+    items.push(`<div class="person auto" id="osobaAuto" role="button" tabindex="0">
+      <span class="pd" style="background:var(--car)"></span>
+      <span><b>🚗 Auto</b><em>${kdo} ${fmtAge(state.car.ts)}</em></span></div>`);
+  }
+
   el.innerHTML = items.join('');
+  const a = $('osobaAuto');
+  if (a) a.onclick = () => { if (state.car) map.setView([state.car.lat, state.car.lng], 16); };
 }
 
 
@@ -2100,19 +2129,40 @@ function zmensiFotku(file, maxHrana, kvalita){
    myslí, že na fotce je; jestli to sníš, je na tobě a tvých očích. */
 const LENS_WEB = 'https://lens.google.com/';
 
+/* Audit 25: sdílení pořád padalo na náhradní cestu. Dvě příčiny,
+   obě typicky iOS:
+     – canShare({files}) umí vrátit false i tam, kde by share prošel,
+       takže se ani nezkusilo. Teď se zkusí vždycky, když share existuje.
+     – Safari na některých verzích odmítne share, kde je vedle souboru
+       ještě title nebo text. Posílá se proto nejdřív holý soubor a
+       teprve když to neprojde, zkusí se to s popiskem.
+   A hlavně: když to nakonec nevyjde, appka napíše PROČ. Dřív vypadalo
+   „prohlížeč to neumí" úplně stejně jako „Safari to zrovna odmítlo",
+   a nedalo se poznat, co spravit. */
+let lensDuvod = '';
+
 async function posliDoLens(soubor){
-  // 1) nativní sdílení souboru – nejlepší cesta na telefonu
-  if (navigator.canShare && navigator.canShare({files:[soubor]}) && navigator.share){
-    try {
-      await navigator.share({files:[soubor], title:'Houba – určit'});
-      banner('V nabídce vyber <b>Google</b> a pak <b>Hledat pomocí Lens</b>. ' +
-             'Co Lens napíše, je jeho odhad – <b>jestli je houba jedlá, rozhoduješ ty</b>.', false, 12000);
-      return 'share';
-    } catch(err){
-      if (err && err.name === 'AbortError') return 'zrušeno';   // člověk nabídku zavřel
-      /* jinak spadneme na další cestu */
+  lensDuvod = '';
+  if (!navigator.share){
+    lensDuvod = 'Tenhle prohlížeč neumí posílat soubory do jiných aplikací (chybí navigator.share).';
+  } else {
+    const pokusy = [
+      {files: [soubor]},                                  // holý soubor – nejvíc průchodné
+      {files: [soubor], title: 'Houba – určit'}           // s popiskem, kdyby první neprošel
+    ];
+    for (const co of pokusy){
+      try {
+        await navigator.share(co);
+        banner('V nabídce vyber <b>Google</b> a pak <b>Hledat pomocí Lens</b>. ' +
+               'Co Lens napíše, je jeho odhad – <b>jestli je houba jedlá, rozhoduješ ty</b>.', false, 12000);
+        return 'share';
+      } catch(err){
+        if (err && err.name === 'AbortError') return 'zrušeno';   // člověk nabídku zavřel
+        lensDuvod = 'Sdílení odmítl prohlížeč: ' + (err && (err.name || err.message) || 'neznámá chyba') + '.';
+      }
     }
   }
+
   // 2) zkusit fotku do schránky, ať se dá v Lens rovnou vložit
   let voSchrance = false;
   try {
@@ -2146,8 +2196,8 @@ function naPng(soubor){
 
 function navodLens(voSchrance){
   $('lupaObsah').innerHTML =
-    '<p class="pozn">Tenhle prohlížeč neumí poslat fotku rovnou do jiné appky, ' +
-    'tak to musíš dojít ručně – jsou to dvě klepnutí.</p>' +
+    '<p class="pozn">' + (lensDuvod || 'Poslat fotku rovnou do jiné appky se nepodařilo.') +
+    ' Musíš to dojít ručně – jsou to dvě klepnutí.</p>' +
     (voSchrance
       ? '<p class="pozn"><b>Fotka je ve schránce.</b> Otevři Lens a v poli pro obrázek ji vlož ' +
         '(podrž prst a dej Vložit).</p>'
