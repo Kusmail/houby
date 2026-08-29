@@ -19,7 +19,7 @@
 :root{
   --ink:#1d1b17; --muted:#6b6560; --line:#e3ded4; --card:#fff; --bg:#f6f4ef;
   --green:#2e5c3a; --green-l:#3f7d4f;
-  --sloupec:400px; --park:#1d6fd6; --area:#2e8b45; --home:#c02a2a; --route:#7a4b18;
+  --tap:48px; --sloupec:400px; --park:#1d6fd6; --area:#2e8b45; --home:#c02a2a; --route:#7a4b18;
   --car:#e07b1a; --me:#1d6fd6; --other:#8e44ad; --stale:#9a948d;
   --danger:#c0392b;
   --safe-b:env(safe-area-inset-bottom,0px);
@@ -59,24 +59,34 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 #map{position:absolute;top:0;left:0;right:0;bottom:0}
 
 /* ---------- horní lišta ---------- */
-.top{
-  position:absolute;top:calc(var(--safe-t) + 8px);left:8px;right:8px;z-index:1200;
-  display:flex;gap:6px;align-items:center;pointer-events:none
-}
-.chip{
-  pointer-events:auto;background:var(--card);border:1px solid var(--line);border-radius:999px;
-  padding:7px 12px;font-size:12.5px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.14);
-  display:flex;align-items:center;gap:6px;white-space:nowrap
-}
-.chip.grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;display:block}
+
 .dot{width:8px;height:8px;border-radius:50%;background:var(--stale);flex:0 0 8px;display:inline-block}
 .dot.on{background:#2e8b45}
 .dot.err{background:var(--danger)}
 .iconbtn{
-  pointer-events:auto;width:40px;height:40px;flex:0 0 40px;border-radius:50%;
+  pointer-events:auto;width:48px;height:48px;flex:0 0 48px;border-radius:50%;
   background:var(--card);border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.14);
   font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer
 }
+
+/* Audit 9: jediné tlačítko na mapě – sedí pod ovladačem vrstev,
+   stejně velké jako on, ať se trefí i v rukavicích. */
+.mapbtn{
+  position:absolute;right:8px;z-index:1210;
+  top:calc(var(--safe-t) + 8px + var(--bannerH,0px) + 56px);
+  width:48px;height:48px;border-radius:10px;background:var(--card);
+  border:2px solid rgba(0,0,0,.2);box-shadow:0 1px 5px rgba(0,0,0,.4);
+  font-size:22px;line-height:1;cursor:pointer;color:var(--ink);
+  display:flex;align-items:center;justify-content:center;transition:top .2s
+}
+
+/* nadepsané části v Nastavení */
+.sekce{margin:0 0 18px;padding:0 0 16px;border-bottom:1px solid var(--line)}
+.sekce h3{margin:0 0 9px;font-size:14px;font-weight:750;letter-spacing:-.01em}
+.jmenoradek{display:flex;align-items:center;gap:9px;min-height:var(--tap)}
+.jmenoradek .jm{flex:1;min-width:0;font-weight:650;font-size:14px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ghost.uzky{width:auto;flex:0 0 auto;padding:0 16px;margin:0}
 
 /* ---------- spodní panel ---------- */
 .sheet{
@@ -179,6 +189,7 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 .mbox .druhy button.on{background:var(--green);border-color:var(--green);color:#fff}
 details.napoveda{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:#fbfaf7}
 details.napoveda summary{padding:11px 12px;font-size:12.5px;font-weight:650;cursor:pointer;
+  min-height:var(--tap);display:flex;align-items:center;box-sizing:border-box;
   color:var(--ink);list-style:none}
 details.napoveda summary::-webkit-details-marker{display:none}
 details.napoveda summary::after{content:'›';float:right;transform:rotate(90deg);color:var(--muted)}
@@ -227,11 +238,11 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
   font-size:12.5px;line-height:1.5;margin-bottom:12px}
 .popbtn{
   display:block;width:100%;margin:8px 0 4px;background:#c2701a;color:#fff;border:0;
-  border-radius:10px;min-height:44px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer
+  border-radius:10px;min-height:var(--tap);font-size:14px;font-weight:700;font-family:inherit;cursor:pointer
 }
 .kamsucho button{
   display:inline-block;margin-top:8px;background:var(--card);border:1px solid var(--line);
-  border-radius:999px;min-height:44px;padding:8px 16px;font-size:14px;font-weight:700;
+  border-radius:999px;min-height:var(--tap);padding:8px 16px;font-size:14px;font-weight:700;
   font-family:inherit;color:inherit;cursor:pointer
 }
 #kamObsah .pozn{font-size:11.5px;color:var(--muted);line-height:1.45;margin:2px 0 12px}
@@ -262,7 +273,7 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 
 /* bannery */
 .banner{
-  position:absolute;top:calc(var(--safe-t) + 56px + var(--updH,0px));left:8px;right:8px;z-index:1250;
+  position:absolute;top:calc(var(--safe-t) + 8px + var(--updH,0px));left:8px;right:8px;z-index:1250;
   background:#fdf3e3;border:1px solid #e6bd7a;border-left:4px solid #d99327;
   border-radius:10px;padding:9px 11px;font-size:12px;line-height:1.45;
   box-shadow:0 3px 12px rgba(0,0,0,.14);display:none
@@ -271,14 +282,14 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .banner.show{display:block}
 .banner b{display:block;margin-bottom:2px}
 .updbar{
-  position:absolute;top:calc(var(--safe-t) + 56px);left:8px;right:8px;z-index:2100;
+  position:absolute;top:calc(var(--safe-t) + 8px);left:8px;right:8px;z-index:2100;
   background:var(--green);color:#fff;border-radius:10px;padding:10px 12px;
   box-shadow:0 3px 14px rgba(0,0,0,.25);font-size:12.5px;line-height:1.4;
   display:none;align-items:center;gap:10px
 }
 .updbar.show{display:flex}
 .recbar{
-  position:absolute;top:calc(var(--safe-t) + 56px + var(--updH,0px) + var(--bannerOnlyH,0px));
+  position:absolute;top:calc(var(--safe-t) + 8px + var(--updH,0px) + var(--bannerOnlyH,0px));
   left:8px;right:8px;z-index:1240;
   background:#fdece9;border:1px solid #e8a9a3;border-left:4px solid var(--danger);
   border-radius:10px;padding:8px 11px;font-size:12.5px;font-weight:600;display:none;align-items:center;gap:8px
@@ -286,7 +297,7 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .recbar.show{display:flex}
 .mistabar{
   position:absolute;
-  top:calc(var(--safe-t) + 56px + var(--updH,0px) + var(--bannerOnlyH,0px) + var(--recH,0px));
+  top:calc(var(--safe-t) + 8px + var(--updH,0px) + var(--bannerOnlyH,0px) + var(--recH,0px));
   left:8px;right:56px;z-index:1230;
   background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 10px;
   font-size:12px;line-height:1.35;display:none;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(0,0,0,.10)
@@ -303,13 +314,43 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 /* Audit 6: appka se má ovládat jednou rukou v rukavicích, ale filtrovací
    štítky měly na výšku 26 px a tlačítka v okně 32 px. Doporučený minimální
    cíl je 44 px – naměřeno 24 prvků pod tímhle rozměrem. */
-.fchip{min-height:44px !important; min-width:44px !important;
+.fchip{min-height:var(--tap); min-width:var(--tap);
   display:inline-flex !important; align-items:center; justify-content:center}
-#legendModal .ghost, #kamModal .ghost, .modal button.ghost{min-height:44px}
-.iconbtn{min-width:44px; min-height:44px}
+/* ============================================================
+   Audit 9: DOTYKOVÝ STANDARD
+   Velikosti tlačítek se doteď opravovaly kus po kuse, pokaždé když
+   se na něco nešlo trefit. Změřeno na iPhonu SE: koš u hlášky měl
+   25x28, úchyt panelu 44x5, druhy hub 95x38, špendlíky na mapě 24x24.
+   Od téhle chvíle platí jedna hodnota (--tap, 48 px) a jedno pravidlo
+   pro všechno, na co se dá klepnout. Výjimky se píší sem, ne jinam.
+   ============================================================ */
+button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
+.modal button, .carbtn, .mistabar button, .popbtn, .mapbtn, .iconbtn{
+  min-height:var(--tap)
+}
+.druhy button{min-height:var(--tap);display:inline-flex;flex-direction:column;
+  align-items:center;justify-content:center}
+.modal button.ghost{min-height:var(--tap)}
+/* výjimky: prvky, které nesmí vyrůst, ale musí mít dotykovou plochu */
+.banner .close{
+  min-height:var(--tap);min-width:var(--tap);
+  display:inline-flex;align-items:center;justify-content:center;
+  margin:-12px -10px -12px 0
+}
+.grab{min-height:0;height:5px;position:relative}
+.grab::after{content:'';position:absolute;left:50%;transform:translateX(-50%);
+  top:-14px;width:120px;height:var(--tap)}
+.mbox .trasy .x, .mbox .plist button{min-height:var(--tap)}
+/* na mapě: špendlík zůstane malý, dotyková plocha kolem něj ne */
+.pin{position:relative}
+/* jen špendlíky, na které se opravdu klepe – vlastní a cizí poloha
+   by jinak udělala neviditelnou 48px překážku přes mapu */
+.pin:not(.me):not(.other)::after{content:'';position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);width:var(--tap);height:var(--tap)}
+.iconbtn{min-width:var(--tap);min-height:var(--tap)}
 .mistabar button{
   flex:0 0 auto;background:var(--card);border:1px solid var(--line);border-radius:999px;
-  min-height:44px;min-width:64px;padding:6px 14px;font-size:13px;font-weight:700;
+  min-height:var(--tap);min-width:64px;padding:6px 14px;font-size:13px;font-weight:700;
   font-family:inherit;color:inherit;cursor:pointer
 }
 
@@ -388,7 +429,7 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
   padding:1px 5px;font-size:10.5px;font-weight:650;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 
 .leaflet-control-layers{font-size:12.5px}
-.leaflet-top.leaflet-right{margin-top:calc(var(--safe-t) + 56px + var(--bannerH,0px));transition:margin-top .2s}
+.leaflet-top.leaflet-right{margin-top:calc(var(--safe-t) + 8px + var(--bannerH,0px));transition:margin-top .2s}
 .leaflet-control-zoom{display:none}
 /* Audit 7: na počítači se všechny lišty roztahovaly přes celou šířku
    monitoru, takže dvě slova plavala ve 1400 px prázdna a mapy bylo
@@ -398,10 +439,10 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 @media(min-width:820px){
   .leaflet-control-zoom{display:block}
   .sheet{width:var(--sloupec);max-width:var(--sloupec);right:auto;border-radius:16px;left:12px;bottom:12px;border:1px solid var(--line)}
-  .top{left:12px;right:auto;width:var(--sloupec)}
   .banner{left:12px;right:auto;width:var(--sloupec)}
   .recbar{left:12px;right:auto;width:var(--sloupec)}
   .mistabar{left:12px;right:auto;width:var(--sloupec)}
+  .mapbtn{top:calc(var(--safe-t) + 8px + 56px)}
   .updbar{left:12px;right:auto;width:var(--sloupec)}
   .leaflet-top.leaflet-right{margin-top:12px}
 }
@@ -412,10 +453,10 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 
 <div id="map"></div>
 
-<div class="top">
-  <div class="chip grow" id="whoChip"><span class="dot" id="connDot"></span> <span id="whoTxt">načítám…</span></div>
-  <div class="iconbtn" id="btnLegend" title="Legenda">ℹ️</div>
-</div>
+<!-- Audit 9: horní lišta nesla jen tvoje vlastní jméno a otazník.
+     Jméno člověk zná a ukrajovalo to 56 px z mapy na každé obrazovce.
+     Jméno i stav připojení se přestěhovaly do Nastavení, kam patří,
+     a na mapě je jedno ozubené kolo pod vrstvami. -->
 
 <div class="recbar" id="recBar" role="status" aria-live="polite"><span class="tecka"></span><span id="recTxt">Zaznamenávám trasu</span></div>
 
@@ -423,6 +464,8 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
      samostatné panely a spolu s hláškou ukrajovaly na iPhonu skoro
      polovinu displeje. Je z toho jeden panel o dvou řádcích; každý
      řádek je useknutý na jednu řádku a klepnutím se rozbalí celý. -->
+<button class="mapbtn" id="btnLegend" aria-label="Nastavení a nápověda" title="Nastavení">⚙</button>
+
 <div class="mistabar" id="mistaBar" role="status" aria-live="polite">
   <div class="txt" id="stavTxt">
     <span class="t" id="mistaTxt"></span>
@@ -550,17 +593,6 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
   </div>
 </div>
 
-<div class="modal" role="dialog" aria-modal="true" id="filtrModal">
-  <div class="mbox">
-    <h2>Co ti mám na mapě ukazovat</h2>
-    <p class="pozn">Houba a porost platí pro mapu i pro doporučení. <b>Dojezd a chráněná území
-    platí jen pro doporučení</b> – u dojezdu se musí ptát navigace a u rezervací server AOPK,
-    a to bod po bodu; při posouvání mapy by to znamenalo tisíce dotazů.</p>
-    <div id="filtrObsah"></div>
-    <button class="ghost" id="filtrClose">Hotovo</button>
-  </div>
-</div>
-
 <div class="modal" role="dialog" aria-modal="true" id="trackModal">
   <div class="mbox">
     <h2>Trasa zaznamenaná</h2>
@@ -579,9 +611,30 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
   </div>
 </div>
 
+<!-- Audit 9: filtry a nastavení byly dvě samostatná okna, každé
+     otevírané odjinud, a v obou bylo něco, co se dalo čekat v tom
+     druhém. Je z toho jedno okno s nadepsanými částmi. -->
 <div class="modal" role="dialog" aria-modal="true" id="legendModal">
   <div class="mbox">
-    <h2>Nastavení a nápověda</h2>
+    <h2>Nastavení</h2>
+
+    <section class="sekce" id="sekceFiltr">
+      <h3>Co ti mám ukazovat na mapě</h3>
+      <div id="filtrObsah"></div>
+      <p class="pozn">Houba a porost platí pro mapu i pro doporučení. <b>Dojezd a chráněná
+      území platí jen pro doporučení</b> – u dojezdu se musí ptát navigace a u rezervací
+      server AOPK, a to bod po bodu; při posouvání mapy by to znamenalo tisíce dotazů.</p>
+    </section>
+
+    <section class="sekce" id="sekceJa">
+      <h3>Kdo jsi na mapě</h3>
+      <div class="jmenoradek">
+        <span class="dot" id="connDot" aria-hidden="true"></span>
+        <span class="jm" id="whoTxt">načítám…</span>
+        <button class="ghost uzky" id="btnJmeno">Změnit</button>
+      </div>
+    </section>
+
     <!-- Audit 13: panel narostl na 1,3 obrazovky a ovládání bylo až úplně
          dole pod dlouhým textem. Vysvětlivky se čtou jednou, přepínače
          každou vycházku – tak jsou vysvětlivky sbalené a ovládání nahoře.
@@ -1411,7 +1464,6 @@ $('btnKam').onclick = () => kamDnes();
 $('btnSber').onclick = () => najdiLesTady();
 $('kamClose').onclick = () => $('kamModal').classList.remove('show');
 $('btnFiltr').onclick = () => otevriFiltry();
-$('filtrClose').onclick = () => $('filtrModal').classList.remove('show');
 
 /* Jedna cesta pro označení i přeparkování. Cizí auto se přepisuje až
    po potvrzení – dva lidé u dvou aut si nemají navádět jeden druhého. */
@@ -3279,9 +3331,10 @@ function vykresliFiltrPanel(){
      tak se obarvení lesa po změně filtru přepočítá. */
   pripojFiltry('filtrObsah', () => { vykresliFiltrPanel(); prekresliMista(); prekresliRustBrzy(); });
 }
+/* Audit 9: filtry mají svoje místo v Nastavení. Lišta míst na ně
+   jen skočí, ať se za nimi nemusí rolovat. */
 function otevriFiltry(){
-  vykresliFiltrPanel();
-  $('filtrModal').classList.add('show');
+  otevriNastaveni('sekceFiltr');
 }
 
 /* ---------- místa na mapě ---------- */
@@ -5225,7 +5278,7 @@ $('stavTxt').onclick = (e) => {
   bannerOffset();
 };
 
-$('btnLegend').onclick = () => {
+function otevriNastaveni(kam){
   const box = $('legendModal').querySelector('.mbox');
   let uidEl = box.querySelector('#uidBlock');
   if (!uidEl){
@@ -5247,12 +5300,23 @@ $('btnLegend').onclick = () => {
       banner('Zkopírovat to nešlo. Odkaz je vypsaný nad tlačítkem, dá se označit prstem.', false, 8000);
     }
   };
+  vykresliFiltrPanel();
+  $('whoTxt').textContent = state.name || 'bez jména';
   refreshPomoc();
   refreshNastroje();
   refreshPeopleModal();
   refreshOdchod();
   $('legendModal').classList.add('show');
-};
+  if (kam){
+    const c = $(kam);
+    if (c) setTimeout(() => c.scrollIntoView({block:'start', behavior:'smooth'}), 60);
+  } else {
+    const m = $('legendModal').querySelector('.mbox');
+    if (m) m.scrollTop = 0;
+  }
+}
+$('btnLegend').onclick = () => otevriNastaveni();
+$('btnJmeno').onclick = () => { $('legendModal').classList.remove('show'); askName(); };
 $('legendClose').onclick = () => $('legendModal').classList.remove('show');
 
 /* ---------- jméno ----------
@@ -5307,12 +5371,11 @@ function askName(){
 
     state.name = v; LS.set('name', v);
     $('nameModal').classList.remove('show');
-    $('whoTxt').textContent = v;
+    { const w = $('whoTxt'); if (w) w.textContent = v; }
     renderPeopleList(); pushMyPosition();
     if (state.approved === false) pripojSeKodem();
   };
 }
-$('whoChip').onclick = askName;
 
 /* ============================================================
    OFFLINE – předgenerování dlaždic pro aktuální výřez
@@ -5459,7 +5522,7 @@ let dbRefs = null;
 
 function localOnly(msg){
   state.fbReady = false;
-  $('connDot').className = 'dot err';
+  { const d = $('connDot'); if (d) d.className = 'dot err'; }
   banner('<b>Sdílení s druhým telefonem neběží.</b> ' + msg + ' Mapa, poloha i označení auta fungují dál, ale jen v tomhle telefonu.', true);
   renderPeopleList();
 }
@@ -5500,7 +5563,7 @@ async function initFirebase(){
 
       onValue(ref(db, '.info/connected'), snap => {
         const on = snap.val() === true;
-        $('connDot').className = 'dot' + (on ? ' on' : '');
+        { const d = $('connDot'); if (d) d.className = 'dot' + (on ? ' on' : ''); }
         if (on) flushPending();
       });
 
@@ -5782,7 +5845,7 @@ renderCar();
 renderPeopleList();
 measureSheet(); applySheet(false);
 window.addEventListener('load', () => { measureSheet(); applySheet(false); });
-if (!state.name) askName(); else $('whoTxt').textContent = state.name;
+if (!state.name) askName();
 setShare(false);                 // výchozí stav je VYP, vždy
 initFirebase();
 prekresliMista();                // lišta nad mapou musí být vidět hned
