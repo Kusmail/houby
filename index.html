@@ -849,6 +849,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
       <button data-d="Křemenáč">Křemenáč</button>
       <button data-d="Kozák">Kozák</button>
       <button data-d="Klouzek">Klouzek</button>
+      <button data-d="Babka">Babka</button>
       <button data-d="Jiné">Jiné</button>
     </div>
 
@@ -1063,7 +1064,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v90';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v91';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1508,10 +1509,7 @@ async function kresliGbif(){
       L.circle([la, ln], {radius: presnost, color: barva, weight: 1,
         opacity: .35, fillOpacity: .06, interactive: false}).addTo(gbifVrstva);
     }
-    L.circleMarker([la, ln], {
-      radius: z >= 13 ? 6 : 4, color: '#fff', weight: 1.5,
-      fillColor: barva, fillOpacity: .95
-    }).bindPopup(
+    const bublina =
       '<div class="pop"><h3>' + druh[0] + '</h3>' +
       '<div class="sub">Někdo tady tuhle houbu vyfotil a určil.</div>' +
       '<table>' +
@@ -1520,8 +1518,29 @@ async function kresliGbif(){
       '<tr><td>Zdroj</td><td>GBIF / iNaturalist</td></tr>' +
       '</table>' +
       '<p class="pozn" style="margin:8px 0 0;font-size:11px">Jeden nález z jednoho dne. ' +
-      'Neříká, že tam houby jsou i teď – ani že jinde nejsou.</p></div>', POPOPT
-    ).addTo(gbifVrstva);
+      'Neříká, že tam houby jsou i teď – ani že jinde nejsou.</p></div>';
+
+    /* ============================================================
+       Audit 60: PRST NENI MYS
+
+       Bod ma prumer 8 az 12 px. Zmereno v prohlizeci s dotykem:
+       bublina se otevre jen pri klepnuti do 3 px od stredu, o ctyri
+       pixely vedle uz ne. Mysi se to trefi snadno, prstem prakticky
+       nikdy - odtud "na desktopu se detail zobrazi, na mobilu nikdy".
+
+       Appka uz tenhle problem jednou resila u spendliku a u uchytu
+       panelu (.pin::after, .grab::after - neviditelna plocha kolem
+       male znacky). Vektorovy bod takovou plochu nema, tak mu ji
+       dame: pruhledne kolecko pod nim, ktere chyta klepnuti vedle. */
+    L.circleMarker([la, ln], {
+      radius: 14, weight: 0, opacity: 0,
+      fillColor: barva, fillOpacity: 0.01
+    }).bindPopup(bublina, POPOPT).addTo(gbifVrstva);
+
+    L.circleMarker([la, ln], {
+      radius: z >= 13 ? 6 : 4, color: '#fff', weight: 1.5,
+      fillColor: barva, fillOpacity: .95
+    }).bindPopup(bublina, POPOPT).addTo(gbifVrstva);
     vykresleno++;
   });
   const t = $('gbifPocet');
@@ -4467,7 +4486,7 @@ function popisHouby(){
   const h = HOUBY[d];
   if (!h) return '';
   return '<b>' + h.jm + '</b> – ' + h.strom + '.<br>' +
-         'Sezóna změřená z ' + h.n + ' nálezů (GBIF), vrchol ' +
+         'Sezóna změřená z ' + h.n.toLocaleString('cs-CZ') + ' nálezů (GBIF), vrchol ' +
          ['','ledna','února','března','dubna','května','června','července','srpna','září','října','listopadu','prosince']
            [Object.entries(h.sezona).sort((a,b)=>b[1]-a[1])[0][0]] + '. ' +
          'Po dešti plodí za ' + h.latence[0] + '–' + h.latence[1] + ' dní.<br>' +
@@ -4498,7 +4517,7 @@ function filtryHTML(){
        ho samotné na řádku – sto pixelů za nic. */
     '<div class="fr"><span>Houba</span><div>' +
       chip('druh','vse','Vše') +
-      ['bedly','hrib_smrkovy','hrib_dubovy','kremenac','kozak','klouzky','masak']
+      ['bedly','hrib_smrkovy','hrib_dubovy','hrib_zlutomasy','kremenac','kozak','klouzky','masak']
         .map(k => chip('druh', k, HOUBY[k].kratkyChip)).join('') +
       '<p class="pozn popisHouby">' + popisHouby() + '</p>' +
     '</div></div>' +
@@ -4759,6 +4778,32 @@ const HOUBY = {
        'smíšené':   {'do 2,5 m':0.30,'od 2,5 m do 8 m':0.75,'od 8 m do 20 m':0.85,'nad 20 m':0.50},
        'jehličnaté':{'do 2,5 m':0.05,'od 2,5 m do 8 m':0.15,'od 8 m do 20 m':0.20,'nad 20 m':0.15},
        'bez určení':{'do 2,5 m':0.20,'od 2,5 m do 8 m':0.50,'od 8 m do 20 m':0.55,'nad 20 m':0.35}}},
+
+  /* ============================================================
+     Audit 61: HRIB ZLUTOMASY (babka)
+
+     Sezona je stazena stejne jako u ostatnich: mesicni pocty nalezu
+     Xerocomellus chrysenteron v Evrope z GBIF, prepocitane na vrchol.
+     38 462 zaznamu, vrchol zari, rijen tesne za nim (91 %).
+
+     Latenci po desti pro tenhle druh zmerenou nemam. Bere si proto
+     stejne okno jako ostatni hribovite (10-16 dni) - je to prevzata
+     hodnota, ne namerena, a je fer to vedet.
+
+     Vhodnost porostu odpovida tomu, ze je to nas nejbezneji rostouci
+     hrib: roste v listnatem i jehlicnatem lese, od nizin po hory.
+     Cisla jsou proto vysoka skoro vsude a mapa ji malokdy vylouci -
+     coz je o ni pravda, ne chyba modelu. */
+  hrib_zlutomasy: {
+    jm:'Hřib žlutomasý (babka)', kratkyChip:'Žlutomasý', kratce:'babky', skupina:'hriby',
+    strom:'dub, buk, smrk · nevybíravá – okraje cest, mech, řidší porost',
+    nevime:'Roste skoro všude, takže ji mapa málokdy vyloučí – rozdíly mezi místy jsou u ní menší než u ostatních. A jestli je plodnice napadená plísní, což se babce stává často, z map nepoznáš.',
+    latence:[10,16], n:38462,
+    sezona:{1:0.02,2:0,3:0,4:0.01,5:0.02,6:0.10,7:0.29,8:0.60,9:1.00,10:0.91,11:0.20,12:0.02},
+    v:{'listnaté':  {'do 2,5 m':0.25,'od 2,5 m do 8 m':0.55,'od 8 m do 20 m':0.95,'nad 20 m':1.00},
+       'smíšené':   {'do 2,5 m':0.25,'od 2,5 m do 8 m':0.60,'od 8 m do 20 m':1.00,'nad 20 m':0.95},
+       'jehličnaté':{'do 2,5 m':0.20,'od 2,5 m do 8 m':0.45,'od 8 m do 20 m':0.75,'nad 20 m':0.70},
+       'bez určení':{'do 2,5 m':0.20,'od 2,5 m do 8 m':0.45,'od 8 m do 20 m':0.70,'nad 20 m':0.65}}},
 
   bedly: {
     jm:'Bedly', kratkyChip:'Bedly', kratce:'bedly', skupina:'bedly', mimoLes:true,
