@@ -966,7 +966,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v80';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v81';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2154,7 +2154,28 @@ function applySheet(animate){
      absolutní hodnota, ne rozdíl, takže pozdější růst obsahu s ní
      nehne – panel je prostě vysoký tolik, kolik má být vidět.
      ============================================================ */
-  const slozeno = sheetPeek && peekOffset > 0;
+  /* ============================================================
+     Audit 50: BÍLÝ PRUH PŘI SPUŠTĚNÍ
+
+     Popis od uživatele: po otevření appky je dole bílý pruh a zmizí
+     teprve po ručním vytažení a složení panelu. Přesně to sedí na
+     tuhle podmínku.
+
+     `peekOffset` je rozdíl plné výšky panelu a toho, co má být vidět.
+     Při startu je ale panel ještě krátký – tělo se plní až potom
+     (seznam lidí z Firebase, panel navigace k autu, popisky). Rozdíl
+     tedy vyjde nula nebo záporný, `slozeno` je nepravda, třída .peek
+     se nenasadí – a bez ní zůstává panel BÍLÝ, nezmenšený, přes celou
+     svou výšku. To je ten pruh.
+
+     Jakmile uživatel panel vytáhne a složí, `setSheetPeek` proběhne
+     znovu, panel už je mezitím plný, `peekOffset` vyjde kladný a
+     složený stav se konečně nasadí. Proto se to „samo spraví".
+
+     Podmínka je zbytečná: když má být panel složený, má být složený.
+     Že není co schovávat, se pozná samo – strop se nastaví na výšku,
+     kterou panel stejně má, a nic to neudělá. */
+  const slozeno = sheetPeek;
   /* Audit 45: třída .peek mění rozvržení hlavy – zmizí podklad a úchyt
      jde mimo tok. Kdyby se výška měřila před ní, ořezali bychom panel
      na míru, kterou už nemá. Nasadit, pak změřit, pak ořezat. */
@@ -2237,6 +2258,21 @@ sheetEl.addEventListener('pointerdown', e => {
    tlačítko, tažením to šlo. Jeden zdroj přepínání stačí. */
 
 window.addEventListener('resize', () => { measureSheet(); applySheet(false); bannerOffset(); });
+
+/* Audit 50: tělo panelu se plní až po startu – seznam lidí, navigace
+   k autu, popisky. Dřív se na to čekalo přes rozptýlené volání
+   measureSheet z různých míst a nebylo jisté, že se trefí. Tohle to
+   hlídá přímo: kdykoli tělo změní výšku, přeměříme a znovu nasadíme. */
+if (typeof ResizeObserver === 'function'){
+  const telo = sheetEl.querySelector('.sheet-body');
+  if (telo){
+    let cekam = null;
+    new ResizeObserver(() => {
+      clearTimeout(cekam);
+      cekam = setTimeout(() => { measureSheet(); applySheet(false); }, 60);
+    }).observe(telo);
+  }
+}
 
 /* Audit 30: iPhone mění viditelnou plochu i bez události resize – když
    Safari schová nebo ukáže svoje lišty. Bez tohohle zůstaly lišty i panel
