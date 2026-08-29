@@ -899,7 +899,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v72';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v73';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1994,6 +1994,14 @@ let headVyska = 0;
    první řádek – 54 px místo 60. Apple chce na dotyk aspoň 44 px,
    takže je pořád rezerva, a z mapy ubývá o šest pixelů míň.
    ============================================================ */
+/* Audit 42: `.sheet-head` má position:relative, takže offsetTop uvnitř
+   ní se počítá od NÍ, ne od panelu – odsazení panelu a úchyt se do toho
+   nezapočítaly. Měříme proto přímo rozdíl hran; obojí je posunuté
+   stejnou transformací, takže rozdíl vychází správně. */
+function odHornihoOkraje(el){
+  return Math.round(el.getBoundingClientRect().bottom - sheetEl.getBoundingClientRect().top);
+}
+
 function measureSheet(){
   const carNav = document.getElementById('carNav');
   const naviguju = carNav && carNav.offsetParent !== null;
@@ -2009,8 +2017,8 @@ function measureSheet(){
                   .getPropertyValue('--safe-b')) || 0);
   const MEZERA = 6;                        // aby řádek nesplýval s okrajem displeje
   headVyska = posledni
-    ? Math.round(posledni.offsetTop + posledni.offsetHeight + MEZERA + safeB)
-    : Math.round(120 + safeB);             // kdyby prvek chyběl, ať panel nezmizí
+    ? odHornihoOkraje(posledni) + MEZERA + safeB
+    : Math.round(110 + safeB);             // kdyby prvek chyběl, ať panel nezmizí
   peekOffset = Math.max(0, Math.round(sheetEl.offsetHeight - headVyska));
 }
 
@@ -2019,9 +2027,14 @@ function applySheet(animate){
   /* Audit 27: na širokém displeji se panel nikdy nesložil – ta výjimka
      dávala smysl, dokud byl panel přes celou šířku. Teď je to sloupec
      vlevo a složit se má stejně jako na telefonu. */
+  /* Audit 42: posun byl zadaný jako `calc(100% - X)`. Procento se
+     v transformaci počítá až při vykreslení, a to z výšky, kterou má
+     panel v tu chvíli – ne z té, ze které jsme měřili. Teď se posune
+     o spočítaný počet pixelů, takže je to jedna hodnota z jednoho
+     měření a nemůže se to rozejít. */
   const slozeno = sheetPeek && peekOffset > 0;
   sheetEl.style.transform = slozeno
-    ? 'translateY(calc(100% - ' + headVyska + 'px))'
+    ? 'translateY(' + peekOffset + 'px)'
     : 'translateY(0px)';
   sheetEl.classList.toggle('peek', slozeno);
   if (!animate) requestAnimationFrame(()=> sheetEl.classList.remove('dragging'));
@@ -6051,6 +6064,33 @@ function blokOdkaz(){
     '<button class="ghost" id="btnOdkaz" style="margin:8px 0 14px">📋 &nbsp;Zkopírovat odkaz</button>';
 }
 
+/* Audit 42: složený panel se třikrát po sobě spravoval podle odhadu
+   z fotky, a pokaždé jinak, protože z obrázku nejde přečíst, co si
+   appka doopravdy spočítala. Tenhle řádek to řekne rovnou: verze,
+   rozměr okna, bezpečné zóny, výška složeného pruhu a z čeho vznikla.
+   Když bude něco jinak, stačí ho vyfotit. */
+function diagnostika(){
+  try {
+    const st = getComputedStyle(document.documentElement);
+    const sh = document.querySelector('.sheet');
+    const r  = sh.getBoundingClientRect();
+    const radek = sh.querySelector('.hlavniradek');
+    const doRadku = radek ? Math.round(radek.getBoundingClientRect().bottom - r.top) : 0;
+    const vidno = Math.round(Math.min(r.bottom, window.innerHeight) - r.top);
+    return '<h3>Diagnostika</h3><div class="uid" style="font-size:11px;line-height:1.6">' +
+      'verze <b>' + APP_VERZE + '</b><br>' +
+      'okno ' + window.innerWidth + '×' + window.innerHeight +
+      ' · displej ' + screen.width + '×' + screen.height + '<br>' +
+      'bezpečná zóna: nahoře ' + st.getPropertyValue('--safe-t').trim() +
+      ' · dole ' + st.getPropertyValue('--safe-b').trim() + '<br>' +
+      'panel: výška ' + Math.round(r.height) + ' · složený pruh <b>' + vidno + '</b>' +
+      ' · po řádek ' + doRadku + '<br>' +
+      'spočítáno: hlava ' + headVyska + ' · posun ' + peekOffset +
+      ' · složeno ' + (sh.classList.contains('peek') ? 'ano' : 'ne') +
+      '</div>';
+  } catch(e){ return ''; }
+}
+
 function refreshPeopleModal(){
   const box = $('legendModal').querySelector('.mbox');
   let el = box.querySelector('#peopleAdmin');
@@ -6416,7 +6456,7 @@ function otevriNastaveni(kam){
     uidEl.id = 'uidBlock';
     box.insertBefore(uidEl, box.querySelector('#pomoc') || box.querySelector('.dole'));
   }
-  uidEl.innerHTML = blokOdkaz() +
+  uidEl.innerHTML = blokOdkaz() + diagnostika() +
     '<b style="color:var(--ink)">Tvoje UID</b> (každý prohlížeč a telefon má vlastní):<br>' +
     '<code style="font-size:11px;word-break:break-all;background:#f2efe9;padding:4px 6px;border-radius:5px;display:inline-block;margin-top:4px">' +
     (state.uid || 'není přihlášeno – Firebase není nastavený') + '</code>';
