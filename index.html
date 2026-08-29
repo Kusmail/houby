@@ -130,14 +130,14 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
   position:absolute;left:0;right:0;bottom:0;z-index:1200;
   background:var(--card);border-top:1px solid var(--line);
   border-radius:16px 16px 0 0;box-shadow:0 -3px 18px rgba(0,0,0,.16);
-  padding:10px 12px calc(var(--safe-b) + 10px);
+  padding:8px 12px calc(var(--safe-b) + 10px);
   max-height:calc(100dvh - 96px); overflow:hidden;
   transition:transform .28s cubic-bezier(.22,.61,.36,1);
   will-change:transform;touch-action:pan-y
 }
 .sheet.dragging{transition:none}
 /* úchyt na vytažení – malý proužek, ale velká dotyková plocha kolem něj */
-.grab{width:44px;height:5px;border-radius:99px;background:#cfc9bf;margin:0 auto 9px;position:relative;
+.grab{width:44px;height:5px;border-radius:99px;background:#cfc9bf;margin:0 auto 7px;position:relative;
   touch-action:none;cursor:grab}
 .grab::after{content:'';position:absolute;left:-90px;right:-90px;top:-16px;bottom:-16px}
 .sheet.peek .grab{background:#b9b2a6}
@@ -160,12 +160,12 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
    „Najdi mi les" vedle – řádek se roztáhl podle něj. Obě tlačítka
    mají teď stejnou pevnou výšku a obsah auta se do ní vejde. */
 .bigbtn.auto{flex:0 0 96px; background:#c2701a; padding:2px; margin-bottom:0;
-  height:60px; min-height:60px; flex-direction:column; gap:1px;
-  font-size:19px; line-height:1; overflow:hidden; text-align:center}
+  height:54px; min-height:54px; flex-direction:column; gap:0; justify-content:center;
+  font-size:17px; line-height:1; overflow:hidden; text-align:center}
 .bigbtn.auto .pop2{font-size:10px; font-weight:700; line-height:1.12; letter-spacing:-.01em}
 
 .bigbtn{
-  width:100%;min-height:60px;border:0;border-radius:14px;
+  width:100%;min-height:54px;border:0;border-radius:14px;
   background:var(--car);color:#fff;font-size:17px;font-weight:700;
   display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;
   box-shadow:0 2px 0 rgba(0,0,0,.12)
@@ -874,7 +874,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v70';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v71';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1964,14 +1964,25 @@ let headVyska = 0;
    člověk na telefon dívá cestou z lesa. Co je pod tím, jde celé pod
    okraj. `offsetTop` se počítá od horní hrany panelu včetně jeho
    odsazení, takže se nic nepřičítá dvakrát.
+
+   Audit 40: k tomu ještě strop na bezpečnou zónu (viz níž) a nižší
+   první řádek – 54 px místo 60. Apple chce na dotyk aspoň 44 px,
+   takže je pořád rezerva, a z mapy ubývá o šest pixelů míň.
    ============================================================ */
 function measureSheet(){
   const carNav = document.getElementById('carNav');
   const naviguju = carNav && carNav.offsetParent !== null;
   const posledni = naviguju ? carNav : sheetEl.querySelector('.hlavniradek');
-  const safeB = parseFloat(getComputedStyle(document.documentElement)
-                  .getPropertyValue('--safe-b')) || 0;
-  const MEZERA = 10;                       // aby řádek nesplýval s okrajem displeje
+  /* Audit 40: naměřeno na iPhonu 15 Pro – pod řádkem zbývalo 100 px
+     prázdna a celý složený pruh měl 176 px místo očekávaných 126.
+     Z toho vychází, že --safe-b se tam dopočítá na zhruba 90 px.
+     Čárka pro domovskou obrazovku ale nikdy nezabírá víc než 34 px,
+     takže cokoli nad to je chyba měření, ne bezpečná zóna – a strop
+     ji utne. Když prohlížeč hlásí míň, respektuje se jeho hodnota. */
+  const SAFE_MAX = 34;
+  const safeB = Math.min(SAFE_MAX, parseFloat(getComputedStyle(document.documentElement)
+                  .getPropertyValue('--safe-b')) || 0);
+  const MEZERA = 6;                        // aby řádek nesplýval s okrajem displeje
   headVyska = posledni
     ? Math.round(posledni.offsetTop + posledni.offsetHeight + MEZERA + safeB)
     : Math.round(120 + safeB);             // kdyby prvek chyběl, ať panel nezmizí
