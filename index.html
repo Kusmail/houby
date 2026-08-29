@@ -750,7 +750,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v59';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v60';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -3129,13 +3129,27 @@ const POCASI_PLATNOST = 3*3600*1000;
 
 /* Váha deště podle toho, jak je starý. Vrchol na 10–14 dnech –
    tou dobou se objevují plodnice po vydatném dešti. */
+/* Audit 32: jedna křivka platila pro všechno, ale v tvém podkladu má
+   každá houba jinou latenci: klouzky 5–10 dní, hřiby a křemenáče
+   10–16, bedly 7–12. Okno se bere z vybraného filtru; u skupiny se
+   sloučí (od nejmenšího minima po největší maximum). */
+function oknoLatence(){
+  let od = 99, do_ = 0;
+  for (const k of clenoveFiltru(FILTR.druh)){
+    const l = HOUBY[k] && HOUBY[k].latence;
+    if (!l) continue;
+    od = Math.min(od, l[0]); do_ = Math.max(do_, l[1]);
+  }
+  return (do_ ? [od, do_] : [10, 16]);
+}
+
 function vahaDeste(dniZpet){
   if (dniZpet < 0) return 0;
-  if (dniZpet <= 3) return 0.35;      // drží, co roste
-  if (dniZpet <= 5) return 0.6;
-  if (dniZpet <= 8) return 0.9;
-  if (dniZpet <= 15) return 1.0;      // hlavní okno
-  if (dniZpet <= 18) return 0.6;
+  const [od, doo] = oknoLatence();
+  if (dniZpet >= od && dniZpet <= doo) return 1.0;      // plodící okno téhle houby
+  if (dniZpet >= od - 3 && dniZpet <= doo + 3) return 0.6;
+  if (dniZpet <= 3) return 0.35;                        // drží, co už roste
+  if (dniZpet <= doo + 6) return 0.3;
   return 0.15;
 }
 
@@ -3189,6 +3203,22 @@ function rozborPocasi(den){
    načasovaného deště je „vody dost"; pod tím se rozlišuje. */
 function indexVlhkosti(vazene){
   return Math.max(0, Math.min(1, vazene / 50));
+}
+
+/* Audit 32: jedna křivka pro „hřiby" a jedna pro „bedly" byla hrubá.
+   Každá houba má teď vlastní, změřenou z GBIF (počet nálezů je u ní
+   uvedený). Skupina bere zase lepší z členů. Hřib dubový má vrchol
+   v červnu, masák v říjnu – jedna společná křivka to zamlžila. */
+function faktorSezonyDruhu(mesic, klic){
+  const h = HOUBY[klic];
+  if (!h) return 0.3;
+  const v = h.sezona[mesic];
+  return v === undefined ? 0.3 : v;
+}
+function faktorSezonyFiltru(mesic){
+  let nej = 0;
+  for (const k of clenoveFiltru(FILTR.druh)) nej = Math.max(nej, faktorSezonyDruhu(mesic, k));
+  return nej;
 }
 
 function faktorSezony(mesic, bedly){
@@ -3293,7 +3323,7 @@ function skoreMista(m, den){
   const vlhkost = indexVlhkosti(p.vazene);
   const bedlove = FILTR.druh === 'bedly' ||
                   (FILTR.druh === 'vse' && m.overene && /bedla/i.test(m.loc && m.loc.druh || ''));
-  const sez = faktorSezony(mesic, bedlove);
+  const sez = faktorSezonyFiltru(mesic);
   /* Porost dřív saturoval na šedesáti procentech, takže místo se 62 %
      listnatých a místo s 85 % vyšlo stejně. Teď se bere celý rozsah
      a rozdíly jsou vidět. Nula neznamená „nic tam neroste", ale
@@ -3654,13 +3684,36 @@ function duvodMista(x){
 }
 
 /* ---------- filtry v dialogu ---------- */
+/* Co o vybrané houbě víme a co ne – ať je vidět, kde model končí. */
+function popisHouby(){
+  const d = FILTR.druh;
+  if (d === 'vse')   return 'Bereš cokoli – platí lepší hodnocení z celé nabídky.';
+  if (d === 'hriby') return 'Všechny hřibovité dohromady – platí ta nejlepší z nich pro daný porost.';
+  const h = HOUBY[d];
+  if (!h) return '';
+  return '<b>' + h.jm + '</b> – ' + h.strom + '.<br>' +
+         'Sezóna změřená z ' + h.n + ' nálezů (GBIF), vrchol ' +
+         ['','ledna','února','března','dubna','května','června','července','srpna','září','října','listopadu','prosince']
+           [Object.entries(h.sezona).sort((a,b)=>b[1]-a[1])[0][0]] + '. ' +
+         'Po dešti plodí za ' + h.latence[0] + '–' + h.latence[1] + ' dní.<br>' +
+         '<b>Co appka neví:</b> ' + h.nevime;
+}
+
 function filtryHTML(){
   const chip = (skup, hod, popis) =>
     '<button class="fchip' + (FILTR[skup] === hod ? ' on' : '') + '" data-f="' + skup + '" data-v="' + hod + '">' + popis + '</button>';
   return '<div class="filtry">' +
+    /* Audit 32: filtr uměl jen tři volby. Podklad „Pravidla růstu hub"
+       má šest prioritních druhů a každý chce jiný porost, jinou sezónu
+       i jinou latenci po dešti – jedna společná křivka to zamlžila. */
     '<div class="fr"><span>Houba</span><div>' +
-      chip('druh','vse','Vše') + chip('druh','bedly','Bedly') + chip('druh','hriby','Hřiby a klouzky') +
+      chip('druh','vse','Vše') + chip('druh','hriby','Všechny hřibovité') + chip('druh','bedly','Bedly') +
     '</div></div>' +
+    '<div class="fr"><span>Konkrétně</span><div>' +
+      ['hrib_smrkovy','hrib_dubovy','masak','klouzky','kremenac','kozak']
+        .map(k => chip('druh', k, HOUBY[k].jm)).join('') +
+    '</div></div>' +
+    '<div class="fr"><span></span><div><p class="pozn" style="margin:0">' + popisHouby() + '</p></div></div>' +
     '<div class="fr"><span>Porost</span><div>' +
       chip('porost','vse','Vše') + chip('porost','listnate','Listnatý') +
       chip('porost','smisene','Smíšený') + chip('porost','jehlicnate','Jehličnatý') +
@@ -3829,20 +3882,115 @@ const BARVY_RUSTU = [
    potřebuje dřív, než se sem skript dostane. */
 
 /* [druh porostu][výškový stupeň] → jak to sedí na tu houbu, 0..1 */
-const VHODNOST = {
+/* ============================================================
+   PRAVIDLA RŮSTU PO DRUZÍCH
+   Podklad: „Pravidla růstu hub" (Matěj, 29. 8. 2026) + změřené
+   sezónní křivky z GBIF (1 601 nálezů v ČR, staženo 29. 8. 2026).
+
+   Co appka o porostu VÍ: druh porostu (listnatý / jehličnatý /
+   smíšený / bez určení) a výškovou třídu, obojí ze ZABAGED.
+   Co NEVÍ: konkrétní dřevinu. A právě dřevina je v tvém podkladu
+   nejsilnější prediktor s vahou 30 % – tři nejjistější vazby
+   (modřín→klouzek sličný, osika→křemenáč, bříza→kozák) tedy
+   ověřit neumíme. U každé houby je proto napsáno, co jí schází.
+   ============================================================ */
+const HOUBY = {
+  hrib_smrkovy: {
+    jm:'Hřib smrkový', kratce:'hřib smrkový', skupina:'hriby',
+    strom:'smrk, jedle · nejlíp porost 30–70 let',
+    nevime:'Smrk od borovice ani modřínu v mapách nerozeznáme – vidíme jen „jehličnaté".',
+    latence:[10,16], n:350,
+    sezona:{1:0,2:0,3:0,4:0,5:0,6:0.10,7:0.37,8:0.71,9:1.00,10:0.96,11:0.10,12:0.02},
+    v:{'jehličnaté':{'do 2,5 m':0.25,'od 2,5 m do 8 m':0.55,'od 8 m do 20 m':1.00,'nad 20 m':0.90},
+       'smíšené':   {'do 2,5 m':0.20,'od 2,5 m do 8 m':0.45,'od 8 m do 20 m':0.90,'nad 20 m':0.80},
+       'listnaté':  {'do 2,5 m':0.10,'od 2,5 m do 8 m':0.20,'od 8 m do 20 m':0.35,'nad 20 m':0.35},
+       'bez určení':{'do 2,5 m':0.20,'od 2,5 m do 8 m':0.35,'od 8 m do 20 m':0.55,'nad 20 m':0.50}}},
+
+  hrib_dubovy: {
+    jm:'Hřib dubový a bronzový', kratce:'hřiby v doubravě', skupina:'hriby',
+    strom:'dub, buk · prosvětlené porosty a okraje, ne zapojený les',
+    nevime:'Dub od buku ani od akátu neodlišíme – vidíme jen „listnaté".',
+    latence:[10,16], n:85,
+    sezona:{1:0,2:0,3:0,4:0,5:0.10,6:1.00,7:0.57,8:0.47,9:0.43,10:0.23,11:0.03,12:0},
+    v:{'listnaté':  {'do 2,5 m':0.15,'od 2,5 m do 8 m':0.35,'od 8 m do 20 m':0.85,'nad 20 m':1.00},
+       'smíšené':   {'do 2,5 m':0.15,'od 2,5 m do 8 m':0.30,'od 8 m do 20 m':0.70,'nad 20 m':0.80},
+       'jehličnaté':{'do 2,5 m':0.05,'od 2,5 m do 8 m':0.10,'od 8 m do 20 m':0.20,'nad 20 m':0.25},
+       'bez určení':{'do 2,5 m':0.10,'od 2,5 m do 8 m':0.25,'od 8 m do 20 m':0.45,'nad 20 m':0.50}}},
+
+  masak: {
+    jm:'Masák (hřib hnědý)', kratce:'masáky', skupina:'hriby',
+    strom:'smrk, borovice · mechové smrčiny',
+    nevime:'Mechový podrost v mapách není – a právě ten masák chce.',
+    latence:[10,16], n:348,
+    sezona:{1:0,2:0,3:0,4:0,5:0.03,6:0.06,7:0.16,8:0.45,9:0.74,10:1.00,11:0.25,12:0.01},
+    v:{'jehličnaté':{'do 2,5 m':0.25,'od 2,5 m do 8 m':0.70,'od 8 m do 20 m':1.00,'nad 20 m':0.95},
+       'smíšené':   {'do 2,5 m':0.20,'od 2,5 m do 8 m':0.60,'od 8 m do 20 m':0.90,'nad 20 m':0.85},
+       'listnaté':  {'do 2,5 m':0.10,'od 2,5 m do 8 m':0.25,'od 8 m do 20 m':0.45,'nad 20 m':0.50},
+       'bez určení':{'do 2,5 m':0.20,'od 2,5 m do 8 m':0.45,'od 8 m do 20 m':0.60,'nad 20 m':0.60}}},
+
+  klouzky: {
+    jm:'Klouzky', kratce:'klouzky', skupina:'hriby',
+    strom:'modřín (klouzek sličný), borovice · mladý porost',
+    nevime:'Modřín je nejjistější vazba v ČR, ale v mapách ho nerozeznáme. Mířit na mladé jehličnaté.',
+    latence:[5,10], n:350,
+    sezona:{1:0,2:0,3:0,4:0,5:0.02,6:0.16,7:0.16,8:0.31,9:1.00,10:0.75,11:0.08,12:0},
+    v:{'jehličnaté':{'do 2,5 m':0.45,'od 2,5 m do 8 m':1.00,'od 8 m do 20 m':0.75,'nad 20 m':0.55},
+       'smíšené':   {'do 2,5 m':0.35,'od 2,5 m do 8 m':0.80,'od 8 m do 20 m':0.60,'nad 20 m':0.45},
+       'listnaté':  {'do 2,5 m':0.05,'od 2,5 m do 8 m':0.10,'od 8 m do 20 m':0.10,'nad 20 m':0.10},
+       'bez určení':{'do 2,5 m':0.25,'od 2,5 m do 8 m':0.50,'od 8 m do 20 m':0.40,'nad 20 m':0.30}}},
+
+  kremenac: {
+    jm:'Křemenáče', kratce:'křemenáče', skupina:'hriby',
+    strom:'osika, bříza · mladiny a lemy',
+    nevime:'Osika je exkluzivní vazba, ale v mapách ji nenajdeme. Mířit na mladé listnaté.',
+    latence:[10,16], n:33,
+    sezona:{1:0,2:0,3:0,4:0,5:0.17,6:0.25,7:0.17,8:0.58,9:1.00,10:0.42,11:0.17,12:0},
+    v:{'listnaté':  {'do 2,5 m':0.40,'od 2,5 m do 8 m':1.00,'od 8 m do 20 m':0.70,'nad 20 m':0.40},
+       'smíšené':   {'do 2,5 m':0.35,'od 2,5 m do 8 m':0.85,'od 8 m do 20 m':0.60,'nad 20 m':0.35},
+       'jehličnaté':{'do 2,5 m':0.05,'od 2,5 m do 8 m':0.15,'od 8 m do 20 m':0.15,'nad 20 m':0.10},
+       'bez určení':{'do 2,5 m':0.25,'od 2,5 m do 8 m':0.55,'od 8 m do 20 m':0.40,'nad 20 m':0.25}}},
+
+  kozak: {
+    jm:'Kozáky', kratce:'kozáky', skupina:'hriby',
+    strom:'bříza, habr · i v remízcích a příměstské zeleni',
+    nevime:'Břízu od dubu neodlišíme. Mířit na listnaté střední výšky a lemy.',
+    latence:[10,16], n:59,
+    sezona:{1:0,2:0,3:0,4:0,5:0,6:0.15,7:0.19,8:0.30,9:1.00,10:0.44,11:0.11,12:0},
+    v:{'listnaté':  {'do 2,5 m':0.35,'od 2,5 m do 8 m':0.90,'od 8 m do 20 m':1.00,'nad 20 m':0.60},
+       'smíšené':   {'do 2,5 m':0.30,'od 2,5 m do 8 m':0.75,'od 8 m do 20 m':0.85,'nad 20 m':0.50},
+       'jehličnaté':{'do 2,5 m':0.05,'od 2,5 m do 8 m':0.15,'od 8 m do 20 m':0.20,'nad 20 m':0.15},
+       'bez určení':{'do 2,5 m':0.20,'od 2,5 m do 8 m':0.50,'od 8 m do 20 m':0.55,'nad 20 m':0.35}}},
+
   bedly: {
-    'listnaté':   {'do 2,5 m':1.00, 'od 2,5 m do 8 m':0.85, 'od 8 m do 20 m':0.50, 'nad 20 m':0.35},
-    'smíšené':    {'do 2,5 m':0.90, 'od 2,5 m do 8 m':0.75, 'od 8 m do 20 m':0.45, 'nad 20 m':0.30},
-    'jehličnaté': {'do 2,5 m':0.50, 'od 2,5 m do 8 m':0.40, 'od 8 m do 20 m':0.25, 'nad 20 m':0.20},
-    'bez určení': {'do 2,5 m':0.55, 'od 2,5 m do 8 m':0.45, 'od 8 m do 20 m':0.35, 'nad 20 m':0.30}
-  },
-  hriby: {
-    'jehličnaté': {'do 2,5 m':0.45, 'od 2,5 m do 8 m':0.85, 'od 8 m do 20 m':1.00, 'nad 20 m':0.95},
-    'smíšené':    {'do 2,5 m':0.40, 'od 2,5 m do 8 m':0.70, 'od 8 m do 20 m':0.95, 'nad 20 m':0.90},
-    'listnaté':   {'do 2,5 m':0.30, 'od 2,5 m do 8 m':0.45, 'od 8 m do 20 m':0.75, 'nad 20 m':0.80},
-    'bez určení': {'do 2,5 m':0.35, 'od 2,5 m do 8 m':0.50, 'od 8 m do 20 m':0.60, 'nad 20 m':0.60}
-  }
+    jm:'Bedly', kratce:'bedly', skupina:'bedly', mimoLes:true,
+    strom:'žádný – bedla je saprofyt, roste na živné půdě, ne u stromu',
+    nevime:'Pastviny a meze v naší lesní vrstvě nejsou. Proto se u bedel počítá hlavně OKRAJ porostu – ' +
+           'v zapojeném lese nerostou a appka je tam schválně sráží.',
+    latence:[7,12], n:290,
+    sezona:{1:0,2:0,3:0,4:0,5:0.03,6:0.14,7:0.27,8:0.51,9:0.96,10:1.00,11:0.22,12:0},
+    v:{'listnaté':  {'do 2,5 m':0.35,'od 2,5 m do 8 m':0.30,'od 8 m do 20 m':0.20,'nad 20 m':0.15},
+       'smíšené':   {'do 2,5 m':0.30,'od 2,5 m do 8 m':0.25,'od 8 m do 20 m':0.18,'nad 20 m':0.12},
+       'jehličnaté':{'do 2,5 m':0.15,'od 2,5 m do 8 m':0.12,'od 8 m do 20 m':0.10,'nad 20 m':0.08},
+       'bez určení':{'do 2,5 m':0.30,'od 2,5 m do 8 m':0.25,'od 8 m do 20 m':0.20,'nad 20 m':0.15}}}
 };
+
+/* Skupiny = lepší z členů, aby „vše" nikdy nevyšlo hůř než jedna houba. */
+const SKUPINY = {
+  vse:   Object.keys(HOUBY),
+  hriby: Object.keys(HOUBY).filter(k => HOUBY[k].skupina === 'hriby'),
+  bedly: ['bedly']
+};
+function clenoveFiltru(druh){
+  if (SKUPINY[druh]) return SKUPINY[druh];
+  return HOUBY[druh] ? [druh] : SKUPINY.vse;
+}
+function jeSkupina(druh){ return !!SKUPINY[druh]; }
+function jmenoFiltru(druh){
+  if (druh === 'vse') return 'houby';
+  if (druh === 'hriby') return 'hřiby a klouzky';
+  return HOUBY[druh] ? HOUBY[druh].kratce : 'houby';
+}
+
 /* Co v takovém porostu hledat – aby barva nebyla jen barva. */
 /* ZABAGED má druh porostu ve tvaru „listnaté" (shoda s „porosty").
    V jednotném čísle to musí být „listnatý porost", ne „listnaté porost". */
@@ -3882,25 +4030,39 @@ const rustPlatno = L.canvas({padding: 0.3});
    je to pravda o českém lese: skoro v každém porostu roste něco.
    Rozlišení nezmizí, jen se přesune z „kreslit / nekreslit" do
    odstínu a do toho, co ti appka o porostu napíše. */
-function vhodnostPorostu(druh, vyska){
-  const t = (klic) => {
-    const d = VHODNOST[klic][druh] || VHODNOST[klic]['bez určení'];
-    return d[vyska] !== undefined ? d[vyska] : 0.4;
-  };
-  if (FILTR.druh === 'bedly') return t('bedly');
-  if (FILTR.druh === 'hriby') return t('hriby');
-  return Math.max(t('bedly'), t('hriby'));
+function vhodnostJedne(klic, druh, vyska){
+  const h = HOUBY[klic]; if (!h) return 0.4;
+  const d = h.v[druh] || h.v['bez určení'];
+  return d[vyska] !== undefined ? d[vyska] : 0.4;
 }
 
-/* Pod „vše" se hodí vědět, ze které houby to hodnocení vzešlo. */
+/* Audit 32: „vše" bylo dřív průměr a vycházelo hůř než jednotlivé houby.
+   Skupina teď bere LEPŠÍ z členů – když je smrčina výborná na hřib
+   smrkový, je výborná i pro toho, komu je jedno, co přinese. */
+function vhodnostPorostu(druh, vyska){
+  let nej = 0;
+  for (const k of clenoveFiltru(FILTR.druh)) nej = Math.max(nej, vhodnostJedne(k, druh, vyska));
+  return nej;
+}
+
+/* Která houba to hodnocení vytáhla – do bubliny i do lišty. */
 function houbaZaSkore(druh, vyska){
-  const t = (klic) => {
-    const d = VHODNOST[klic][druh] || VHODNOST[klic]['bez určení'];
-    return d[vyska] !== undefined ? d[vyska] : 0.4;
-  };
-  if (FILTR.druh === 'bedly') return 'bedly';
-  if (FILTR.druh === 'hriby') return 'hriby';
-  return t('bedly') >= t('hriby') ? 'bedly' : 'hriby';
+  let nej = -1, kdo = null;
+  for (const k of clenoveFiltru(FILTR.druh)){
+    const v = vhodnostJedne(k, druh, vyska);
+    if (v > nej){ nej = v; kdo = k; }
+  }
+  return kdo;
+}
+
+/* Audit 32: bedla není lesní houba – v tvém podkladu je to bod 6
+   terénních pravidel. V zapojeném porostu nemá co dělat, roste na
+   mezích, pastvinách a lemech. Naše lesní vrstva louky neobsahuje,
+   takže se z ní dá použít jediné: podíl OKRAJE. U bedel proto okraj
+   rozhoduje (0,5 až 2,1×), u ostatních zůstává jemné doladění. */
+function vahaOkraje(okraj){
+  const jenBedly = clenoveFiltru(FILTR.druh).every(k => HOUBY[k] && HOUBY[k].mimoLes);
+  return jenBedly ? (0.5 + 1.6 * okraj) : (0.85 + 0.3 * okraj);
 }
 
 /* Plocha a obvod prstence ve stupních → hektary a podíl okraje.
@@ -4029,7 +4191,7 @@ async function kresliSber(b){
        – ta platí i příští týden. Jak je na tom počasí dnes, stojí
        v liště nad mapou a v bublině porostu. */
     const zaklad = vhodnostPorostu(druh, vyska);
-    const skore = Math.max(0, Math.min(1, zaklad * (0.85 + 0.3 * okraj)));
+    const skore = Math.max(0, Math.min(1, zaklad * vahaOkraje(okraj)));
     haCelkem += ha;
     pocasiSoucet += pocasi;
     if (skore >= 0.7){ haNej += ha; }
@@ -4069,8 +4231,7 @@ async function kresliSber(b){
              zahozeno += nadbytek; podleStupne[st] = podleStupne[st].slice(0, podleStupne[st].length - nadbytek); kreslenych = STROP_KRESLENI; }
     }
   }
-  const jmenoHouby = FILTR.druh === 'bedly' ? 'bedly'
-                   : FILTR.druh === 'hriby' ? 'hřiby a klouzky' : 'bedly i hřiby dohromady';
+  const jmenoHouby = jmenoFiltru(FILTR.druh);
   podleStupne.forEach((prvky, st) => {
     if (!prvky.length) return;
     const c = BARVY_RUSTU[st];
@@ -4093,8 +4254,8 @@ async function kresliSber(b){
           /* Audit 22: pod „vše" platí lepší z obou hodnot – tak ať je vidět,
              která to byla. „Pro bedly i hřiby dohromady" nic neříkalo. */
           '<tr><td>Hodnocení</td><td><b>' + Math.round(a._skore*100) + ' %</b> pro ' +
-            (FILTR.druh === 'vse'
-              ? (houbaZaSkore(druh, vyska) === 'bedly' ? 'bedly' : 'hřiby a klouzky') + ' (to je tu z obou lepší)'
+            (jeSkupina(FILTR.druh)
+              ? ((HOUBY[houbaZaSkore(druh, vyska)] || {}).kratce || jmenoHouby) + ' (z vybraných tu nejlepší)'
               : jmenoHouby) + '</td></tr>' +
           '<tr><td>Plocha</td><td>' + (a._ha < 10 ? a._ha.toFixed(1).replace('.', ',') : Math.round(a._ha)) + ' ha' +
             (a._okraj > 0.6 ? ' – skoro celé okraj' : '') + '</td></tr>' +
@@ -4187,7 +4348,7 @@ async function pocasiMrizka(sw, ne){
   const o = {x0: (cx-1)*RUST_OBLAST, y0: (cy-1)*RUST_OBLAST,
              x1: (cx+2)*RUST_OBLAST, y1: (cy+2)*RUST_OBLAST};
   const bedlove = FILTR.druh === 'bedly';
-  const klic = [o.x0, o.y0, o.x1, o.y1, bedlove ? 'b' : 'o'].join(',');
+  const klic = [o.x0, o.y0, o.x1, o.y1, FILTR.druh].join(',');
   const mam = rustPocasiCache.get(klic);
   if (mam && Date.now() - mam.ts < RUST_POCASI_PLATNOST) return mam.data;
 
@@ -4223,7 +4384,7 @@ async function pocasiMrizka(sw, ne){
     const p = rozborPocasi(d[idx].daily);
     const vlhkost = indexVlhkosti(p.vazene);
     const teplo = (p.horko >= 4 ? 0.75 : 1) * (p.zima >= 3 ? 0.6 : 1);
-    const sez = faktorSezony(mesic, bedlove);
+    const sez = faktorSezonyFiltru(mesic);
     return Math.max(0, Math.min(1, vlhkost * teplo * sez));
   });
   const vysl = {nx, ny, hodnoty, x0: o.x0, y0: o.y0, x1: o.x1, y1: o.y1};
@@ -4308,7 +4469,7 @@ let prehledCache = null;
 async function prehledKraju(){
   const hodina = Math.floor(Date.now() / (3*3600*1000));
   const bedlove = FILTR.druh === 'bedly';
-  const klic = hodina + '|' + bedlove;
+  const klic = hodina + '|' + FILTR.druh;
   if (prehledCache && prehledCache.klic === klic) return prehledCache.data;
 
   const lat = PREHLED_BODY.map(b => b[1].toFixed(2)).join(',');
@@ -4328,7 +4489,7 @@ async function prehledKraju(){
   if (d.length !== PREHLED_BODY.length)
     throw new Error('počasí přišlo pro ' + d.length + ' z ' + PREHLED_BODY.length + ' krajů');
   const mesic = new Date().getMonth() + 1;
-  const sez = faktorSezony(mesic, bedlove);
+  const sez = faktorSezonyFiltru(mesic);
   const data = PREHLED_BODY.map((b, i) => {
     const p = rozborPocasi(d[i].daily);
     const vlhkost = indexVlhkosti(p.vazene);
@@ -4492,8 +4653,7 @@ function ukazLegenduSberu(v){
      ve výřezu × počasí a sezóna – obojí appka počítá už dřív, jen se
      to nikde nesešlo do jednoho čísla. Není to věštba a je to tak
      i napsané: druhý řádek říká, z čeho to číslo vzniklo. */
-  const houba = FILTR.druh === 'bedly' ? 'bedly'
-              : FILTR.druh === 'hriby' ? 'hřiby a klouzky' : 'houby';
+  const houba = jmenoFiltru(FILTR.druh);
   const ha = (x) => x < 10 ? x.toFixed(1).replace('.', ',') : Math.round(x);
   const sance = Math.max(0, Math.min(1, (v.nejlepsi || 0) * (v.pocasi || 0)));
   const s = slovniSance(sance);
@@ -5109,7 +5269,7 @@ async function najdiLesTady(){
       if (plocha < 20000) continue;                 // pod 2 ha nemá cenu nikam jezdit
       const okraj = Math.max(0, Math.min(1, obvod * 25 / plocha));
       const skore = Math.min(1, vhodnostPorostu(a.druh_p || 'bez určení', a.vyska_p || 'bez určení') *
-                    (0.85 + 0.3 * okraj));
+                    vahaOkraje(okraj));
       /* Blízko má přednost před o chlup lepším porostem na druhém konci okresu. */
       const km = distM([stred.lat, stred.lng], [lat, lng]) / 1000;
       const vaha = skore * (1 - Math.min(0.5, km / 30));
@@ -5126,8 +5286,7 @@ async function najdiLesTady(){
     }
 
     map.setView([nej.lat, nej.lng], 15);
-    const houba = FILTR.druh === 'bedly' ? 'bedly'
-                : FILTR.druh === 'hriby' ? 'hřiby a klouzky' : 'houby (filtr máš na „vše")';
+    const houba = jmenoFiltru(FILTR.druh) + (FILTR.druh === 'vse' ? ' (filtr máš na „vše")' : '');
     banner('<b>' + druhSlovy(nej.druh) + ' porost, ' + nej.vyska + '</b> · ' +
            (nej.ha < 10 ? nej.ha.toFixed(1).replace('.', ',') : Math.round(nej.ha)) + ' ha · ' +
            fmtDist(nej.km*1000) + ' odsud. Na ' + houba + ' <b>' + Math.round(nej.skore*100) + ' %</b>. ' +
