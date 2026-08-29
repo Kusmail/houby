@@ -171,30 +171,30 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
    kvůli které se pak panel choval na telefonu jinak než v prohlížeči.
    Úchyt proto zůstává uvnitř panelu a místo pro něj dělá odsazení
    shora. Stojí to 14 px a nestojí to žádnou nejistotu. */
-.sheet.peek{background:transparent;border-top:0;box-shadow:none;padding-top:14px}
+.sheet.peek{background:transparent;border-top:0;box-shadow:none;padding-top:20px}
 /* Úchyt se musí umístit vůči panelu, ne vůči hlavě – jinak by seděl
    až za odsazením, tedy přesně na tlačítkách. */
 .sheet.peek .sheet-head{position:static}
+/* Audit 47: bledá šedá pilulka nad mapou zanikala. Úchyt je jediná
+   cesta k tomu, co je pod tlačítky, takže musí být vidět na první
+   pohled: zelená appky, bílá šipka, výraznější stín. Zelená drží
+   kontrast na světlé mapě i na ztlumené noční. */
 .sheet.peek .grab{
   position:absolute;left:50%;top:0;transform:translateX(-50%);
-  width:40px;height:14px;margin:0;border-radius:99px;
-  background:rgba(255,255,255,.94);box-shadow:0 1px 4px rgba(0,0,0,.35);
+  width:66px;height:18px;margin:0;border-radius:99px;
+  background:var(--green);box-shadow:0 2px 7px rgba(0,0,0,.4);
   display:flex;align-items:center;justify-content:center
 }
 .sheet.peek .grab::before{
-  content:'';width:8px;height:8px;margin-top:2px;
-  border-left:2px solid #6b6560;border-top:2px solid #6b6560;
+  content:'';width:11px;height:11px;margin-top:3px;
+  border-left:2.5px solid #fff;border-top:2.5px solid #fff;
   transform:rotate(45deg);border-radius:1px
-}
-@media (prefers-color-scheme: dark){
-  .sheet.peek .grab{background:rgba(40,38,34,.94)}
-  .sheet.peek .grab::before{border-color:#a49e94}
 }
 /* úchyt na vytažení – malý proužek, ale velká dotyková plocha kolem něj */
 .grab{width:44px;height:5px;border-radius:99px;background:#cfc9bf;margin:0 auto 7px;position:relative;
   touch-action:none;cursor:grab}
 .grab::after{content:'';position:absolute;left:-90px;right:-90px;top:-16px;bottom:-16px}
-.sheet.peek .grab{background:#b9b2a6}
+/* Audit 47: tenhle starší řádek přebíjel barvu úchytu – proto zůstával bledě šedý. */
 .sheet-head{position:relative}
 .sheet-body{transition:opacity .2s}
 /* Audit 39: ve složeném stavu bylo tělo panelu ztlumené na 35 %, ale
@@ -953,7 +953,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v77';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v78';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
