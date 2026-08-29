@@ -1158,6 +1158,13 @@ function prekresliDomov(){
    a „do sta kilometrů". Nahradil je filtr na dojezd, který umí totéž lépe
    a pro celou republiku. Šestnáct ručně sepsaných míst zůstává jako
    ověřené tipy: mají poznámky, které se z map vyčíst nedají. */
+/* Audit 15: „Ověřené tipy" byla vrstva se šestnácti parkovišti, u nichž
+   jsem kdysi napsal popisky. Parkoviště to jsou stejně jako těch 7 656
+   ostatních, jen ukecanější – tak jsou teď mezi nimi. Uvolněné místo
+   ve výběru vrstev dostala data, která si to jméno zaslouží: nálezy,
+   kde houbu někdo opravdu našel a určení prošlo kontrolou. Těch šestnáct
+   modrých „P" je na mapě dál, jen už nemá vlastní přepínač – jsou to
+   parkoviště jako ta ostatní, jen s poznámkami. */
 const overeneTipy = L.layerGroup().addTo(map);
 const mistaVrstva = L.layerGroup().addTo(map);
 /* Mapa růstu: prázdná skupina, obrázek do ní dodá prekresliRust().
@@ -1205,6 +1212,9 @@ function popupHTML(d, index){
    se tedy lež. Na mapě zůstává jen parkoviště (to je ověřené) a
    plochy z dat. Trasa se ukáže jen tomu, kdo si o ni v bublině řekne. */
 LOC.forEach((d, idx) => {
+  /* Audit 15: nejdřív jsem je nasypal do vrstvy Parkoviště – jenže ta se
+     při každém posunu mapy vysype a naplní znovu, takže těch šestnáct
+     zmizelo. Zůstávají ve vlastní skupině, která je na mapě pořád. */
   L.marker(d.park, {icon: pinIcon('park','P')}).bindPopup(() => popupHTML(d, idx), POPOPT).addTo(overeneTipy);
 });
 
@@ -1313,7 +1323,7 @@ map.on('overlayadd', async (e) => {
   if (!d) return;
   const meze = map.getBounds();
   const tady = d.body.filter(b => meze.contains([b[1], b[2]])).length;
-  banner('<b>Komunitní pozorování zapnuta.</b> V tomhle výřezu ' +
+  banner('<b>Ověřené nálezy zapnuty.</b> V tomhle výřezu ' +
     (tady === 0 ? 'nemám ani jedno' :
      tady === 1 ? 'je 1 bod' :
      tady < 5   ? 'jsou ' + tady + ' body' : 'je ' + tady + ' bodů') +
@@ -1328,9 +1338,8 @@ L.control.layers({
   'Letecká (ČÚZK)': ortofoto
 }, {
   '<b>Kde sbírat</b> – porosty podle tvojí houby': rustVrstva,
-  '<b>Kde je někdo viděl</b> – 1 535 pozorování (GBIF)': gbifVrstva,
-  '<b>Ověřené tipy</b> – 16 popsaných míst': overeneTipy,
-  '<b>Místa z map</b> – celá ČR podle filtrů': mistaVrstva
+  '<b>Ověřené nálezy</b> – 1 535 pozorování (GBIF)': gbifVrstva,
+  '<b>Parkoviště</b> – 7 656 míst u lesa v celé ČR': mistaVrstva
 }, {collapsed:true}).addTo(map);
 
 /* Na letecké mapě jsou tmavé polygony porostů špatně vidět – zesvětlí se. */
@@ -4682,7 +4691,7 @@ async function ukazPlochu(m, jmeno){
 
    Do téhle verze se sedm a půl tisíce míst dalo najít jen přes
    „Kam dnes na houby" – na mapě samotné nebylo nic než šestnáct
-   ověřených tipů. To byla chyba: vrstva „Místa z map" v přepínači
+   ověřených tipů. To byla chyba: vrstva parkovišť v přepínači
    existovala, ale byla vždycky prázdná.
 
    Teď se místa kreslí podle toho, na co se zrovna díváš. Celá ČR
@@ -5516,13 +5525,21 @@ function refreshPomoc(){
     'Pole ani obce se nebarví – jen les. Kreslí se od přiblížení zhruba na okres ' +
     'a do výřezu 40 km. <b>Není to jistota</b>, je to počasí nad lesem: ' +
     'kdo tam byl a zapsal nález, ví víc.<br><br>' +
-    '<b>Modrá „P" jsou naše ověřené tipy</b> – šestnáct míst, ke kterým máme ' +
-    'psané poznámky, kde přesně hledat. Ta jsou vidět vždycky.<br><br>' +
+    '<b>Ověřené nálezy</b> (vlastní vrstva) jsou místa, kde někdo houbu opravdu ' +
+    'našel, vyfotil a určení mu potvrdili další lidé. 1 535 bodů v ČR z databáze ' +
+    'GBIF, většinou z iNaturalistu; polovina z nich má souřadnici přesnou na deset ' +
+    'metrů. Hnědá tečka = hřibovité, okrová = bedly, kroužek kolem = nepřesnost ' +
+    'té souřadnice. <b>Pozor, co to není:</b> mapa výskytu hub. Je to mapa toho, ' +
+    'kde chodí lidi s foťákem – kde nikdo nefotí, není bod, a to o houbách ' +
+    'neříká nic. Proto se do skóre ani do doporučení nepočítá; je na porovnání ' +
+    's vrstvou „Kde sbírat", která je naopak odvozená z map, ne z pozorování.<br><br>' +
+    '<b>Modrá „P"</b> je parkoviště. Šestnáct z nich má psané poznámky, kde přesně ' +
+    'hledat – ta jsou vidět vždycky.<br><br>' +
     '<b>Zelená plocha „kde hledat" se dokresluje na vyžádání</b> – tlačítkem v bublině ' +
     'místa nebo z doporučení „Kam dnes". Odvodí se z map ČÚZK: porost správného druhu ' +
     'a stáří do 900 m od auta, napojený na lesní cestu. Dřív tam byly ručně nakreslené ' +
     'okruhy o velikosti okresu, které vedly i přes pole a obce – ty jsou pryč.<br><br>' +
-    '<b>Fialová tečka je evidované parkoviště u lesa</b> – 7 656 jich je v celé ČR, ' +
+    '<b>Fialová tečka je taky parkoviště</b> (vrstva „Parkoviště") – 7 656 jich je v celé ČR, ' +
     'u kterých appka předem spočítala porost a lesní cesty v okolí. Nikdo z nás tam nebyl. ' +
     'Kreslí se podle toho, kam se na mapě zrovna díváš, a to <b>až od přiblížení zhruba na okres</b> – ' +
     'sedm tisíc bodů přes celou republiku by byla jen kaše. Lišta nad mapou vždycky říká, ' +
@@ -5531,12 +5548,13 @@ function refreshPomoc(){
     'Houba a porost platí pro mapu i pro doporučení; <b>dojezd a rezervace jen pro ' +
     'doporučení</b> – na dojezd se musí ptát navigace a na rezervace server AOPK, ' +
     'bod po bodu, a při posouvání mapy by to znamenalo tisíce dotazů.<br><br>' +
-    '<b>Kam dnes na houby</b> projede celou republiku, přidá k tomu srážky posledních tří týdnů ' +
+    '<b>Kam vyrazit autem</b> projede celou republiku, přidá k tomu srážky posledních tří týdnů ' +
     'i předpověď a vybere pár nejlepších míst. Odtud se dá skočit na mapu.</p></details>' +
     '<details class="napoveda"><summary>Co která barva na mapě znamená</summary>' +
     '<p><b>Obarvený les</b> = mapa růstu. Pět stupňů od cihlové (mizerně) ' +
     'přes okrovou (středně) po tmavě zelenou (výborně). Barvu má jen les.<br><br>' +
-    '🔴 domov (Mratín) · 🔵 parkoviště lokality · hnědá čárkovaná = doporučená trasa<br><br>' +
+    '🔴 domov (Stodolní 411) · 🔵 parkoviště s poznámkami · 🟣 ostatní parkoviště<br><br>' +
+    '🟤 hnědá tečka = ověřený nález hřibovité houby · 🟡 okrová = bedla<br><br>' +
     '🟢 <b>zelená plocha = kde hledat</b>, dokreslí se až když si o ni řekneš<br><br>' +
     '🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = ostatní<br><br>' +
     '🟣 fialová tečka = <b>evidované parkoviště u lesa</b> z map ČÚZK – ne houby, ale místo, ' +
