@@ -165,28 +165,36 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
    tlačítek – zůstává vidět a chytatelný, ale nepřidává ani pixel výšky.
    Dotyková plocha kolem něj (.grab::after) platí dál.
    ============================================================ */
-/* Audit 46: úchyt se původně vznášel NAD tlačítky, což si vyžádalo
-   overflow:visible. Jenže tím se změnilo i chování scrollHeight, ze
-   kterého se počítala plná výška panelu – a to je přesně ta neznámá,
-   kvůli které se pak panel choval na telefonu jinak než v prohlížeči.
-   Úchyt proto zůstává uvnitř panelu a místo pro něj dělá odsazení
-   shora. Stojí to 14 px a nestojí to žádnou nejistotu. */
-.sheet.peek{background:transparent;border-top:0;box-shadow:none;padding-top:20px}
-/* Úchyt se musí umístit vůči panelu, ne vůči hlavě – jinak by seděl
-   až za odsazením, tedy přesně na tlačítkách. */
-.sheet.peek .sheet-head{position:static}
+/* ============================================================
+   Audit 48: PRŮHLEDNÝ PANEL SE VRACÍ K BÍLÉMU
+
+   Diagnostika z telefonu to konečně vysvětlila:
+       okno 393×793 · displej 393×852
+   Plocha, kterou appka dostane, je o 59 px kratší než displej.
+   Panel svůj úkol plní správně – sahá na 793 z 793, tedy na svůj
+   spodní okraj. Jenže pod tím zbývá pruh, který už appce nepatří
+   a zevnitř stránky se do něj nedá kreslit.
+
+   Dokud byl složený panel bílý, jeho plocha ten pruh opticky uzavřela
+   a nikdo si ho nevšiml. Jakmile se udělal průhledný, začalo přes něj
+   prosvítat pozadí – a vypadá to jako vrácená chyba, i když se panel
+   chová pořád stejně.
+
+   Průhlednost je tedy hezčí, ale odkrývá něco, na co nedosáhnu.
+   Bílý podklad zůstává; ušetřené pixely jsou jinde (nižší řádek,
+   ořezání stropem, žádné prosvítající tělo).
+   ============================================================ */
 /* Audit 47: bledá šedá pilulka nad mapou zanikala. Úchyt je jediná
    cesta k tomu, co je pod tlačítky, takže musí být vidět na první
    pohled: zelená appky, bílá šipka, výraznější stín. Zelená drží
    kontrast na světlé mapě i na ztlumené noční. */
 .sheet.peek .grab{
-  position:absolute;left:50%;top:0;transform:translateX(-50%);
-  width:66px;height:18px;margin:0;border-radius:99px;
-  background:var(--green);box-shadow:0 2px 7px rgba(0,0,0,.4);
+  width:60px;height:16px;margin:0 auto 4px;border-radius:99px;
+  background:var(--green);box-shadow:0 1px 3px rgba(0,0,0,.25);
   display:flex;align-items:center;justify-content:center
 }
 .sheet.peek .grab::before{
-  content:'';width:11px;height:11px;margin-top:3px;
+  content:'';width:10px;height:10px;margin-top:2px;
   border-left:2.5px solid #fff;border-top:2.5px solid #fff;
   transform:rotate(45deg);border-radius:1px
 }
@@ -953,7 +961,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v78';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v79';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
