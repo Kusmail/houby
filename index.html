@@ -849,7 +849,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v64';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v65';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -3307,20 +3307,26 @@ function rozborPocasi(den){
    14,9 až 77,7 mm, takže při stropu 25 mm sedělo 15 z 24 krajů na 100 %
    a mapa byla všude stejná – čili k ničemu. Padesát milimetrů dobře
    načasovaného deště je „vody dost"; pod tím se rozlišuje. */
+/* Audit 36: strop 50 mm měl stejnou vadu jako předtím strop 25 – jen
+   o kus výš. Naměřeno 29. 8. 2026 na živých datech Open-Meteo: vážený
+   déšť byl v celém pásu Mratín–Praha–Mělník 52 až 68 mm, takže KAŽDÝ
+   bod vyšel na rovné 1,000 a člen „kolik je vody" přestal cokoli
+   rozlišovat. Odtud „všude 100 %".
+
+   Tvrdý strop je nahrazený sytící křivkou: přírůstek vody se počítá
+   pořád, ale se slábnoucím účinkem, a jedničky se nedosáhne nikdy.
+   Konstanta 36 je zvolená tak, aby polovina škály zůstala tam, kde
+   byla (25 mm = 0,50), takže dosavadní kalibrace „padesát milimetrů
+   je vody dost" platí dál – jen se z ní nestává jistota:
+     25 mm → 0,50 · 50 mm → 0,75 · 68 mm → 0,85 · 100 mm → 0,94 */
 function indexVlhkosti(vazene){
-  return Math.max(0, Math.min(1, vazene / 50));
+  return 1 - Math.exp(-Math.max(0, vazene) / 36);
 }
 
 /* Audit 32: jedna křivka pro „hřiby" a jedna pro „bedly" byla hrubá.
    Každá houba má teď vlastní, změřenou z GBIF (počet nálezů je u ní
    uvedený). Skupina bere zase lepší z členů. Hřib dubový má vrchol
    v červnu, masák v říjnu – jedna společná křivka to zamlžila. */
-function faktorSezonyDruhu(mesic, klic){
-  const h = HOUBY[klic];
-  if (!h) return 0.3;
-  const v = h.sezona[mesic];
-  return v === undefined ? 0.3 : v;
-}
 
 /* ============================================================
    Audit 35: NADMOŘSKÁ VÝŠKA
@@ -3368,37 +3374,57 @@ function vyskaBodu(lat, lng){
 
 /* Sezónní křivka je po měsících; posun o dny se proto počítá
    v setinách měsíce a mezi měsíci se lineárně proloží. */
+/* Audit 36: tahle křivka byla posunutá o půl měsíce dopředu.
+   Tabulka je po MĚSÍCÍCH – hodnota 0,71 platí pro srpen jako celek,
+   tedy pro jeho střed, ne pro prvního. Proložení ale začínalo prvním
+   dnem, takže se z hodnoty prvního dne stávala hodnota poloviny.
+   Naměřeno: 29. 8. vycházela sezóna 0,997 (tabulka pro srpen 0,71,
+   pro září 1,00) a 15. 10. naopak jen 0,550, přestože říjen má
+   v tabulce 1,00. V obou směrech chyba o polovinu měsíce.
+
+   Opraveno: hodnota měsíce se kotví doprostřed měsíce a počítá se
+   se skutečným počtem dní. Kontrola: 15. 9. vyjde zářijová hodnota,
+   15. 10. říjnová. Prosinec se navíc zalomí do ledna – dřív se
+   proložení useklo na dvanáctce a poslední dny roku držely
+   prosincovou hodnotu natvrdo. */
+function dnuVMesici(rok, mesic){ return new Date(rok, mesic, 0).getDate(); }
+
 function sezonaDruhuVeVysce(klic, vyska){
   const h = HOUBY[klic];
   if (!h) return 0.3;
   const d = new Date();
-  let m = (d.getMonth() + 1) + (d.getDate() - 1) / 30;
+  const mes = d.getMonth() + 1;
+  const podil = (d.getDate() - 0.5) / dnuVMesici(d.getFullYear(), mes);
+  let m = mes + (podil - 0.5);
   if (typeof vyska === 'number'){
     m -= ((vyska - REF_VYSKA) / 100 * DNI_NA_100M) / 30;
   }
-  m = Math.max(1, Math.min(12.999, m));
-  const a = Math.floor(m), b = Math.min(12, a + 1), t = m - a;
+  let a = Math.floor(m);
+  const t = m - a;
+  a = ((a - 1) % 12 + 12) % 12 + 1;
+  const b = a === 12 ? 1 : a + 1;
   const va = h.sezona[a] === undefined ? 0.3 : h.sezona[a];
   const vb = h.sezona[b] === undefined ? 0.3 : h.sezona[b];
   return va + (vb - va) * t;
 }
 
-function faktorSezonyFiltru(mesic, vyska){
+/* Audit 36: tahle funkce uměla dvě různé sezóny. Bez výšky vracela
+   skokovou měsíční tabulku, s výškou plynulou křivku – a obojí se
+   používalo naráz na jedné obrazovce. 29. 8. 2026 proto kolečka krajů
+   psala 71 % (tabulka pro srpen) a lišta nad mapou 100 % (plynulá
+   křivka), ve stejnou chvíli a pro stejné počasí. Doporučení „Kam
+   dnes" počítala z té třetí varianty.
+
+   Teď je jedna: plynulá křivka. Výška je nepovinná – kde ji appka
+   nezná, jen se sezóna neposune. */
+function faktorSezonyFiltru(vyska){
   let nej = 0;
   for (const k of clenoveFiltru(FILTR.druh)){
-    nej = Math.max(nej, (vyska === undefined)
-      ? faktorSezonyDruhu(mesic, k)
-      : sezonaDruhuVeVysce(k, vyska));
+    nej = Math.max(nej, sezonaDruhuVeVysce(k, (typeof vyska === 'number') ? vyska : null));
   }
   return nej;
 }
 
-function faktorSezony(mesic, bedly){
-  const hribove = {1:0.01,2:0.00,3:0.00,4:0.01,5:0.01,6:0.05,7:0.19,8:0.63,9:1.00,10:0.86,11:0.20,12:0.02};
-  const bedlove = {1:0.01,2:0.00,3:0.00,4:0.01,5:0.01,6:0.05,7:0.10,8:0.33,9:0.62,10:1.00,11:0.34,12:0.03};
-  const v = (bedly ? bedlove : hribove)[mesic];
-  return v === undefined ? 0.3 : v;
-}
 
 function minutyDojezdu(l){
   const m = (l.dist || '').match(/(\d+)\s*min/);
@@ -3490,12 +3516,11 @@ function nalezyOkolo(lat, lng, r){
    tip i pro místo vygenerované z map – jen u toho druhého nemáme ruční
    poznámky a je to na obrazovce vidět. */
 function skoreMista(m, den){
-  const mesic = new Date().getMonth() + 1;
   const p = rozborPocasi(den);
   const vlhkost = indexVlhkosti(p.vazene);
   const bedlove = FILTR.druh === 'bedly' ||
                   (FILTR.druh === 'vse' && m.overene && /bedla/i.test(m.loc && m.loc.druh || ''));
-  const sez = faktorSezonyFiltru(mesic);
+  const sez = faktorSezonyFiltru();
   /* Porost dřív saturoval na šedesáti procentech, takže místo se 62 %
      listnatých a místo s 85 % vyšlo stejně. Teď se bere celý rozsah
      a rozdíly jsou vidět. Nula neznamená „nic tam neroste", ale
@@ -3733,8 +3758,45 @@ async function najdiMista(limit){   // limit = kolik míst pošleme na router
 /* ---------- oblíbená místa ----------
    Ukládají se ke svému uživateli do databáze, takže je vidí celá rodina.
    Klíč „lok:3" je jedna z našich lokalit, „bod:…" vlastní špendlík. */
-function oblibena(){ return state.oblibene || {}; }
-function jeOblibene(klic){ return !!oblibena()[klic]; }
+/* ============================================================
+   Audit 36: OBLÍBENÁ MÍSTA NAPŘÍČ ZAŘÍZENÍMI
+
+   README slibuje: „ukládají se k tvému uživateli v databázi, takže je
+   vidí celá rodina a máš je i na druhém telefonu." Kód to nedělal.
+   Zapisovaly se do users/<moje UID>/oblibene a četly se zpátky taky
+   jen z users/<moje UID>. Jenže UID vzniká anonymním přihlášením pro
+   KONKRÉTNÍ prohlížeč – MacBook a iPhone jsou pro databázi dva různí
+   uživatelé (což appka sama přiznává v části o dvojím jménu ve spodní
+   liště). Hvězdička přidaná na počítači se tak na telefon nedostala
+   nikdy, a naopak.
+
+   Teď se pro zobrazení a pro doporučování berou oblíbená všech členů
+   rodiny dohromady. Zapisovat a mazat smí každý pořád jen svoje –
+   tak to mají i pravidla databáze. Cizí hvězdička je vidět, ale
+   zrušit ji může jen ten, kdo ji dal; u sebe si ji můžeš přidat taky.
+   ============================================================ */
+function oblibena(){ return state.oblibene || {}; }        // jen moje – do zápisu
+
+/* Moje + rodinná dohromady. Stejné místo od dvou lidí je jedna položka;
+   přednost má moje, ať se u ní ukáže „Zrušit oblíbené". */
+function oblibenaVsech(){
+  const vse = {};
+  const lidi = state.others || {};
+  for (const uid of Object.keys(lidi)){
+    if (uid === state.uid) continue;
+    const jejich = lidi[uid] && lidi[uid].oblibene;
+    if (!jejich) continue;
+    for (const k of Object.keys(jejich)){
+      if (!vse[k]) vse[k] = Object.assign({}, jejich[k], {cizi: true, kdo: (lidi[uid].name || 'někdo z rodiny')});
+    }
+  }
+  const moje = oblibena();
+  for (const k of Object.keys(moje)) vse[k] = Object.assign({}, moje[k], {cizi: false});
+  return vse;
+}
+
+function jeOblibene(klic){ return !!oblibenaVsech()[klic]; }
+function jeMojeOblibene(klic){ return !!oblibena()[klic]; }
 
 async function prepniOblibene(klic, popis, lat, lng){
   const o = Object.assign({}, oblibena());
@@ -3766,7 +3828,7 @@ function jeVlastniBod(k){ return k.indexOf('vlastni:') === 0; }
 
 function kresliOblibena(){
   if (oblibenaVrstva){ map.removeLayer(oblibenaVrstva); oblibenaVrstva = null; }
-  const o = oblibena();
+  const o = oblibenaVsech();
   const vlastni = Object.keys(o).filter(jeVlastniBod);
   if (vlastni.length){
     oblibenaVrstva = L.layerGroup();
@@ -3775,12 +3837,14 @@ function kresliOblibena(){
       if (typeof b.lat !== 'number') return;
       L.marker([b.lat, b.lng], {icon: pinIcon('oblibene','★',24), zIndexOffset:700})
         .bindPopup('<div class="pop"><h3>★ ' + (b.popis || 'Oblíbené místo') + '</h3>' +
-          '<div class="sub">Vlastní bod · ' + b.lat.toFixed(5) + ', ' + b.lng.toFixed(5) + '</div>' +
+          '<div class="sub">Vlastní bod · ' + b.lat.toFixed(5) + ', ' + b.lng.toFixed(5) +
+          (b.cizi ? ' · přidal ' + b.kdo : '') + '</div>' +
           '<div class="nav"><a class="alt" target="_blank" rel="noopener" ' +
           'href="https://www.google.com/maps/dir/?api=1&destination=' + b.lat + ',' + b.lng + '">Navigovat sem</a></div>' +
           '<button class="oblTlac" data-plocha-xy="' + b.lat + ',' + b.lng + '">🌲 &nbsp;Ukázat, kde hledat</button>' +
           '<button class="oblTlac" data-park="' + b.lat + ',' + b.lng + '">🚗 &nbsp;Kde zaparkovat</button>' +
-          '<button class="smazOblibene" data-k="' + k + '">Zrušit oblíbené</button></div>', POPOPT)
+          (b.cizi ? '' : '<button class="smazOblibene" data-k="' + k + '">Zrušit oblíbené</button>') +
+          '</div>', POPOPT)
         .addTo(oblibenaVrstva);
     });
     oblibenaVrstva.addTo(map);
@@ -4642,7 +4706,6 @@ async function pocasiMrizka(sw, ne){
   let d = await r.json();
   if (!Array.isArray(d)) d = [d];
   if (d.length !== kroky.length) throw new Error('počasí přišlo pro ' + d.length + ' z ' + kroky.length + ' bodů');
-  const mesic = new Date().getMonth() + 1;
   /* Audit 35: výšku bereme pro stejné body, pro které máme počasí –
      jeden dotaz navíc na celý výřez, terén se pak drží v cache. */
   await nactiVysky(kroky.map(k => [k.lat, k.lng]));
@@ -4650,7 +4713,7 @@ async function pocasiMrizka(sw, ne){
     const p = rozborPocasi(d[idx].daily);
     const vlhkost = indexVlhkosti(p.vazene);
     const teplo = (p.horko >= 4 ? 0.75 : 1) * (p.zima >= 3 ? 0.6 : 1);
-    const sez = faktorSezonyFiltru(mesic, vyskaBodu(k.lat, k.lng));
+    const sez = faktorSezonyFiltru(vyskaBodu(k.lat, k.lng));
     return Math.max(0, Math.min(1, vlhkost * teplo * sez));
   });
   const vysl = {nx, ny, hodnoty, x0: o.x0, y0: o.y0, x1: o.x1, y1: o.y1};
@@ -4754,8 +4817,7 @@ async function prehledKraju(){
   if (!Array.isArray(d)) d = [d];
   if (d.length !== PREHLED_BODY.length)
     throw new Error('počasí přišlo pro ' + d.length + ' z ' + PREHLED_BODY.length + ' krajů');
-  const mesic = new Date().getMonth() + 1;
-  const sez = faktorSezonyFiltru(mesic);
+  const sez = faktorSezonyFiltru();
   const data = PREHLED_BODY.map((b, i) => {
     const p = rozborPocasi(d[i].daily);
     const vlhkost = indexVlhkosti(p.vazene);
@@ -4813,11 +4875,17 @@ async function prekresliRust(){
     rustProbiha = true;
     try {
       const nej = await kresliPrehled();
+      /* Audit 36: druhý řádek se tu nepředával, a zpravaRustu ho v tom
+         případě nechává být. Na oddálené mapě proto pod nadpisem
+         „Dnes nejlíp 71 %" dál svítil detail z předchozího, přiblíženého
+         výřezu – „nejlepší porost 100 % × počasí a sezóna 100 %".
+         Dvě čísla o téže věci na jedné liště, a to nesouhlasná.
+         Prázdný řetězec starý řádek smaže. */
       zpravaRustu('<b>Dnes nejlíp ' + Math.round(nej.index*100) + ' %</b> – ' + nej.jmeno +
-                  ' <small>· čísla jsou odhad z počasí · přibliž se na porosty</small>');
+                  ' <small>· čísla jsou odhad z počasí · přibliž se na porosty</small>', '');
     } catch(e){
       rustVrstva.clearLayers();
-      zpravaRustu('<b>Přibliž</b>, ať vyberu porosty');
+      zpravaRustu('<b>Přibliž</b>, ať vyberu porosty', '');
     } finally { rustProbiha = false; }
     return;
   }
@@ -6220,7 +6288,7 @@ function otevriNastaveni(kam){
 function refreshOblibene(){
   const el = $('oblibeneSeznam');
   if (!el) return;
-  const o = oblibena();
+  const o = oblibenaVsech();
   const klice = Object.keys(o).filter(k => typeof o[k].lat === 'number');
   if (!klice.length){
     el.innerHTML = '<p style="font-size:12px;color:var(--muted);margin:0 0 10px">' +
@@ -6234,12 +6302,16 @@ function refreshOblibene(){
   }).sort((x, y) => x.d - y.d);
   el.innerHTML = '<div class="oblist">' + rady.map(r =>
     '<div class="oblpol">' +
-      '<div class="obljm"><b>' + (r.b.popis || 'Oblíbené místo') + '</b>' +
+      '<div class="obljm"><b>' + (r.b.popis || 'Oblíbené místo') + (r.b.cizi ? ' ·&nbsp;' + r.b.kdo : '') + '</b>' +
         '<em>' + fmtDist(r.d) + ' · ' + r.b.lat.toFixed(4) + ', ' + r.b.lng.toFixed(4) + '</em></div>' +
       '<div class="oblakce">' +
         '<button class="oblmini" data-obl-skok="' + r.k + '">Na mapu</button>' +
         '<button class="oblmini" data-obl-plocha="' + r.k + '">Kde hledat</button>' +
-        '<button class="oblmini smaz" data-obl-smaz="' + r.k + '">Smazat</button>' +
+        /* Cizí hvězdičku smí zrušit jen ten, kdo ji dal – tak to mají
+           i pravidla databáze. Sobě si ji ale přidat můžu. */
+        (r.b.cizi
+          ? '<button class="oblmini" data-obl-prid="' + r.k + '">☆ I moje</button>'
+          : '<button class="oblmini smaz" data-obl-smaz="' + r.k + '">Smazat</button>') +
       '</div></div>').join('') + '</div>';
 
   el.querySelectorAll('[data-obl-skok]').forEach(b => b.onclick = () => {
@@ -6254,6 +6326,11 @@ function refreshOblibene(){
   });
   el.querySelectorAll('[data-obl-smaz]').forEach(b => b.onclick = async () => {
     await prepniOblibene(b.dataset.oblSmaz);
+    refreshOblibene();
+  });
+  el.querySelectorAll('[data-obl-prid]').forEach(b => b.onclick = async () => {
+    const k = b.dataset.oblPrid, x = o[k];
+    await prepniOblibene(k, x.popis, x.lat, x.lng);
     refreshOblibene();
   });
 }
@@ -6605,7 +6682,11 @@ function subscribeShared(db, onValue){
     state.others = snap.val() || {};
     // vlastní oblíbená místa se vrací z databáze – ať je mám i na druhém telefonu
     const moje = state.others[state.uid] && state.others[state.uid].oblibene;
-    if (moje){ state.oblibene = moje; LS.set('oblibene', moje); kresliOblibena(); }
+    if (moje){ state.oblibene = moje; LS.set('oblibene', moje); }
+    /* Audit 36: překreslit se musí vždycky, ne jen když přijdou moje.
+       Hvězdičky ostatních jsou v tomhle snímku taky a bez tohohle
+       by se objevily až při nejbližším jiném překreslení. */
+    kresliOblibena();
     renderPeople();
   }, err => {});
 
