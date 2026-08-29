@@ -1178,7 +1178,7 @@ function prekresliDomov(){
    kde houbu někdo opravdu našel a určení prošlo kontrolou. Těch šestnáct
    modrých „P" je na mapě dál, jen už nemá vlastní přepínač – jsou to
    parkoviště jako ta ostatní, jen s poznámkami. */
-const overeneTipy = L.layerGroup().addTo(map);
+const overeneTipy = L.layerGroup();   // Audit 18: už se na mapu nepřidává
 const mistaVrstva = L.layerGroup().addTo(map);
 /* Mapa růstu: prázdná skupina, obrázek do ní dodá prekresliRust().
    Zapnutá hned – to je ten původní úkol, kvůli kterému appka vznikla. */
@@ -1224,12 +1224,12 @@ function popupHTML(d, index){
    ale vypadalo jako vyznačená houbařská trasa přes pole. Kreslila
    se tedy lež. Na mapě zůstává jen parkoviště (to je ověřené) a
    plochy z dat. Trasa se ukáže jen tomu, kdo si o ni v bublině řekne. */
-LOC.forEach((d, idx) => {
-  /* Audit 15: nejdřív jsem je nasypal do vrstvy Parkoviště – jenže ta se
-     při každém posunu mapy vysype a naplní znovu, takže těch šestnáct
-     zmizelo. Zůstávají ve vlastní skupině, která je na mapě pořád. */
-  L.marker(d.park, {icon: pinIcon('park','P')}).bindPopup(() => popupHTML(d, idx), POPOPT).addTo(overeneTipy);
-});
+/* Audit 18: těch šestnáct modrých „P" viselo na mapě pořád, i při
+   pohledu na celou republiku, a dělalo přesně to, co vrstva Parkoviště –
+   jen dvakrát. Nekreslí se už zvlášť. Přidávají se do stejného seznamu
+   jako ostatní parkoviště, takže poslouchají stejný přepínač, stejný
+   filtr i stejné přiblížení. Odlišuje je jen tmavší tečka a bublina
+   s poznámkami, které u nich máme navíc. */
 
 /* Letecký podklad z ČÚZK. Z ptačí perspektivy je vidět, jestli je to
    hustý smrkový stín nebo řídký bor s cestami – to z turistické mapy
@@ -3680,7 +3680,7 @@ function popisPorostu(m){
 
 function ukazMista(mista){
   const chci = new Set();
-  mista.filter(m => !m.overene).slice(0, 300).forEach(m => chci.add(m.id));
+  mista.slice(0, 300).forEach(m => chci.add(m.id));
 
   mistaNaMape.forEach((zn, id) => {
     if (chci.has(id)) return;
@@ -3689,8 +3689,18 @@ function ukazMista(mista){
     mistaNaMape.delete(id);
   });
 
-  mista.filter(m => !m.overene).slice(0, 300).forEach(m => {
+  mista.slice(0, 300).forEach(m => {
     if (mistaNaMape.has(m.id)) return;
+    /* Ověřené parkoviště = stejná tečka, jen tmavší a s prstencem.
+       Bublina má navíc psané poznámky, kde přesně hledat. */
+    if (m.overene){
+      const zn = L.circleMarker([m.lat, m.lng], {radius:8, color:'#3d2f63', weight:3, opacity:1,
+        fillColor:'#7a5ea8', fillOpacity:.95})
+        .bindPopup(() => popupHTML(m.loc, m.locIndex), POPOPT);
+      zn.addTo(mistaVrstva);
+      mistaNaMape.set(m.id, zn);
+      return;
+    }
     const zn = L.circleMarker([m.lat, m.lng], {radius:6, color:'#7a5ea8', weight:2, opacity:.9,
       fillColor:'#a98fd0', fillOpacity:.75})
      .bindPopup('<div class="pop"><h3>Parkoviště u lesa</h3>' +
@@ -4755,7 +4765,7 @@ async function prekresliMista(){
 
   if (map.getZoom() < ZOOM_MISTA){
     mistaVrstva.clearLayers(); mistaNaMape.clear();
-    txt.innerHTML = '<b>Přibliž</b>, ať ukážu místa z map';
+    txt.innerHTML = '<b>Přibliž</b>, ať ukážu parkoviště';
     return;
   }
 
@@ -4771,7 +4781,8 @@ async function prekresliMista(){
   }
 
   const b = map.getBounds();
-  const vidi = vse.filter(m => b.contains([m.lat, m.lng]));
+  const vseVcetneTipu = vse.concat(LOC.map((_, i) => mistoZTipu(i)));
+  const vidi = vseVcetneTipu.filter(m => b.contains([m.lat, m.lng]));
   const projde = vidi.filter(m => m.cest >= 1).filter(sedíPorost).filter(sedíDruh);
   const strop = 300;
   const kresli = projde.slice(0, strop);
@@ -4784,7 +4795,7 @@ async function prekresliMista(){
        obrazovky. Tak se rovnou řekne kam a nabídne se tam skočit. */
     const stred = b.getCenter();
     let nej = null, nejd = Infinity;
-    for (const m of vse){
+    for (const m of vseVcetneTipu){
       const d = distM([stred.lat, stred.lng], [m.lat, m.lng]);
       if (d < nejd){ nejd = d; nej = m; }
     }
@@ -4800,7 +4811,9 @@ async function prekresliMista(){
   } else if (!projde.length){
     txt.innerHTML = '<b>' + vidi.length + '</b> míst schoval filtr porostu';
   } else {
-    txt.innerHTML = '<b>' + projde.length + '</b> míst z map' +
+    const ov = projde.filter(m => m.overene).length;
+    txt.innerHTML = '<b>' + projde.length + '</b> ' + (projde.length === 1 ? 'parkoviště' : 'parkovišť') +
+      (ov ? ' (z toho ' + ov + ' s poznámkami)' : '') +
       (projde.length > kresli.length ? ' (kreslím ' + kresli.length + ')' : '') +
       (vidi.length > projde.length ? ' · filtr skryl ' + (vidi.length - projde.length) : '');
   }
@@ -5563,8 +5576,9 @@ function refreshPomoc(){
     'kde chodí lidi s foťákem – kde nikdo nefotí, není bod, a to o houbách ' +
     'neříká nic. Proto se do skóre ani do doporučení nepočítá; je na porovnání ' +
     's vrstvou „Kde sbírat", která je naopak odvozená z map, ne z pozorování.<br><br>' +
-    '<b>Modrá „P"</b> je parkoviště. Šestnáct z nich má psané poznámky, kde přesně ' +
-    'hledat – ta jsou vidět vždycky.<br><br>' +
+    '<b>Tmavší fialová tečka</b> je parkoviště, ke kterému máme psané poznámky, ' +
+    'kde přesně hledat – je jich šestnáct. Dřív visela na mapě jako modré „P" pořád, ' +
+    'i při pohledu na celou republiku; teď se chová jako ostatní parkoviště.<br><br>' +
     '<b>Zelená plocha „kde hledat" se dokresluje na vyžádání</b> – tlačítkem v bublině ' +
     'místa nebo z doporučení „Kam dnes". Odvodí se z map ČÚZK: porost správného druhu ' +
     'a stáří do 900 m od auta, napojený na lesní cestu. Dřív tam byly ručně nakreslené ' +
@@ -5583,7 +5597,7 @@ function refreshPomoc(){
     '<details class="napoveda"><summary>Co která barva na mapě znamená</summary>' +
     '<p><b>Obarvený les</b> = mapa růstu. Pět stupňů od cihlové (mizerně) ' +
     'přes okrovou (středně) po tmavě zelenou (výborně). Barvu má jen les.<br><br>' +
-    '🔴 domov (Stodolní 411) · 🔵 parkoviště s poznámkami · 🟣 ostatní parkoviště<br><br>' +
+    '🔴 domov (Stodolní 411) · 🟣 parkoviště · tmavší fialová = s poznámkami<br><br>' +
     '🟤 hnědá tečka = ověřený nález hřibovité houby · 🟡 okrová = bedla<br><br>' +
     '🟢 <b>zelená plocha = kde hledat</b>, dokreslí se až když si o ni řekneš<br><br>' +
     '🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = ostatní<br><br>' +
