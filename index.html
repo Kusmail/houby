@@ -32,7 +32,7 @@
 <style>
 /* ---------- barvy a základ ---------- */
 :root{
-  --ink:#1d1b17; --muted:#6b6560; --line:#e3ded4; --card:#fff; --bg:#f6f4ef;
+  --ink:#1d1b17; --muted:#6b6560; --line:#e3ded4; --card:#fff; --bg:#e8e5d8;
   --green:#2e5c3a; --green-l:#3f7d4f;
   --tap:48px; --sloupec:400px; --park:#1d6fd6; --area:#2e8b45; --home:#c02a2a; --route:#7a4b18;
   --car:#e07b1a; --me:#1d6fd6; --other:#8e44ad; --stale:#9a948d;
@@ -1063,7 +1063,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v86';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v87';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2052,26 +2052,55 @@ function setShare(on){
 $('tgShare').onclick = () => setShare(!state.sharing);
 
 /* ---------- wake lock ---------- */
+/* ============================================================
+   Audit 56: PREPINAC SE ZAPINAL, ANIZ BY NA NEJ NEKDO KLEPL
+
+   Stav "chci svitici displej" se drzel v CSS tride prepinace. Trida
+   se pritom nasadila HNED na zacatku, jeste pred zadosti o zamek -
+   takze i kdyz zadost neprosla nebo se zamek vzapeti uvolnil, mezitim
+   platilo, ze prepinac je zapnuty.
+
+   A na tuhle tridu se ptaly dve dalsi veci: klepnuti (co prepnout)
+   a navrat z pozadi (jestli zamek obnovit). Vzhled tim ridil chovani.
+   Staci, aby trida jednou zustala viset, a appka si mysli, ze uzivatel
+   svitici displej chce - a pri navratu do appky si ho sama zapne.
+
+   Umysl uzivatele je proto ted ve vlastni promenne a trida se nasazuje
+   az po tom, co zamek opravdu drzime. Prepinac uz nikdy netvrdi neco,
+   co neplati. */
+let chceWake = false;
+
+function ukazWake(zapnuto, popis){
+  $('tgWake').classList.toggle('on', zapnuto);
+  $('tgWake').setAttribute('aria-checked', zapnuto ? 'true' : 'false');
+  $('wakeSub').textContent = popis;
+}
+
 async function setWake(on){
-  $('tgWake').classList.toggle('on', on);
-  $('tgWake').setAttribute('aria-checked', on ? 'true' : 'false');
+  chceWake = !!on;
   if (on){
     try {
       state.wake = await navigator.wakeLock.request('screen');
-      $('wakeSub').textContent = 'displej nezhasne';
-      state.wake.addEventListener('release', () => { $('tgWake').classList.remove('on'); $('wakeSub').textContent = 'vypnuto'; });
+      ukazWake(true, 'displej nezhasne');
+      state.wake.addEventListener('release', () => {
+        state.wake = null;
+        /* Zamek pusti sam iOS, kdyz appka zmizi z displeje. Umysl tim
+           nekonci - jen se prepinac srovna s tim, co doopravdy plati. */
+        ukazWake(false, chceWake ? 'obnovi se po navratu' : 'vypnuto');
+      });
       banner('Displej nezhasne, dokud je appka vepředu. <b>Bere to baterku</b> – vypni to, až nebudeš potřebovat.', false, 8000);
     } catch(e){
-      $('tgWake').classList.remove('on');
-      $('wakeSub').textContent = 'nepodporováno';
+      chceWake = false;
+      ukazWake(false, 'nepodporováno');
       banner('Tenhle telefon neumí držet displej rozsvícený z webu. Nastav si delší automatické zamykání v Nastavení → Displej a jas.', false, 8000);
     }
   } else {
     try { if (state.wake) await state.wake.release(); } catch(e){}
-    state.wake = null; $('wakeSub').textContent = 'vypnuto';
+    state.wake = null;
+    ukazWake(false, 'vypnuto');
   }
 }
-$('tgWake').onclick = () => setWake(!$('tgWake').classList.contains('on'));
+$('tgWake').onclick = () => setWake(!chceWake);
 /* Safari na iOS zastaví sledování polohy, jakmile appka zmizí z displeje.
    Tady si pamatujeme, kdy jsme šli na pozadí, a po návratu to řekneme
    nahlas – místo aby poloha jen tiše zestárla. */
@@ -2084,7 +2113,7 @@ document.addEventListener('visibilitychange', async () => {
     return;
   }
   // vrátili jsme se do appky
-  if ($('tgWake').classList.contains('on') && !state.wake) setWake(true);
+  if (chceWake && !state.wake) setWake(true);
 
   if (odchodNaPozadi && state.sharing){
     const pryc = Date.now() - odchodNaPozadi;
@@ -2170,21 +2199,20 @@ function odHornihoOkraje(el){
    #map má position:absolute a bottom je vázané na tutéž plochu jako
    panel, ale nemá žádnou transformaci – je to tedy poctivé měřítko.
    Strop 160 px, ať se z nesmyslné hodnoty nestane díra přes půl mapy. */
+let dnoPx = 0;
+
+/* Audit 55: drive se tu --dno na okamzik srazilo na nulu, zmerilo a
+   vratilo. To je zapis do stylu a hned cteni rozmeru, tedy vynuceny
+   prepocet rozvrzeni pri kazdem mereni. Neni to potreba: spodek mapy
+   uz to aktualni dno obsahuje, staci ho odecist. Vysledek je stejny,
+   ale je to ciste cteni - da se proto merit i pravidelne. */
 function zmerDno(){
   const m = document.getElementById('map');
   if (!m) return 0;
-  const puvodni = document.documentElement.style.getPropertyValue('--dno');
-  document.documentElement.style.setProperty('--dno', '0px');
-  const d = Math.round(window.innerHeight - m.getBoundingClientRect().bottom);
-  /* Audit 53: kdyz promenna jeste nebyla nastavena, `puvodni` je prazdny
-     retezec a stara podminka ji nechala natvrdo na nule. Uklidime po sobe
-     poradne, at plati fallback z CSS. */
-  if (puvodni) document.documentElement.style.setProperty('--dno', puvodni);
-  else document.documentElement.style.removeProperty('--dno');
+  const d = Math.round(window.innerHeight - (m.getBoundingClientRect().bottom - dnoPx));
   return Math.max(0, Math.min(160, d));
 }
 
-let dnoPx = 0;
 function nastavDno(){
   const d = zmerDno();
   if (d === dnoPx) return;
@@ -7560,22 +7588,22 @@ window.addEventListener('load', () => prepocitatPanel(true));
    drive, jakmile se mezera objevi a potvrdi. Kazdy prepocet je po
    Auditu 52 laciny, takze to nic nestoji. */
 (function hlidkaDna(){
-  /* Pevne naplanovane prepocty by stacily jen tehdy, kdyby se okno
-     protahlo do nejake dane vteriny. Nevime to a nemuzeme se na to
-     spolehnout, tak sledujeme primo tu jedinou hodnotu, na ktere to
-     visi. Cteni `innerHeight` je holy pristup k cislu - zadne
-     rozvrzeni, zadne kresleni - takze si ho muzeme dovolit dvakrat
-     za vterinu po celou dobu behu. Prepocet se spusti jen tehdy, kdyz
-     se cislo opravdu zmeni. */
-  let posledni = window.innerHeight;
+  /* ============================================================
+     Audit 55: HLIDAT VYSLEDEK, NE JEDNU Z PRICIN
+
+     Audit 53 hlidal `innerHeight` a cekal, az se zvetsi z 793 na 852.
+     Jenze mezera muze vzniknout i opacne: okno zustane 852 a smrskne
+     se plocha stranky. Pak se `innerHeight` nezmeni, hlidka nic
+     nepozna a bily pruh zustane - presne jak to uzivatel reklamoval
+     po v85.
+
+     Hlidame proto rovnou tu mezeru. Je to dve cteni cisel, zadny
+     zapis do stylu, takze si to muzeme dovolit dvakrat za vterinu.
+     Prepocet se spusti jen tehdy, kdyz se mezera opravdu zmeni. */
   setInterval(() => {
     if (document.hidden) return;
-    const ted = window.innerHeight;
-    if (ted === posledni) return;
-    posledni = ted;
-    prepocitatPanel(true);
+    if (zmerDno() !== dnoPx) prepocitatPanel(true);
   }, 500);
-  /* A jeste par prepoctu hned po startu, at se to chytne co nejdriv. */
   [150, 400, 900].forEach(t => setTimeout(() => prepocitatPanel(true), t));
 })();
 
