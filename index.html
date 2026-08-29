@@ -626,6 +626,84 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
   .leaflet-top.leaflet-right{margin-top:12px}
 }
 @media(min-width:1200px){ :root{--sloupec:440px} }
+
+
+/* ============================================================
+   Audit 54: NOCNI REZIM SE PREPISOVAL SAM
+
+   V souboru je @media (prefers-color-scheme: dark) hned nahore, hned
+   za :root. Promenne odtud fungujou - ty se ctou az v miste pouziti.
+   Ale kazdy prime prepsani barvy, ktere v tom bloku bylo, prebil
+   pozdejsi radek se stejnou vahou: `.banner{background:#2b2418}` na
+   radku 62 nema sanci proti `.banner{background:#fdf3e3}` na radku 431.
+   Kaskada rozhoduje podle poradi a tenhle blok byl prvni.
+
+   Tise tim vypadly VSECHNY prime prepisy: banner, chipy ve filtrech,
+   tlacitka v bublinach. A protoze se pritom text prebarvil na svetly
+   (dedi --ink, coz je promenna, a ta fungovala), vznikl svetly text
+   na svetlem pozadi. Presne to, co bylo videt na fotce.
+
+   Naskenovano ve zdroji: 35 svetlych ploch, ktere nocni rezim neresil.
+   Tenhle blok je proto na KONCI stylu, kde uz ho nema co prebit.
+   ============================================================ */
+@media (prefers-color-scheme: dark){
+  /* prvky uvnitr panelu */
+  .toggle{background:#26231f}
+  .toggle.on{background:#24301e;border-color:var(--green)}
+  .sw{background:#4a453d}
+  .sw i{background:#ded8ce}
+  .mini{background:#26231f}
+  .mini.rec{background:#3a1d1a;border-color:#7a2f26;color:#ff9d90}
+  .people .none{background:#26231f}
+  .person{background:#26231f}
+  .person.auto{background:#33291b}
+  .oblpol{background:#26231f}
+  .carnav{background:#33291b}
+  .carbtn{background:#2f2b26;color:var(--ink)}
+  .arrowwrap{background:#2f2b26}
+  details.napoveda{background:#26231f}
+  .trasy .r{background:#26231f}
+  .kamlok{background:#26231f}
+  .kamlok.prvni{background:#24301e}
+
+  /* dialogy */
+  .mbox .plist .r .no{background:#332f2a;color:var(--ink)}
+  .mbox .druhy button{background:#2a2723;color:var(--ink)}
+  .mbox .ghost{background:#332f2a;color:var(--ink)}
+  .mbox .trasy .x{background:#3a2b26;color:#f3ccc4}
+  .mbox .fchip{background:#2a2723;color:var(--ink)}
+  .znacka.mapa{background:#3a362f;color:var(--ink)}
+
+  /* bubliny na mape */
+  .pop .fotocek{background:#2a2723}
+  #map .pop .oblTlac{background:#332f2a;color:var(--ink)}
+  #map .pop .smazOblibene{background:#3a2b26;color:#f3ccc4}
+  #map .pop .smazNalez{background:#3a2b26;color:#f3ccc4}
+  .pop .warn{background:#2b2418;color:var(--ink)}
+  .pop .ok{background:#24301e;color:var(--ink)}
+  .popbtn{background:#8a4e12;color:#fff}
+
+  /* listy a bannery - tohle byly ty "notifikace shora" */
+  .banner{background:#2b2418;border-color:#5a4a2a;border-left-color:#a5761f;color:var(--ink)}
+  .banner.err{background:#3a1d1a;border-color:#7a2f26;border-left-color:#c0392b;color:#f3d5d0}
+  .banner.err b{color:#ffd9d2}
+  .banner .close{color:var(--muted)}
+  .updbar button{background:#2f2b26;color:var(--ink)}
+  #trackSouhrn .warn{background:#2b2418;color:var(--ink)}
+  .kamsucho{background:#2b2418;color:var(--ink)}
+  .kamsucho button, .mistabar button{background:#2a2723;color:var(--ink)}
+
+  /* Oranzove tlacitko auta melo bile pismo na #c2701a = 3,73:1.
+     Na velky tucny text norma staci, ale v setmele appce to pusobilo
+     krikave. O odstin tmavsi da 4,87:1 a v noci to nebije do oci. */
+  .bigbtn.auto, .person.auto .sw{background:#a85f14}
+
+  /* ruzne */
+  .b1{background:#1e2a3a;color:var(--ink)}
+  .b2{background:#22301f;color:var(--ink)}
+  code{background:#2a2723}
+  .prehled .pk{border-color:rgba(255,255,255,.75)}
+}
 </style>
 </head>
 <body>
@@ -985,7 +1063,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v85';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v86';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
