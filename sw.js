@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v63';
+const VER        = 'houby-v64';
 const SHELL      = VER + '-shell';
 
 /* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
@@ -28,17 +28,23 @@ const TILE_PODIL    = 0.5;               // kolik z kvóty smí zabrat mapa
 const TILE_MIN      = 150;               // ať appka funguje i na skoro plném telefonu
 const TILE_MAX_ABS  = 1500;              // ~10 GB kvóty, přes to nejdeme ani na počítači
 
+/* Audit 32: v tomhle seznamu byly dvě adresy na cdnjs – CSS a JS
+   Leafletu. Předukládání má osmivteřinový limit a chybu tiše spolkne,
+   takže když se knihovna nestihla stáhnout, appka spuštěná z ikonky se
+   otevřela bez mapy ("L is not defined") a zbyla z ní holá stránka.
+   V Safari se to neprojevilo: tam knihovna ležela v běžné cache
+   prohlížeče, kterou appka z plochy nesdílí. Leaflet je teď vložený
+   přímo v index.html, takže tenhle seznam neobsahuje nic cizího a
+   skořápka buď je celá, nebo není vůbec. */
 const SHELL_FILES = [
   './',
   './index.html',
   './config.js',
   './manifest.json',
-  './nalezy-gbif.json',
   './icon-180.png',
   './icon-192.png',
   './icon-512.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js'
+  './nalezy-gbif.json'
 ];
 
 /* Předuložení skořápky nesmí instalaci zaseknout. Když je síť pomalá
@@ -189,11 +195,28 @@ self.addEventListener('fetch', e => {
     const c = await caches.open(SHELL);
     /* ignoreSearch smí platit jen pro otevření stránky (./index.html?t=31).
        U ostatních souborů musí adresa sedět přesně. */
-    const hit = await c.match(req, req.mode === 'navigate' ? {ignoreSearch: true} : undefined);
+    const jeStranka = req.mode === 'navigate';
+    const hit = await c.match(req, jeStranka ? {ignoreSearch: true} : undefined);
     const net = fetch(req).then(res => {
       if (res && res.ok) c.put(req, res.clone());
       return res;
     }).catch(() => null);
+
+    /* Audit 32: samotná stránka se bere přednostně ze sítě, ostatní
+       soubory z cache. Důvod: appka z ikonky má vlastní cache a při
+       „cache first" ukazovala starou verzi tak dlouho, dokud service
+       worker nepřevzal řízení – tedy nejmíň jedno spuštění navíc.
+       Aby to nezdrželo start v lese, čeká se na síť nejvýš dvě vteřiny
+       a pak se bez řečí vezme uložená verze. Offline se nečeká vůbec. */
+    if (jeStranka){
+      if (!hit) return (await net) || new Response('Offline a stránka není uložená.', {status: 503});
+      const zeSite = await Promise.race([
+        net,
+        new Promise(res => setTimeout(() => res(null), 2000))
+      ]);
+      return (zeSite && zeSite.ok) ? zeSite : hit;
+    }
+
     return hit || (await net) || new Response('Offline a stránka není uložená.', {status: 503});
   })());
 });
