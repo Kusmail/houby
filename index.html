@@ -52,11 +52,17 @@
   code{background:#2a2723}
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0;height:100%;overflow:hidden;
+/* Audit 31: v appce z ikonky (bez lišt Safari) je viditelná plocha jiná
+   než v prohlížeči. 100 % výšky dokumentu tam neodpovídá tomu, co je
+   vidět – proto horní lišta zalezla pod stavový řádek a spodní panel
+   vylezl pod spodní okraj. dvh se počítá z toho, co je opravdu vidět;
+   100 % zůstává jako záloha pro prohlížeče, které dvh neumí. */
+html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   color:var(--ink);background:var(--bg);
   -webkit-text-size-adjust:100%}
 #map{position:absolute;top:0;left:0;right:0;bottom:0}
+.sheet, .mistabar, .banner, .updbar, .recbar{position:fixed}
 
 /* ---------- horní lišta ---------- */
 
@@ -96,6 +102,7 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
   background:var(--card);border-top:1px solid var(--line);
   border-radius:16px 16px 0 0;box-shadow:0 -3px 18px rgba(0,0,0,.16);
   padding:10px 12px calc(var(--safe-b) + 10px);
+  max-height:calc(100dvh - 96px); overflow:hidden;
   transition:transform .28s cubic-bezier(.22,.61,.36,1);
   will-change:transform;touch-action:pan-y
 }
@@ -743,7 +750,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v58';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v59';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1806,11 +1813,22 @@ let peekOffset = 0;
 
 function isWide(){ return window.innerWidth >= 820; }
 
+/* Audit 31: složený stav se počítal jako „výška panelu minus hlava".
+   Když se panel změřil dřív, než se dopočítala bezpečná zóna nebo se
+   doměřily emoji v tlačítkách, vyšla výška špatně a panel se zastavil
+   mimo obrazovku. Teď se měří jen HLAVA a posun se zapisuje jako
+   „100 % vlastní výšky minus hlava" – procenta si prohlížeč dopočítá
+   sám ze skutečné výšky panelu, ať je jakákoli. */
+let headVyska = 0;
 function measureSheet(){
   const head = sheetEl.querySelector('.sheet-head');
   const padTop = parseFloat(getComputedStyle(sheetEl).paddingTop) || 0;
-  // ve složeném stavu zůstane vidět hlava panelu + horní odsazení
-  peekOffset = Math.max(0, Math.round(sheetEl.offsetHeight - head.offsetHeight - padTop - 6));
+  /* Ke hlavě se přičítá i bezpečná zóna dole – jinak by tlačítka ve
+     složeném stavu skončila pod čárkou pro domovskou obrazovku. */
+  const safeB = parseFloat(getComputedStyle(document.documentElement)
+                  .getPropertyValue('--safe-b')) || 0;
+  headVyska = Math.round(head.offsetHeight + padTop + 6 + safeB + 4);
+  peekOffset = Math.max(0, Math.round(sheetEl.offsetHeight - headVyska));
 }
 
 function applySheet(animate){
@@ -1818,9 +1836,11 @@ function applySheet(animate){
   /* Audit 27: na širokém displeji se panel nikdy nesložil – ta výjimka
      dávala smysl, dokud byl panel přes celou šířku. Teď je to sloupec
      vlevo a složit se má stejně jako na telefonu. */
-  const off = sheetPeek ? peekOffset : 0;
-  sheetEl.style.transform = 'translateY(' + off + 'px)';
-  sheetEl.classList.toggle('peek', off > 0);
+  const slozeno = sheetPeek && peekOffset > 0;
+  sheetEl.style.transform = slozeno
+    ? 'translateY(calc(100% - ' + headVyska + 'px))'
+    : 'translateY(0px)';
+  sheetEl.classList.toggle('peek', slozeno);
   if (!animate) requestAnimationFrame(()=> sheetEl.classList.remove('dragging'));
 }
 
@@ -1896,6 +1916,13 @@ window.addEventListener('resize', () => { measureSheet(); applySheet(false); ban
 /* Audit 30: iPhone mění viditelnou plochu i bez události resize – když
    Safari schová nebo ukáže svoje lišty. Bez tohohle zůstaly lišty i panel
    spočítané podle staré výšky a rozhraní vypadalo zaseknuté. */
+/* Fonty a emoji mění výšku tlačítek až po prvním vykreslení. */
+if (document.fonts && document.fonts.ready){
+  document.fonts.ready.then(() => { measureSheet(); applySheet(false); bannerOffset(); });
+}
+window.addEventListener('load', () => { measureSheet(); applySheet(false); bannerOffset(); });
+window.addEventListener('pageshow', () => { measureSheet(); applySheet(false); bannerOffset(); });
+
 if (window.visualViewport){
   const prepocitat = () => { measureSheet(); applySheet(false); bannerOffset(); };
   window.visualViewport.addEventListener('resize', prepocitat);
