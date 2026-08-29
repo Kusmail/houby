@@ -1064,7 +1064,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v91';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v92';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1520,27 +1520,12 @@ async function kresliGbif(){
       '<p class="pozn" style="margin:8px 0 0;font-size:11px">Jeden nález z jednoho dne. ' +
       'Neříká, že tam houby jsou i teď – ani že jinde nejsou.</p></div>';
 
-    /* ============================================================
-       Audit 60: PRST NENI MYS
-
-       Bod ma prumer 8 az 12 px. Zmereno v prohlizeci s dotykem:
-       bublina se otevre jen pri klepnuti do 3 px od stredu, o ctyri
-       pixely vedle uz ne. Mysi se to trefi snadno, prstem prakticky
-       nikdy - odtud "na desktopu se detail zobrazi, na mobilu nikdy".
-
-       Appka uz tenhle problem jednou resila u spendliku a u uchytu
-       panelu (.pin::after, .grab::after - neviditelna plocha kolem
-       male znacky). Vektorovy bod takovou plochu nema, tak mu ji
-       dame: pruhledne kolecko pod nim, ktere chyta klepnuti vedle. */
-    L.circleMarker([la, ln], {
-      radius: 14, weight: 0, opacity: 0,
-      fillColor: barva, fillOpacity: 0.01
-    }).bindPopup(bublina, POPOPT).addTo(gbifVrstva);
-
-    L.circleMarker([la, ln], {
-      radius: z >= 13 ? 6 : 4, color: '#fff', weight: 1.5,
+    const bod = L.circleMarker([la, ln], {
+      radius: z >= 13 ? 7 : 5, color: '#fff', weight: 1.5,
       fillColor: barva, fillOpacity: .95
-    }).bindPopup(bublina, POPOPT).addTo(gbifVrstva);
+    }).bindPopup(bublina, POPOPT);
+    bod._gbifBod = true;              // podle toho ho pozna hledani nejblizsiho
+    bod.addTo(gbifVrstva);
     vykresleno++;
   });
   const t = $('gbifPocet');
@@ -1569,6 +1554,50 @@ map.on('overlayadd', async (e) => {
     'kde nikdo nefotí, není bod, a to o houbách neříká nic.', false, 11000);
 });
 map.on('moveend zoomend', () => { if (map.hasLayer(gbifVrstva)) kresliGbif(); });
+/* ============================================================
+   Audit 62: TREFIT SE PRSTEM DO BODU NEJDE
+
+   Audit 60 zvetsil bodu neviditelnou plochu na 14 px. Pomohlo to,
+   ale porad to nebylo ono: pod prstem lezi krome bodu i barevny
+   porost, ktery ma vlastni bublinu, a ten klepnuti bere. Zmereno:
+   trefa do 13 px od stredu, dal uz porost.
+
+   Vetsi terc tady neni cesta. Kdyby byl dost velky na prst, zacaly
+   by si sousedni body v houstejsich mistech brat klepnuti navzajem
+   a porost by uz neslo otevrit vubec.
+
+   Reseni je obratit poradi: neresit, na CO se trefil, ale KTERY bod
+   je klepnuti nejblizsi. Kdyz je nejakyy bod do 28 px (zhruba polovina
+   sirky bricha prstu), otevre se jeho bublina - i kdyz prst dopadl
+   vedle nebo na porost. Kdyz zadny takovy neni, plati to, na co se
+   klepnulo, tedy porost.
+
+   Pravidlo se schvalne pouzije jen tehdy, kdyz klepnuti dopadlo na
+   podklad nebo na porost. Kdyz trefi jinou konkretni znacku
+   (parkoviste, nas nalez, auto), nechavame ji byt - ta uz je trefena
+   presne a prebijet ji by bylo horsi nez to, co opravujeme. */
+const DOSAH_PRSTU = 28;   // px
+
+map.on('click', e => {
+  if (!map.hasLayer(gbifVrstva)) return;
+  const t = e.originalEvent && e.originalEvent.target;
+  if (!t) return;
+  /* podklad = dlaždice mapy, plátno porostů nebo samotný kontejner */
+  const naPodkladu = t.tagName === 'CANVAS' || t.tagName === 'IMG'
+    || (t.classList && (t.classList.contains('leaflet-container')
+                        || t.classList.contains('leaflet-tile')));
+  if (!naPodkladu) return;
+
+  let nej = null, nejD = DOSAH_PRSTU;
+  gbifVrstva.eachLayer(l => {
+    if (!l._gbifBod || !l.getLatLng) return;
+    const p = map.latLngToContainerPoint(l.getLatLng());
+    const d = p.distanceTo(e.containerPoint);
+    if (d < nejD){ nejD = d; nej = l; }
+  });
+  if (nej) nej.openPopup();
+});
+
 /* Po zavreni bubliny se vrstva dozene - mezitim se mohlo posouvat. */
 map.on('popupclose', () => {
   if (map.hasLayer(gbifVrstva)) setTimeout(() => kresliGbif(), 0);
