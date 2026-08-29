@@ -885,6 +885,14 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
   </div>
 </div>
 
+<div class="modal" role="dialog" aria-modal="true" id="kdeModal">
+  <div class="mbox">
+    <h2>Kde je nejblíž</h2>
+    <div id="kdeObsah"></div>
+    <div class="dole"><button class="ghost" id="kdeClose">Zavřít</button></div>
+  </div>
+</div>
+
 <div class="modal" role="dialog" aria-modal="true" id="trackModal">
   <div class="mbox">
     <h2>Trasa zaznamenaná</h2>
@@ -1069,7 +1077,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v93';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v94';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -4173,6 +4181,150 @@ async function nactiMista(){
   return mistaNacitam;
 }
 
+/* ============================================================
+   Audit 64: KDE JE NEJBLIZ
+
+   "Kam vyrazit autem" odpovida na otazku "kam dneska", tedy razeni
+   podle podminek a dojezdu. Tohle odpovida na jinou: "chci konkretne
+   tenhle druh - kde je nejbliz?" Razeni je proto podle vzdalenosti,
+   ne podle skore.
+
+   Odpoved sklada ze dvou zdroju, ktere appka uz ma, a drzi je oddelene,
+   protoze kazdy znamena neco jineho:
+
+   NAHLASENE NALEZY jsou tvrda data - nekdo tam tu houbu vyfotil, urcil
+   a zapsal souradnici. Rika to, ze tam ta houba nekdy rostla. Nerika,
+   ze tam je dnes.
+
+   VHODNA MISTA jsou odvozena z map: prevaha toho typu lesa, ktery
+   druh chce. Rika to, ze tam ma smysl hledat. Nerika, ze tam nekdy
+   nekdo neco nasel.
+
+   Michat to dohromady by bylo lakave a neupravne - proto dva seznamy
+   pod sebou a u kazdeho napsano, co znamena. */
+
+/* Ktere nazvy ze zdroje patri ke kteremu druhu ve filtru. */
+const ZDROJ_DRUHY = {
+  hrib_smrkovy:   ['hřib smrkový'],
+  hrib_dubovy:    ['hřib dubový', 'hřib dubový žlutomasý'],
+  hrib_zlutomasy: ['suchohřib žlutomasý', 'suchohřib meruňkový'],
+  masak:          ['hřib hnědý'],
+  klouzky:        ['klouzek obecný', 'klouzek sličný', 'klouzek zrnitý', 'klouzek kravský', 'klouzek strakoš'],
+  kremenac:       ['křemenáč osikový', 'křemenáč březový'],
+  kozak:          ['kozák březový'],
+  bedly:          ['bedla vysoká', 'bedla útlá', 'bedla červenající']
+};
+
+/* Chce ten druh spis listnaty les? Bereme to z jeho vlastni tabulky
+   vhodnosti, at to nikde nepisu podruhe a rucne. */
+function preferujeListnate(klic){
+  const h = HOUBY[klic];
+  if (!h || !h.v) return false;
+  const max = (d) => {
+    const t = h.v[d] || {};
+    return Object.keys(t).reduce((a, k) => Math.max(a, t[k]), 0);
+  };
+  return max('listnaté') >= max('jehličnaté');
+}
+
+function odkudMerime(){
+  return (state.me && typeof state.me.lat === 'number')
+    ? {bod: [state.me.lat, state.me.lng], popis: 'od tebe'}
+    : {bod: HOME.slice(), popis: 'od domova'};
+}
+
+async function kdeJeNejbliz(klic){
+  const o = odkudMerime();
+  const jm = (HOUBY[klic] || {}).jm || 'houba';
+
+  /* 1) nahlasene nalezy ze zdroje */
+  let nalezy = [];
+  try {
+    const d = await nactiGbif();
+    const chci = ZDROJ_DRUHY[klic] || [];
+    if (d && d.body){
+      d.body.forEach(b => {
+        const nazev = (d.druhy[b[0]] || [''])[0];
+        if (chci.indexOf(nazev) === -1) return;
+        nalezy.push({jm: nazev, lat: b[1], lng: b[2], rok: b[3], mes: b[4],
+                     presnost: b[5], d: distM(o.bod, [b[1], b[2]])});
+      });
+      nalezy.sort((x, y) => x.d - y.d);
+    }
+  } catch(e){}
+
+  /* 2) vhodna mista z map */
+  let mista = [];
+  try {
+    const M = await nactiMista();
+    const list = preferujeListnate(klic);
+    (M || []).forEach(m => {
+      const podil = list ? m.list : m.jehl;
+      if (podil < 40) return;                 // pod tim uz to neni prevaha
+      mista.push({lat: m.lat, lng: m.lng, podil, cest: m.cest, d: distM(o.bod, [m.lat, m.lng])});
+    });
+    mista.sort((x, y) => x.d - y.d);
+  } catch(e){}
+
+  return {jm, list: preferujeListnate(klic), odkud: o.popis, nalezy, mista};
+}
+
+function kdeHTML(klic, v){
+  const radek = (lat, lng, hlavni, vedlejsi) =>
+    '<div class="kamlok"><div class="jmenoradek"><div class="jm">' + hlavni + '</div>' +
+    '<button class="oblmini" data-kde-skok="' + lat + ',' + lng + '">Na mapu</button></div>' +
+    '<p class="pozn" style="margin:2px 0 0">' + vedlejsi + '</p></div>';
+
+  let h = '<div class="fr" style="margin-bottom:10px"><span>Houba</span><div>' +
+    ['bedly','hrib_smrkovy','hrib_dubovy','hrib_zlutomasy','kremenac','kozak','klouzky','masak']
+      .map(k => '<button class="fchip' + (k === klic ? ' on' : '') + '" data-kde-druh="' + k + '">' +
+                HOUBY[k].kratkyChip + '</button>').join('') +
+    '</div></div>';
+
+  h += '<h3>Nahlášené nálezy</h3>';
+  if (!v.nalezy.length){
+    h += '<p class="pozn">Pro <b>' + v.jm + '</b> nemám ve zdroji ani jeden bod. ' +
+         'Neznamená to, že u nás neroste – znamená to, že ji nikdo nenahlásil se souřadnicí.</p>';
+  } else {
+    h += '<p class="pozn">Někdo tam tu houbu vyfotil a určil. Říká to, že tam <b>někdy rostla</b>, ' +
+         'ne že tam je dnes. Vzdálenosti jsou vzdušnou čarou ' + v.odkud + '.</p>';
+    h += v.nalezy.slice(0, 5).map(n => radek(n.lat, n.lng,
+      '<b>' + fmtDist(n.d) + '</b> · ' + n.jm,
+      (n.mes ? MES_CZ[n.mes] + ' ' : '') + (n.rok || 'rok neuveden') +
+      (n.presnost >= 0 ? ' · přesnost ±' + n.presnost + ' m' : ''))).join('');
+    if (v.nalezy.length > 5) h += '<p class="pozn">Dalších ' + (v.nalezy.length - 5) + ' je dál.</p>';
+  }
+
+  h += '<h3>Vhodná místa podle map</h3>';
+  if (!v.mista.length){
+    h += '<p class="pozn">Nic v dosahu dat.</p>';
+  } else {
+    h += '<p class="pozn"><b>' + v.jm + '</b> chce spíš <b>' + (v.list ? 'listnatý' : 'jehličnatý') +
+         '</b> les. Tohle jsou nejbližší místa, kde takový les převažuje. Říká to, že tam ' +
+         '<b>má smysl hledat</b> – ne že tam někdo něco našel. Počasí a sezóna v tomhle seznamu nejsou.</p>';
+    h += v.mista.slice(0, 5).map(m => radek(m.lat, m.lng,
+      '<b>' + fmtDist(m.d) + '</b> · ' + (v.list ? 'listnatý' : 'jehličnatý') + ' ' + m.podil + ' %',
+      'lesních cest v okolí: ' + m.cest)).join('');
+  }
+  return h;
+}
+
+async function otevriKde(klic){
+  const k = HOUBY[klic] ? klic : 'hrib_smrkovy';
+  $('kdeObsah').innerHTML = '<p class="pozn">Hledám…</p>';
+  $('kdeModal').classList.add('show');
+  const v = await kdeJeNejbliz(k);
+  $('kdeObsah').innerHTML = kdeHTML(k, v);
+  $('kdeObsah').querySelectorAll('[data-kde-druh]').forEach(b =>
+    b.onclick = () => otevriKde(b.dataset.kdeDruh));
+  $('kdeObsah').querySelectorAll('[data-kde-skok]').forEach(b => b.onclick = () => {
+    const [la, ln] = b.dataset.kdeSkok.split(',').map(Number);
+    $('kdeModal').classList.remove('show');
+    map.setView([la, ln], Math.max(map.getZoom(), 14));
+  });
+}
+$('kdeClose').onclick = () => $('kdeModal').classList.remove('show');
+
 /* ---------- filtry ---------- */
 const FILTR = LS.get('filtr', {druh:'vse', minuty:60, chranena:true, porost:'vse'});
 /* Audit 38: skupina „Hřibovité" už nemá tlačítko. Komu zůstala uložená
@@ -4577,6 +4729,7 @@ function filtryHTML(){
       ['bedly','hrib_smrkovy','hrib_dubovy','hrib_zlutomasy','kremenac','kozak','klouzky','masak']
         .map(k => chip('druh', k, HOUBY[k].kratkyChip)).join('') +
       '<p class="pozn popisHouby">' + popisHouby() + '</p>' +
+      '<button class="ghost" id="btnKdeNejbliz" style="margin:6px 0 0">🔎 &nbsp;Kde je nejblíž?</button>' +
     '</div></div>' +
     '<div class="fr"><span>Porost</span><div>' +
       chip('porost','vse','Vše') + chip('porost','listnate','Listnatý') +
@@ -4593,6 +4746,8 @@ function filtryHTML(){
 }
 
 function pripojFiltry(korenId, poZmene){
+  const bk = $(korenId || 'kamObsah').querySelector('#btnKdeNejbliz');
+  if (bk) bk.onclick = () => otevriKde(FILTR.druh === 'vse' ? 'hrib_smrkovy' : FILTR.druh);
   $(korenId || 'kamObsah').querySelectorAll('.fchip').forEach(b => b.onclick = () => {
     const f = b.dataset.f, v = b.dataset.v;
     FILTR[f] = (f === 'minuty') ? +v : (f === 'chranena') ? v === '1' : v;
