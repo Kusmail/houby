@@ -725,7 +725,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v55';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v56';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -735,215 +735,28 @@ let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuj
    ještě neexistovala. */
 const SBER_MIN_Z = 13;
 
-const LOC = [
-/* ---------- VARIANTA 1 ---------- */
-{
- v:1, rank:1, name:"Ctěnický háj + louky Vinoř/Podolanka", porostData:{jehl:10,list:28,neurc:62,ploch:29}, park:[50.14519,14.58161],
- dist:"8 km · 12 min", druh:"<b>Bedla vysoká</b>, žampion, hřib dubový (vzácně)",
- porost:"Dubohabřina 80–120 let na spraši + sečené louky, 240–260 m n.m.",
- kde:"Ne v hloubi háje. Bedly v trávě na pásu luk jižně a východně od háje a na travnatém průseku podél severní hranice.",
- sezona:"Bedly konec VIII – konec X, vrchol říjen (měřeno na 59 tis. nálezů)",
- trasa:"Okruh po obvodu háje a luk, 3,5–4 km",
- park_ok:"ok", park_txt:"Evidované parkoviště podle ZABAGED (ČÚZK). 47 m od komunikace, 35 m od plochy, kde hledat. Oproti dřívějšku posunuto o 778 m: původní bod byl 130 m od komunikace a 680 m od plochy.",
- konk:"Střední – lidi tu chodí na procházku, ale bedly v trávě minou",
- poly:[[50.1560,14.5700],[50.1575,14.5830],[50.1500,14.5880],[50.1450,14.5820],[50.1462,14.5705]],
- route:[[50.1512,14.5760],[50.1548,14.5735],[50.1565,14.5820],[50.1495,14.5862],[50.1458,14.5800],[50.1470,14.5722],[50.1512,14.5760]]
-},
-{
- v:1, rank:2, name:"Meze a remízky Sluhy–Bášť–Předboj", porostData:{jehl:16,list:74,neurc:10,ploch:31}, park:[50.20282,14.55002],
- dist:"5 km · 8 min", druh:"<b>Bedla vysoká</b>, bedla červenající, žampion polní",
- porost:"Není les. Akátové a jasanové remízky, meze, staré sady, spraš, 230–250 m n.m.",
- kde:"Travnaté pásy na jižní a jihozápadní straně remízků, okraje starých sadů, neposečené meze. Bedly jsou 2–10 m od dřevin, ne v houští.",
- sezona:"Září–říjen, po prvních chladných nocích",
- trasa:"Pěší okruh po polních cestách Sluhy → Bášť, 4–5 km",
- park_ok:"ok", park_txt:"Evidované parkoviště podle ZABAGED (ČÚZK). 38 m od komunikace, 145 m od plochy, kde hledat. Oproti dřívějšku posunuto o 1049 m: původní bod byl 336 m od komunikace a 680 m od plochy.",
- konk:"<b>Nízká</b> – nevypadá to jako les, tak sem nikdo nejezdí",
- poly:[[50.2160,14.5380],[50.2185,14.5560],[50.2075,14.5610],[50.2030,14.5480],[50.2090,14.5370]],
- route:[[50.2118,14.5455],[50.2160,14.5405],[50.2178,14.5540],[50.2085,14.5588],[50.2042,14.5490],[50.2098,14.5392],[50.2118,14.5455]]
-},
-{
- v:1, rank:3, name:"Houštka, Stará Boleslav", porostData:{jehl:34,list:44,neurc:22,ploch:134}, park:[50.19671,14.67597],
- dist:"10 km · 14 min", druh:"Klouzek obecný, masák, hřib hnědý, kozák, bedla na okrajích",
- porost:"Borovice lesní na labských navátých píscích, mozaika 30–100 let, 175–190 m n.m.",
- kde:"Mladší borové kultury 20–50 let severně a severovýchodně od areálu. Křemenáč a kozák pod břízami u průseků. Lemy cest a mechové plotny, ne hustý stín.",
- sezona:"Klouzci VIII–XI, snesou sucho lépe než hřiby",
- trasa:"Okruh severně od areálu po lesních cestách, 5–6 km",
- park_ok:"ok", park_txt:"Evidované parkoviště podle ZABAGED (ČÚZK). 5 m od komunikace, 255 m od plochy, kde hledat. Oproti dřívějšku posunuto o 609 m: původní bod byl 9 m od komunikace a 260 m od plochy.",
- konk:"<b>Vysoká</b> – městský les Brandýsa, chodí sem lidi denně. Musíš být brzo ráno.",
- poly:[[50.1990,14.6760],[50.2085,14.6790],[50.2100,14.6990],[50.1985,14.7010],[50.1945,14.6870]],
- route:[[50.1962,14.6845],[50.2010,14.6800],[50.2075,14.6835],[50.2090,14.6960],[50.1995,14.6985],[50.1958,14.6880],[50.1962,14.6845]]
-},
-{
- v:1, rank:4, name:"Borové písčiny Dřísy–Ovčáry–Konětopy", porostData:{jehl:47,list:39,neurc:14,ploch:797}, park:[50.24121,14.70404],
- dist:"17 km · 22 min", druh:"Klouzek, masák, křemenáč březový, kozák, bedla na průsecích",
- porost:"Rozsáhlé borové monokultury na navátých píscích, ostrůvky břízy a dubu, 170–185 m n.m.",
- kde:"Systematicky mladší borové kultury 15–40 let (nižší, hustší, mechové patro). Křemenáč a kozák pod břízami u odvodňovacích příkopů. Bedly na průsecích pod vedením VN. Vyhni se starým borům bez podrostu.",
- sezona:"Srpen–říjen",
- trasa:"Okruh po lesních cestách severně od Dřís, 6–8 km, rovina",
- park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 246 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 1387 m: původní bod byl 435 m od komunikace a 605 m od plochy.",
- konk:"<b>Nízká až střední</b> – nejlepší poměr výnos/konkurence do 20 km",
- poly:[[50.2320,14.6960],[50.2430,14.7020],[50.2440,14.7290],[50.2290,14.7330],[50.2240,14.7100]],
- route:[[50.2288,14.7060],[50.2350,14.6995],[50.2422,14.7060],[50.2428,14.7255],[50.2300,14.7300],[50.2255,14.7120],[50.2288,14.7060]]
-},
-{
- v:1, rank:5, name:"Klecanský háj a Drasty", porostData:{jehl:26,list:66,neurc:7,ploch:97}, park:[50.18371,14.42329],
- dist:"13 km · 18 min", druh:"Hřib dubový, hřib kovář, kozák, bedla na okrajích",
- porost:"Dubohabřina a suťový les na svazích k Vltavě, 70–120 let, hlinitá půda, 180–280 m n.m., severní expozice",
- kde:"Severní a severovýchodní svahy k Vltavě – drží vlhkost nejdéle. Hřib dubový pod starými duby na hřebenové plošině. Bedly na travnatých pláccích směrem k Drastům.",
- sezona:"VII–IX hřiby, IX–X bedly",
- trasa:"Okruh po svazích a zpět po hřebeni, 4–5 km, kopcovitější",
- park_ok:"ok", park_txt:"Evidované parkoviště podle ZABAGED (ČÚZK). 6 m od komunikace, 385 m od plochy, kde hledat. Oproti dřívějšku posunuto o 1347 m: původní bod byl 126 m od komunikace a 571 m od plochy.",
- konk:"Střední. <b>Záložka pro suchá období</b> – severní svah drží vlhko déle než rovná písčina.",
- poly:[[50.1790,14.4030],[50.1830,14.4180],[50.1760,14.4265],[50.1700,14.4180],[50.1715,14.4045]],
- route:[[50.1745,14.4110],[50.1795,14.4060],[50.1822,14.4165],[50.1755,14.4245],[50.1706,14.4165],[50.1722,14.4058],[50.1745,14.4110]]
-},
-{
- v:1, rank:6, name:"Vidrholec – severní část Klánovického lesa", porostData:{jehl:12,list:20,neurc:67,ploch:12}, park:[50.10253,14.66571],
- dist:"18 km · 25 min", druh:"Klouzek, kozák březový, hřib hnědý, bedla",
- porost:"Borovice a dub na píscích a štěrkopíscích, příměs břízy a smrku, 230–280 m n.m.",
- kde:"Severní část u Jiren a Šestajovic – nejdál od pražských nástupů, tedy nejmíň vyčesaná. Bedly na loukách u Blatova a na širokých průsecích.",
- sezona:"Srpen–říjen",
- trasa:"Okruh severní částí, 6–7 km",
- park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 73 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 1614 m: původní bod byl 182 m od komunikace a 747 m od plochy.",
- konk:"<b>Velmi vysoká</b> – nejvytíženější les u Prahy, v dosahu MHD. Jen všední den brzo ráno.",
- poly:[[50.1190,14.6540],[50.1210,14.6790],[50.1080,14.6840],[50.1030,14.6650],[50.1105,14.6520]],
- route:[[50.1170,14.6640],[50.1198,14.6570],[50.1203,14.6760],[50.1090,14.6820],[50.1040,14.6660],[50.1112,14.6545],[50.1170,14.6640]]
-},
+/* ============================================================
+   Audit 28: šestnáct ručně psaných lokalit je pryč
 
-/* ---------- VARIANTA 2 ---------- */
-{
- v:2, rank:1, name:"Kokořínsko – Kokořínský důl / Mšeno", porostData:{jehl:46,list:40,neurc:13,ploch:2000}, park:[50.41949,14.65883],
- dist:"48 km · 55 min", druh:"Hřib hnědý (1,3× nad průměrem ČR), hřib smrkový, křemenáč, klouzek, bedla",
- porost:"Borové lesy na pískovcových plošinách + buk a dub v roklích. Silně kyselé písčité půdy na kvádrových pískovcích, 200–350 m n.m.",
- kde:"Dvě různá stanoviště, nemíchat: <b>plošiny nad roklemi</b> (bor na písku) = klouzek, masák, hřib hnědý; <b>svahy a dna roklí, severní expozice</b> (buk, dub) = hřib dubový, křemenáč, funguje i v suchu. Bedly na travnatých plošinách u Mšena, Vojtěchova a Nosálova.",
- sezona:"Vrchol červenec, sekundárně srpen–září",
- trasa:"Okruh z Mšena k Pokličkám a zpět 8–10 km, nebo kratší okruh dolem 5 km",
- park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 232 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 2749 m: původní bod byl 54 m od komunikace a 2168 m od plochy.",
- konk:"Střední. Kokořínský důl je turisticky přetížený, ale 1 km od hlavní trasy jsi sám.",
- top:"Mykoindex 89/100 – jediná oblast do 100 km s výbornými podmínkami k 28. 8. 2026",
- warn:"CHKO Kokořínsko–Máchův kraj. Sběr pro vlastní potřebu povolen, ale ne v I. zónách a NPR. Hranice zón jsou členité a v terénu neznačené – ověř na portálu AOPK.",
- poly:[[50.4520,14.5600],[50.4560,14.6500],[50.4200,14.6620],[50.4100,14.5800],[50.4330,14.5480]],
- route:[[50.4390,14.6350],[50.4480,14.6180],[50.4470,14.5820],[50.4290,14.5760],[50.4250,14.6100],[50.4310,14.6400],[50.4390,14.6350]]
-},
-{
- v:2, rank:2, name:"Hradčany – Ralsko (bývalý VVP)", porostData:{jehl:58,list:22,neurc:20,ploch:2000}, park:[50.63447,14.78675],
- dist:"85 km · 1:15", druh:"Klouzek obecný, masák, křemenáč osikový a březový, kozák, hřib hnědý, bedla",
- porost:"Rozsáhlé borové porosty na mocných navátých píscích, věková mozaika po vojenském hospodaření, ostrůvky břízy a osiky, 260–300 m n.m.",
- kde:"Borové kultury 20–50 let severně a východně od letištní plochy. Křemenáč osikový v osikových nárostech na okrajích bývalých cvičných ploch – těch je tu hodně. Bedly na travnatých plochách bývalého letiště a v jeho lemech.",
- sezona:"Srpen–říjen",
- trasa:"Okruh od letiště k Hradčanským rybníkům a zpět, 7–9 km, rovinaté",
- park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 237 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 2732 m: původní bod byl 495 m od komunikace a 2101 m od plochy.",
- konk:"<b>Nejnižší z celé Varianty 2</b> – daleko od měst, obrovská plocha",
- warn:"Zbytková munice z vojenského období – držet se cest a otevřených ploch, nerozhrabávat zem. Část území v CHKO, u Břehyně je NPR se zákazem vstupu mimo cesty.",
- poly:[[50.6300,14.7350],[50.6350,14.7900],[50.6060,14.8000],[50.5980,14.7500],[50.6150,14.7280]],
- route:[[50.6180,14.7580],[50.6280,14.7450],[50.6320,14.7820],[50.6090,14.7950],[50.6010,14.7560],[50.6165,14.7330],[50.6180,14.7580]]
-},
-{
- v:2, rank:3, name:"Klokočka a Vrchbělá, Bělá pod Bezdězem", porostData:{jehl:62,list:21,neurc:17,ploch:639}, park:[50.49509,14.82357],
- dist:"62 km · 55 min", druh:"Klouzek, masák, křemenáč březový, hřib hnědý",
- porost:"Borové porosty na kyselých píscích, prameniště a podmáčené partie, 250–300 m n.m.",
- kde:"Borové kultury východně od Klokočky. Okolí pramene a podmáčené partie drží vlhkost – tam hledej i v suchu. Křemenáče v březových skupinách.",
- sezona:"Srpen–říjen",
- trasa:"Okruh Klokočka – Vrchbělá, 6–8 km",
- park_ok:"ok", park_txt:"Evidované parkoviště podle ZABAGED (ČÚZK). 57 m od komunikace, 322 m od plochy, kde hledat. Oproti dřívějšku posunuto o 1343 m: původní bod byl 597 m od komunikace a 1067 m od plochy.",
- konk:"Střední. Prameniště funguje jako vlhkostní refugium – když je Polabí spálené, tady ještě naskočí.",
- warn:"PP Klokočka – v okolí pramene se drž cest.",
- poly:[[50.5060,14.8300],[50.5090,14.8620],[50.4900,14.8680],[50.4870,14.8380],[50.4970,14.8270]],
- route:[[50.4980,14.8420],[50.5050,14.8330],[50.5075,14.8580],[50.4915,14.8640],[50.4880,14.8400],[50.4980,14.8420]]
-},
-{
- v:2, rank:4, name:"Kersko – Bory (přírodní park)", porostData:{jehl:38,list:42,neurc:21,ploch:1507}, park:[50.13797,14.89396],
- dist:"32 km · 35 min", druh:"Hřib hnědý, hřib dubový, klouzek, bedla",
- porost:"Borové a smíšené porosty na labských terasových píscích, dub a bříza, 180–200 m n.m.",
- kde:"Bory mimo chatovou osadu – jižně a východně směrem k Semicím a Hradištku. Kolem chat je vysbíráno. Bedly na travnatých okrajích osady a na průsecích, hřiby v dubových partiích.",
- sezona:"Červenec–říjen",
- trasa:"Okruh od okraje osady do borů a zpět, 5–7 km, rovina",
- park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 74 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 1539 m: původní bod byl 424 m od komunikace a 1110 m od plochy.",
- konk:"Vysoká u chat, <b>nízká 1,5 km dál</b>. Turisti do borů nechodí.",
- poly:[[50.1500,14.9000],[50.1520,14.9400],[50.1280,14.9480],[50.1230,14.9080],[50.1380,14.8950]],
- route:[[50.1445,14.9130],[50.1495,14.9060],[50.1508,14.9350],[50.1300,14.9430],[50.1250,14.9110],[50.1390,14.8985],[50.1445,14.9130]]
-},
-{
- v:2, rank:5, name:"Milovice – Mladá (bývalý VVP)", porostData:{jehl:35,list:52,neurc:12,ploch:1107}, park:[50.24289,14.93865],
- dist:"35 km · 40 min", druh:"<b>Bedla vysoká (hojně)</b>, bedla červenající, žampiony",
- porost:"Není les. Rozsáhlé travnaté plochy bývalého vojenského cvičiště s roztroušenými dřevinami, písčité a hlinitopísčité půdy, 190–230 m n.m.",
- kde:"Travnaté plochy s roztroušenými keři, okraje bývalých cest a betonových ploch. Bedly rostou v otevřené trávě, často ve skupinách a v kruzích. Hledej z dálky – bílý klobouk poznáš na 50 m.",
- sezona:"<b>Září–říjen</b>, vrchol po prvních chladných nocích",
- trasa:"Volný okruh po travnatých plochách a cestách, 5–8 km, rovina – dobré i s malým dítětem",
- park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 238 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 2452 m: původní bod byl 79 m od komunikace a 1624 m od plochy.",
- konk:"Nízká na bedly – lidi sem jezdí koukat na koně, ne sbírat",
- top:"Nejlepší plocha na bedlu vysokou v celé Variantě 2",
- warn:"Dvě věci: (1) rezervace s pastvou velkých kopytníků – <b>do oplocenek nevstupovat</b>, rozsah se mění, ověř před cestou; (2) zbytková munice – držet se cest a otevřených ploch.",
- poly:[[50.2620,14.8900],[50.2660,14.9350],[50.2430,14.9420],[50.2380,14.9000],[50.2500,14.8850]],
- route:[[50.2530,14.9080],[50.2610,14.8960],[50.2640,14.9300],[50.2450,14.9380],[50.2395,14.9040],[50.2510,14.8880],[50.2530,14.9080]]
-},
-{
- v:2, rank:6, name:"Doksy / Staré Splavy – Máchův kraj", porostData:{jehl:54,list:31,neurc:15,ploch:1330}, park:[50.5894,14.61674],
- dist:"80 km · 1:10", druh:"Hřib hnědý, klouzek, křemenáč",
- porost:"Borové písčiny kolem Máchova jezera, 260–300 m n.m.",
- kde:"Mimo turistické trasy, severně od Starých Splavů. Kolem jezera je v sezóně beznadějně vyšlapáno.",
- sezona:"Srpen–říjen",
- trasa:"Okruh severně od Starých Splavů, 6–8 km",
- park_ok:"warn", park_txt:"Kraj komunikace – poloha ověřená proti ZABAGED (ČÚZK), 198 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 1784 m: původní bod byl 418 m od komunikace a 1772 m od plochy.",
- konk:"<b>Vysoká v sezóně</b> – rekreační oblast",
- warn:"NPR Břehyně-Pecopala – zákaz vstupu mimo značené cesty. CHKO Kokořínsko–Máchův kraj: mimo I. zóny a NPR je sběr povolen.",
- poly:[[50.6000,14.6200],[50.6030,14.6700],[50.5800,14.6780],[50.5760,14.6300],[50.5880,14.6150]],
- route:[[50.5900,14.6420],[50.5985,14.6280],[50.6015,14.6620],[50.5820,14.6720],[50.5775,14.6350],[50.5900,14.6420]]
-},
-{
- v:2, rank:7, name:"Křivoklátsko – Křivoklát / Lány", porostData:{jehl:26,list:64,neurc:10,ploch:1944}, park:[50.02021,13.85997],
- dist:"70 km · 1:05", druh:"Hřib dubový, hřib kovář, kozák",
- porost:"Dubohabřiny a bučiny na hlinitých půdách, svahy nad Berounkou, 250–450 m n.m.",
- kde:"Severní a severovýchodní svahy nad Berounkou – drží vlhkost. Hřib dubový pod starými duby na plošinách.",
- sezona:"Červenec–září",
- trasa:"Okruh z Křivoklátu po svazích, 6–9 km, kopcovité",
- park_ok:"warn", park_txt:"Kraj komunikace – poloha ověřená proti ZABAGED (ČÚZK), 23 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 2157 m: původní bod byl 108 m od komunikace a 2061 m od plochy.",
- konk:"Střední", top:"Mykoindex 59/100 – průměr",
- warn:"CHKO Křivoklátsko. NPR Týřov a Velká Pleš – tam nesbírat. Mimo rezervace a I. zóny povoleno.",
- poly:[[50.0500,13.8500],[50.0540,13.9050],[50.0250,13.9150],[50.0200,13.8600],[50.0350,13.8420]],
- route:[[50.0380,13.8720],[50.0480,13.8560],[50.0520,13.8980],[50.0270,13.9080],[50.0215,13.8640],[50.0380,13.8720]]
-},
-{
- v:2, rank:8, name:"Rožďalovické lesy / Jabkenice", porostData:{jehl:30,list:56,neurc:14,ploch:882}, park:[50.37058,15.03455],
- dist:"62 km · 1:00", druh:"Hřib, klouzek, kozák",
- porost:"Smíšené porosty, borové partie na píscích, 230–280 m n.m.",
- kde:"Borové partie mimo oboru. Smíšené okraje pro kozáky.",
- sezona:"Srpen–říjen",
- trasa:"Okruh po lesních cestách, 6–8 km",
- park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 307 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 1479 m: původní bod byl 785 m od komunikace a 1567 m od plochy.",
- konk:"Nízká – málo známá oblast, ale i málo dat o výnosech",
- warn:"Obora Jabkenice – do obory nevstupovat.",
- poly:[[50.3920,15.0250],[50.3950,15.0700],[50.3720,15.0780],[50.3680,15.0330],[50.3800,15.0180]],
- route:[[50.3830,15.0420],[50.3905,15.0300],[50.3935,15.0650],[50.3740,15.0730],[50.3695,15.0370],[50.3830,15.0420]]
-},
-{
- v:2, rank:9, name:"Český ráj – Prachovské skály / Sobotka", porostData:{jehl:44,list:43,neurc:14,ploch:1519}, park:[50.4931,15.31558],
- dist:"90 km · 1:20", druh:"Hřib hnědý, klouzek",
- porost:"Pískovcové skalní město, borovice + buk, rokle drží vlhko, 300–450 m n.m.",
- kde:"Borové plošiny nad skalami a lesy mezi Prachovem a Sobotkou. Rokle drží vlhkost v suchu.",
- sezona:"Červenec–říjen",
- trasa:"Okruh mimo skalní město, 6–8 km",
- park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 237 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 2395 m: původní bod byl 324 m od komunikace a 1733 m od plochy.",
- konk:"Vysoká u skal, nižší v okolních lesích", top:"Mykoindex 70/100 – druhý nejlepší v dosahu",
- warn:"CHKO Český ráj a přírodní rezervace. Mimo rezervace je sběr povolen.",
- poly:[[50.4880,15.2700],[50.4910,15.3150],[50.4680,15.3230],[50.4640,15.2780],[50.4770,15.2620]],
- route:[[50.4790,15.2900],[50.4865,15.2760],[50.4895,15.3100],[50.4700,15.3180],[50.4655,15.2820],[50.4790,15.2900]]
-},
-{
- v:2, rank:10, name:"Brdy – Obecnice / Nepomuk ⚠ nedoporučeno", porostData:{jehl:54,list:28,neurc:19,ploch:1119}, park:[49.72037,13.97993],
- dist:"90 km · 1:25", druh:"Hřib smrkový",
- porost:"Smrkové a smíšené porosty vyšších poloh, 550–800 m n.m.",
- kde:"Smrkové porosty severně od Obecnice, mimo dopadové plochy.",
- sezona:"Srpen–říjen",
- trasa:"Okruh od přehrady, 7–10 km, kopcovité",
- park_ok:"warn", park_txt:"Kraj komunikace u odbočky lesní cesty – poloha ověřená proti ZABAGED (ČÚZK), 154 m od plochy. <b>Není to vyhrazené parkoviště</b>: postav auto tak, aby nebránilo průjezdu, a řiď se značkami na místě. Oproti dřívějšku posunuto o 2403 m: původní bod byl 31 m od komunikace a 1780 m od plochy.",
- konk:"Střední",
- top:"Mykoindex 50/100 – nejnižší v dosahu 100 km. Za tu vzdálenost to nestojí.",
- warn:"Dopadové plochy Jordán, Brda a Tok mají <b>zákaz vstupu kvůli nevybuchlé munici</b> a hrozí pokuta. CHKO Brdy. Doporučuju vybrat jinou lokalitu.",
- poly:[[49.7420,13.9300],[49.7450,13.9750],[49.7200,13.9820],[49.7160,13.9380],[49.7300,13.9220]],
- route:[[49.7300,13.9500],[49.7405,13.9360],[49.7435,13.9700],[49.7220,13.9770],[49.7175,13.9420],[49.7300,13.9500]]
-}
-];
+   Byly to poznámky, které jsem kdysi napsal – a v bublině stálo
+   „Ověřený tip", ačkoli je neověřoval nikdo. Přeměřeno proti ZABAGED:
+
+     parkoviště bylo od popisované plochy 0,7 až 4,5 km daleko
+     (medián 1,6 km; Kokořínsko 4,5 km, Prachovské skály 2,5 km)
+     Klecanský háj měl do 800 m od svého parkoviště 1 ha lesa
+     „Meze a remízky Sluhy–Bášť–Předboj" samo přiznávalo „Není les"
+     a jeho parkoviště sedělo uprostřed Mratína
+
+   K tomu věty jako „Konkurence: nízká – nevypadá to jako les, tak
+   sem nikdo nejezdí". To není údaj, to je dojem.
+
+   Ověřené je v téhle appce jedno jediné: NÁLEZ, který někdo opravdu
+   udělal a jehož určení prošlo kontrolou – vrstva „Ověřené nálezy"
+   (GBIF / iNaturalist). Všechno ostatní je odvozené z map a je tak
+   i popsané. Prázdné pole tu zůstává schválně: kód, který s tipy
+   počítal, se s ním vypořádá sám a je vidět, co tu bývalo a proč.
+   ============================================================ */
+const LOC = [];
 </script>
 
 <script type="module">
@@ -1971,7 +1784,10 @@ function measureSheet(){
 
 function applySheet(animate){
   if (!animate) sheetEl.classList.add('dragging');
-  const off = (sheetPeek && !isWide()) ? peekOffset : 0;
+  /* Audit 27: na širokém displeji se panel nikdy nesložil – ta výjimka
+     dávala smysl, dokud byl panel přes celou šířku. Teď je to sloupec
+     vlevo a složit se má stejně jako na telefonu. */
+  const off = sheetPeek ? peekOffset : 0;
   sheetEl.style.transform = 'translateY(' + off + 'px)';
   sheetEl.classList.toggle('peek', off > 0);
   if (!animate) requestAnimationFrame(()=> sheetEl.classList.remove('dragging'));
@@ -2022,7 +1838,8 @@ function onDragEnd(e){
 }
 
 sheetEl.addEventListener('pointerdown', e => {
-  if (isWide()) return;
+  /* Audit 27: tažení bylo vypnuté na širokém displeji, takže se panel
+     na počítači nedal ani složit, ani vytáhnout – úchyt nedělal nic. */
   const onGrab = !!e.target.closest('.grab');
   if (!onGrab && !draggableTarget(e.target)) return;
   measureSheet();
@@ -2037,6 +1854,9 @@ sheetEl.addEventListener('pointerdown', e => {
   window.addEventListener('pointerup', onDragEnd);
   window.addEventListener('pointercancel', onDragEnd);
 });
+
+/* Myš neudělá „tažení" – klepnutí na úchyt musí přepnout samo. */
+$('grab').addEventListener('click', () => { if (!dragging) setSheetPeek(!sheetPeek, true); });
 
 window.addEventListener('resize', () => { measureSheet(); applySheet(false); });
 window.addEventListener('orientationchange', () => setTimeout(()=>{ measureSheet(); applySheet(false); }, 300));
@@ -5008,9 +4828,7 @@ async function prekresliMista(){
     txt.innerHTML = '<b>' + vidi.length + '</b> ' +
       (vidi.length === 1 ? 'parkoviště schoval ' : 'parkovišť schoval ') + vinik;
   } else {
-    const ov = projde.filter(m => m.overene).length;
     txt.innerHTML = '<b>' + projde.length + '</b> ' + (projde.length === 1 ? 'parkoviště' : 'parkovišť') +
-      (ov ? ' (z toho ' + ov + ' s poznámkami)' : '') +
       (projde.length > kresli.length ? ' (kreslím ' + kresli.length + ')' : '') +
       (vidi.length > projde.length ? ' · filtr skryl ' + (vidi.length - projde.length) : '');
   }
@@ -5778,9 +5596,13 @@ function refreshPomoc(){
     'kde chodí lidi s foťákem – kde nikdo nefotí, není bod, a to o houbách ' +
     'neříká nic. Proto se do skóre ani do doporučení nepočítá; je na porovnání ' +
     's vrstvou „Kde sbírat", která je naopak odvozená z map, ne z pozorování.<br><br>' +
-    '<b>Tmavší fialová tečka</b> je parkoviště, ke kterému máme psané poznámky, ' +
-    'kde přesně hledat – je jich šestnáct. Dřív visela na mapě jako modré „P" pořád, ' +
-    'i při pohledu na celou republiku; teď se chová jako ostatní parkoviště.<br><br>' +
+    '<b>Ručně psané lokality jsou pryč.</b> Bylo jich šestnáct a v bublině stálo ' +
+    '„Ověřený tip", ačkoli je neověřoval nikdo. Přeměřeno: parkoviště u nich bylo ' +
+    'od popisované plochy 0,7 až 4,5 km daleko, Klecanský háj měl do 800 m od svého ' +
+    'parkoviště 1 ha lesa a „Meze a remízky" samy přiznávaly „Není les", přičemž ' +
+    'jejich parkoviště sedělo uprostřed Mratína. <b>Ověřený je v téhle appce jeden ' +
+    'jediný údaj: nález, který někdo opravdu udělal</b> – vrstva „Ověřené nálezy". ' +
+    'Všechno ostatní je odvozené z map a je tak i popsané.<br><br>' +
     '<b>Zelená plocha „kde hledat" se dokresluje na vyžádání</b> – tlačítkem v bublině ' +
     'místa nebo z doporučení „Kam dnes". Odvodí se z map ČÚZK: porost správného druhu ' +
     'a stáří do 900 m od auta, napojený na lesní cestu. Dřív tam byly ručně nakreslené ' +
@@ -5799,7 +5621,7 @@ function refreshPomoc(){
     '<details class="napoveda"><summary>Co která barva na mapě znamená</summary>' +
     '<p><b>Obarvený les</b> = mapa růstu. Pět stupňů od cihlové (mizerně) ' +
     'přes okrovou (středně) po tmavě zelenou (výborně). Barvu má jen les.<br><br>' +
-    '🔴 domov (Stodolní 411) · 🟣 parkoviště · tmavší fialová = s poznámkami<br><br>' +
+    '🔴 domov (Stodolní 411) · 🟣 parkoviště z map<br><br>' +
     '🟠 oranžové kolečko = konec čáry „kde zaparkovat", ruší se křížkem vpravo nahoře<br><br>' +
     '🟤 hnědá tečka = ověřený nález hřibovité houby · 🟡 okrová = bedla<br><br>' +
     '🟢 <b>zelená plocha = kde hledat</b>, dokreslí se až když si o ni řekneš<br><br>' +
