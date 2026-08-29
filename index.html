@@ -1063,7 +1063,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v89';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v90';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -4809,8 +4809,30 @@ const CO_TAM_ROSTE = {
 };
 
 let sberKlic = null, sberAbort = null;
+/* ============================================================
+   Audit 59: PROC SLO KLEPNOUT NA BOD ZE ZDROJE JEN NEKDY
+
+   Porosty se kresli na platno (canvas), body GBIF a parkoviste do SVG.
+   Leaflet oba tyhle kreslice sype do teze vrstvy (overlayPane) a poradi
+   urcuje to, ktery z nich vznikne DRIV - a to zalezi na tom, co se
+   nahodou vykreslilo jako prvni. Platno se rodi az ve chvili, kdy se
+   poprve kresli porosty, tedy typicky az po "Kam vyrazit autem" nebo
+   "Najdi les kolem me". Od te chvile lezi NAD body a bere jim klepnuti:
+   dotek skonci na platne, ktere pod prstem zadny porost nenajde, a
+   bublina bodu se neotevre.
+
+   Odtud "driv jsem videl, co je to za houbu, a ted uz ne" - a taky to,
+   proc mi to v prohlizeci vyslo: bez site se porosty nenacetly, platno
+   nevzniklo a body byly volne.
+
+   Porosty proto dostavaji vlastni vrstvu s nizsim poradim. Je to
+   i spravne vizualne: barva porostu je podklad, body jsou nad nim. */
+if (!map.getPane('porosty')){
+  map.createPane('porosty');
+  map.getPane('porosty').style.zIndex = 350;   // pod overlayPane (400)
+}
 /* Plátno místo SVG: stovky porostů se na telefonu překreslují plynule. */
-const rustPlatno = L.canvas({padding: 0.3});
+const rustPlatno = L.canvas({pane: 'porosty', padding: 0.3});
 
 /* ============================================================
    Audit 22: „vše" bylo horší než obojí zvlášť
