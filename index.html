@@ -153,6 +153,37 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
   will-change:transform;touch-action:pan-y
 }
 .sheet.dragging{transition:none}
+
+/* ============================================================
+   Audit 45: SLOŽENÝ PANEL BEZ PODKLADU
+   Ve složeném stavu není co rámovat – jsou vidět dvě tlačítka, a ta
+   mají vlastní pozadí i stín, takže nad mapou obstojí sama. Bílá deska
+   pod nimi jen ukusovala z mapy a tvářila se jako panel, i když v ní
+   nic nebylo. Zmizí i s okrajem a stínem.
+
+   Úchyt se přesouvá mimo tok (position:absolute) a sedí na horní hraně
+   tlačítek – zůstává vidět a chytatelný, ale nepřidává ani pixel výšky.
+   Dotyková plocha kolem něj (.grab::after) platí dál.
+   ============================================================ */
+/* overflow smí být ve složeném stavu vidět: tělo panelu je průhledné
+   a neklikatelné, takže nic neprosvítá – zato se úchyt může vznášet
+   nad tlačítky a nebýt oříznutý. */
+.sheet.peek{background:transparent;border-top:0;box-shadow:none;padding-top:0;overflow:visible}
+.sheet.peek .grab{
+  position:absolute;left:50%;top:-24px;transform:translateX(-50%);
+  width:40px;height:16px;margin:0;border-radius:99px;
+  background:rgba(255,255,255,.94);box-shadow:0 1px 4px rgba(0,0,0,.35);
+  display:flex;align-items:center;justify-content:center
+}
+.sheet.peek .grab::before{
+  content:'';width:9px;height:9px;margin-top:2px;
+  border-left:2px solid #6b6560;border-top:2px solid #6b6560;
+  transform:rotate(45deg);border-radius:1px
+}
+@media (prefers-color-scheme: dark){
+  .sheet.peek .grab{background:rgba(40,38,34,.94)}
+  .sheet.peek .grab::before{border-color:#a49e94}
+}
 /* úchyt na vytažení – malý proužek, ale velká dotyková plocha kolem něj */
 .grab{width:44px;height:5px;border-radius:99px;background:#cfc9bf;margin:0 auto 7px;position:relative;
   touch-action:none;cursor:grab}
@@ -916,7 +947,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v75';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v76';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2099,9 +2130,13 @@ function applySheet(animate){
      nehne – panel je prostě vysoký tolik, kolik má být vidět.
      ============================================================ */
   const slozeno = sheetPeek && peekOffset > 0;
+  /* Audit 45: třída .peek mění rozvržení hlavy – zmizí podklad a úchyt
+     jde mimo tok. Kdyby se výška měřila před ní, ořezali bychom panel
+     na míru, kterou už nemá. Nasadit, pak změřit, pak ořezat. */
+  sheetEl.classList.toggle('peek', slozeno);
+  if (slozeno) measureSheet();
   sheetEl.style.transform = 'translateY(0px)';
   sheetEl.style.maxHeight = slozeno ? (headVyska + 'px') : '';
-  sheetEl.classList.toggle('peek', slozeno);
   if (!animate) requestAnimationFrame(()=> sheetEl.classList.remove('dragging'));
 }
 
