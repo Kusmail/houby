@@ -318,6 +318,12 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
   font-size:12px;line-height:1.35;display:none;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(0,0,0,.10)
 }
 .mistabar.show{display:flex}
+.mistabar{cursor:pointer}
+.sanceTecka{width:14px;height:14px;flex:0 0 14px;border-radius:50%;background:var(--stale);
+  box-shadow:0 0 0 3px rgba(0,0,0,.06)}
+.mistabar .sipka{flex:0 0 auto;color:var(--muted);font-size:20px;line-height:1;padding-left:2px}
+.mistabar .t{font-size:13.5px}
+.mistabar .t2{color:var(--muted);font-size:11px}
 .mistabar .txt{flex:1;min-width:0;cursor:pointer}
 .mistabar .t, .mistabar .t2{display:block;min-width:0}
 .mistabar .t2{margin-top:3px}
@@ -400,7 +406,10 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
 .banner .close{position:absolute;top:5px;right:7px;font-size:15px;color:var(--muted);cursor:pointer;padding:3px 6px}
 
 /* modal */
-.modal{position:absolute;inset:0;z-index:2000;background:rgba(20,18,15,.55);
+ /* Audit 30: absolutní okno se na iPhonu posune spolu s tím, jak Safari
+    schovává a ukazuje své lišty – po klepnutí na filtr pak celé rozhraní
+    „uskočilo". Fixed drží okno na obrazovce, ne na dokumentu. */
+.modal{position:fixed;inset:0;z-index:2000;background:rgba(20,18,15,.55);
   display:none;align-items:center;justify-content:center;padding:18px}
 .modal.show{display:flex}
 .mbox{background:var(--card);border-radius:16px;padding:20px;max-width:340px;width:100%;
@@ -500,12 +509,21 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
 <button class="mapbtn leaflet-control zrus" id="btnZrusPark" hidden
         aria-label="Zrušit čáru k parkovišti" title="Zrušit čáru k parkovišti">✕</button>
 
-<div class="mistabar" id="mistaBar" role="status" aria-live="polite">
+<!-- Audit 30: v liště bylo tlačítko „⚙ Filtr" a hned vedle na mapě
+     ozubené kolo – dvě šedá kolečka vedle sebe, obě otevírala totéž
+     okno. A hlavní sdělení byla barevná škála, tedy legenda k tomu,
+     co je stejně vidět na mapě. Teď lišta odpovídá na otázku, kvůli
+     které se člověk dívá: jaká je dneska šance. Celá je klikací a
+     vede do nastavení na filtry; ozubené kolo na mapě zůstává jediné
+     kulaté tlačítko. -->
+<div class="mistabar" id="mistaBar" role="button" tabindex="0" aria-live="polite"
+     aria-label="Šance na nález – klepnutím otevřeš filtry">
+  <span class="sanceTecka" id="sanceTecka" aria-hidden="true"></span>
   <div class="txt" id="stavTxt">
-    <span class="t" id="mistaTxt"></span>
-    <span class="t2" id="rustLegenda"></span>
+    <span class="t" id="rustLegenda"></span>
+    <span class="t2" id="mistaTxt"></span>
   </div>
-  <button id="btnFiltr" aria-label="Nastavit filtry míst">⚙︎ Filtr</button>
+  <span class="sipka" aria-hidden="true">›</span>
 </div>
 
 <div class="banner" id="banner" role="status" aria-live="polite"><span class="close" id="bannerClose" role="button" tabindex="0" aria-label="Zavřít hlášku">✕</span><span id="bannerTxt"></span></div>
@@ -725,7 +743,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v57';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v58';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -840,6 +858,7 @@ function bannerOffset(){
   const hm = vyska($('mistaBar'));
   st.setProperty('--mistaH', hm + 'px');
   st.setProperty('--bannerH', (hu + hb + hr + hm) + 'px');
+  if (typeof odsazeniBublin === 'function') odsazeniBublin();
 }
 function hideBanner(){ $('banner').classList.remove('show'); bannerOffset(); }
 function banner(html, isErr, autoHide){
@@ -870,7 +889,19 @@ $('banner').addEventListener('click', (e) => {
   if (v && typeof v.lat === 'number' && typeof v.lng === 'number') HOME = [v.lat, v.lng]; }
 
 const map = L.map('map', {zoomControl:false, tap:false}).setView(HOME, 10);
+/* Audit 30: odsazení bylo natvrdo 110 px, jenže lišty nahoře mění výšku
+   podle toho, kolik jich zrovna svítí – bublina porostu pak vyjela pod ně
+   a nadpis nebyl vidět. Počítá se to teď ze skutečné změřené výšky. */
 const POPOPT = {maxWidth:280, autoPanPaddingTopLeft:L.point(16,110), autoPanPaddingBottomRight:L.point(16,240)};
+function odsazeniBublin(){
+  const cti = (n) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n)) || 0;
+  const nahore = cti('--safe-t') + 8 + cti('--bannerH') + 16;
+  POPOPT.autoPanPaddingTopLeft = L.point(16, Math.round(nahore));
+  const sh = document.querySelector('.sheet');
+  const dole = sh ? Math.min(360, Math.round(sh.getBoundingClientRect().height -
+              (parseFloat((getComputedStyle(sh).transform.match(/,\s*([-\d.]+)\)$/)||[0,0])[1]) || 0) + 24)) : 240;
+  POPOPT.autoPanPaddingBottomRight = L.point(16, Math.max(120, dole));
+}
 
 /* Audit 4: dokud tu nebylo tohle, byla mapa mimo stažený výřez prostě bílá
    a nic to nevysvětlilo. Šrafovaná dlaždice je vidět na první pohled –
@@ -1590,7 +1621,7 @@ function obnovPark(){
 $('btnKam').onclick = () => kamDnes();
 $('btnSber').onclick = () => najdiLesTady();
 $('kamClose').onclick = () => $('kamModal').classList.remove('show');
-$('btnFiltr').onclick = () => otevriFiltry();
+$('mistaBar').onclick = () => otevriFiltry();
 
 /* Jedna cesta pro označení i přeparkování. Cizí auto se přepisuje až
    po potvrzení – dva lidé u dvou aut si nemají navádět jeden druhého. */
@@ -1860,7 +1891,16 @@ sheetEl.addEventListener('pointerdown', e => {
    přepnul dvakrát a zůstal, kde byl – myší to vypadalo jako mrtvé
    tlačítko, tažením to šlo. Jeden zdroj přepínání stačí. */
 
-window.addEventListener('resize', () => { measureSheet(); applySheet(false); });
+window.addEventListener('resize', () => { measureSheet(); applySheet(false); bannerOffset(); });
+
+/* Audit 30: iPhone mění viditelnou plochu i bez události resize – když
+   Safari schová nebo ukáže svoje lišty. Bez tohohle zůstaly lišty i panel
+   spočítané podle staré výšky a rozhraní vypadalo zaseknuté. */
+if (window.visualViewport){
+  const prepocitat = () => { measureSheet(); applySheet(false); bannerOffset(); };
+  window.visualViewport.addEventListener('resize', prepocitat);
+  window.visualViewport.addEventListener('scroll', prepocitat);
+}
 window.addEventListener('orientationchange', () => setTimeout(()=>{ measureSheet(); applySheet(false); }, 300));
 
 /* ============================================================
@@ -4178,15 +4218,27 @@ function zMrizky(m, u, v){
 
 /* Druhý řádek stavové lišty. Lištu rozsvěcí prekresliMista podle toho,
    jestli je co říct – tady se jen plní text. */
-function zpravaRustu(html){
-  const el = $('rustLegenda');
-  if (!el) return;
-  el.innerHTML = html;
-  $('mistaBar').classList.add('show');
+/* Audit 30: do lišty psaly dvě části kódu najednou – vrstva porostů
+   a vrstva parkovišť – a přepisovaly si navzájem tentýž prvek.
+   Text si proto každá odloží a složí ho jedno místo. */
+let textSance = '', textDetail = '', textMist = '';
+function prekresliListu(){
+  const h = $('rustLegenda'), p = $('mistaTxt');
+  if (h) h.innerHTML = textSance;
+  if (p) p.innerHTML = [textDetail, textMist].filter(Boolean).join(' · ');
+  $('mistaBar').classList.toggle('show', !!(textSance || textMist));
   bannerOffset();
+}
+function zpravaRustu(html, podrobne){
+  textSance = html;
+  if (podrobne !== undefined) textDetail = podrobne;
+  prekresliListu();
 }
 
 function skryjLegenduRustu(){
+  textSance = ''; textDetail = '';
+  prekresliListu();
+  return;
   const el = $('rustLegenda');
   if (!el) return;
   el.innerHTML = '';
@@ -4408,23 +4460,26 @@ async function prekresliRust(){
 }
 
 function ukazLegenduSberu(v){
+  /* Audit 30: „911 ha na houby" je inventura, ne odpověď. Člověk se
+     dívá kvůli tomu, jestli má cenu vyrazit. Šance = nejlepší porost
+     ve výřezu × počasí a sezóna – obojí appka počítá už dřív, jen se
+     to nikde nesešlo do jednoho čísla. Není to věštba a je to tak
+     i napsané: druhý řádek říká, z čeho to číslo vzniklo. */
   const houba = FILTR.druh === 'bedly' ? 'bedly'
-              : FILTR.druh === 'hriby' ? 'hřiby' : 'houby';
+              : FILTR.druh === 'hriby' ? 'hřiby a klouzky' : 'houby';
   const ha = (x) => x < 10 ? x.toFixed(1).replace('.', ',') : Math.round(x);
-  /* Audit 7: tenhle řádek měl přes dvě stě znaků a na iPhonu se usekl
-     uprostřed slova. Do lišty patří číslo, vysvětlení do ℹ️. */
+  const sance = Math.max(0, Math.min(1, (v.nejlepsi || 0) * (v.pocasi || 0)));
+  const s = slovniSance(sance);
+  const t = $('sanceTecka');
+  if (t) t.style.background = s.c;
   zpravaRustu(
-    (v.haNej >= 0.5
-      ? '<b>' + ha(v.haNej) + ' ha</b> na ' + houba
-      : 'Nic na ' + houba + ' (max ' + Math.round(v.nejlepsi*100) + ' %)') +
-    ' <span class="skala">' + BARVY_RUSTU.map((c,i) =>
-      '<i style="background:rgb('+c.join(',')+')" title="' + (i+1) + ' z 5"></i>').join('') + '</span> ' +
-    '<small>' + v.kreslenych + ' porostů · počasí ' + Math.round(v.pocasi*100) + ' %' +
-    /* Audit 22: pod „vše" platí lepší z obou hodnot, takže „vyber houbu"
-       už není výtka – jen se řekne, čeho je tu víc. */
+    '<b>' + s.t.charAt(0).toUpperCase() + s.t.slice(1) + ' šance</b> na ' + houba +
+    ' · <b>' + Math.round(sance*100) + ' %</b>',
+    'nejlepší porost ' + Math.round((v.nejlepsi||0)*100) + ' % × počasí a sezóna ' +
+    Math.round((v.pocasi||0)*100) + ' % · ' +
+    (v.haNej >= 0.5 ? ha(v.haNej) + ' ha vhodného lesa' : 'nic vhodného v dohledu') +
     (FILTR.druh === 'vse' && (v.haBedly || v.haHriby)
-      ? ' · víc na ' + (v.haHriby >= v.haBedly ? 'hřiby' : 'bedly')
-      : '') + '</small>');
+      ? ' · víc na ' + (v.haHriby >= v.haBedly ? 'hřiby' : 'bedly') : ''));
 }
 
 function ukazLegenduRustu(mr, podilLesa){
@@ -4764,13 +4819,12 @@ function prekresliMistaBrzy(){
 }
 
 async function prekresliMista(){
-  const bar = $('mistaBar'), txt = $('mistaTxt');
+  const txt = {set innerHTML(v){ textMist = v; prekresliListu(); }};
   if (!map.hasLayer(mistaVrstva)){
     mistaVrstva.clearLayers(); mistaNaMape.clear();
-    bar.classList.remove('show'); bannerOffset();
+    textMist = ''; prekresliListu();
     return;
   }
-  bar.classList.add('show'); bannerOffset();
 
   if (map.getZoom() < ZOOM_MISTA){
     mistaVrstva.clearLayers(); mistaNaMape.clear();
@@ -4814,11 +4868,8 @@ async function prekresliMista(){
       if (d < nejd){ nejd = d; nej = m; }
     }
     if (nej && nejd < 60000){
-      txt.innerHTML = 'Nejbližší <b>' + fmtDist(nejd) + '</b> · ' +
-        smerSlovy([stred.lat, stred.lng], [nej.lat, nej.lng]) +
-        ' <button id="skocNaMisto">Ukázat</button>';
-      const b2 = $('skocNaMisto');
-      if (b2) b2.onclick = () => map.setView([nej.lat, nej.lng], Math.max(map.getZoom(), 13));
+      txt.innerHTML = 'nejbližší parkoviště ' + fmtDist(nejd) + ' ' +
+        smerSlovy([stred.lat, stred.lng], [nej.lat, nej.lng]);
     } else {
       txt.innerHTML = 'Tady žádná evidovaná parkoviště nejsou';
     }
