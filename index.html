@@ -150,7 +150,7 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
   padding:8px 12px calc(var(--safe-b) + 10px);
   max-height:calc(100dvh - 96px); overflow:hidden;
   transition:transform .28s cubic-bezier(.22,.61,.36,1), max-height .28s cubic-bezier(.22,.61,.36,1);
-  will-change:transform;touch-action:pan-y
+  will-change:transform,max-height;touch-action:pan-y
 }
 .sheet.dragging{transition:none}
 
@@ -184,24 +184,42 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
    náhodou, ne záměrem. Řešit se to musí jinde, ne zrušením
    něčeho, co bylo vybrané.
    ============================================================ */
-.sheet.peek{background:transparent;border-top:0;box-shadow:none;padding-top:20px}
+.sheet.peek{background:transparent;border-top:0;box-shadow:none;padding-top:44px}
 /* Úchyt se musí umístit vůči panelu, ne vůči hlavě – jinak by seděl
    až za odsazením, tedy přesně na tlačítkách. */
 .sheet.peek .sheet-head{position:static}
-/* Audit 47: bledá šedá pilulka nad mapou zanikala. Úchyt je jediná
-   cesta k tomu, co je pod tlačítky, takže musí být vidět na první
-   pohled: zelená appky, bílá šipka, výraznější stín. Zelená drží
-   kontrast na světlé mapě i na ztlumené noční. */
+/* ============================================================
+   Audit 51: JEDEN ÚCHYT PRO OBA STAVY
+
+   Vytažený panel měl světlou pilulku (iOS idiom), složený zelený nub
+   se šipkou. Dva různé jazyky na jednom místě – a ten zelený byl
+   66×18 px, dva pixely nad tlačítky, takže vypadal spíš jako ozdoba
+   než jako ovladač.
+
+   Teď je v obou stavech TÁŽ pilulka. Ve složeném stavu jen sedí
+   v tmavé průsvitné kapsli, aby byla vidět nad mapou – stejná kapsle
+   a stejné rozostření jako lišta s podmínkami nahoře, takže složený
+   panel mluví stejným jazykem jako zbytek appky.
+
+   Zelená odsud mizí schválně: v appce nikde jinde takhle nefiguruje
+   a nad mapou plnou zelených ploch se ztrácela.
+
+   Cena: odsazení shora vyrostlo z 20 na 44 px, takže složený pruh je
+   o 24 px vyšší. To je vědomá výměna za úchyt, na který se dá trefit.
+   ============================================================ */
 .sheet.peek .grab{
-  position:absolute;left:50%;top:0;transform:translateX(-50%);
-  width:66px;height:18px;margin:0;border-radius:99px;
-  background:var(--green);box-shadow:0 2px 7px rgba(0,0,0,.4);
+  position:absolute;left:50%;top:4px;transform:translateX(-50%);
+  width:104px;height:28px;margin:0;border-radius:99px;
+  background:rgba(28,28,25,.72);
+  border:1px solid rgba(255,255,255,.16);
+  -webkit-backdrop-filter:blur(16px) saturate(150%);
+  backdrop-filter:blur(16px) saturate(150%);
+  box-shadow:0 4px 14px rgba(0,0,0,.26);
   display:flex;align-items:center;justify-content:center
 }
 .sheet.peek .grab::before{
-  content:'';width:11px;height:11px;margin-top:3px;
-  border-left:2.5px solid #fff;border-top:2.5px solid #fff;
-  transform:rotate(45deg);border-radius:1px
+  content:'';width:44px;height:5px;border-radius:99px;
+  background:#ece7de;border:0;transform:none;margin:0
 }
 /* úchyt na vytažení – malý proužek, ale velká dotyková plocha kolem něj */
 .grab{width:44px;height:5px;border-radius:99px;background:#cfc9bf;margin:0 auto 7px;position:relative;
@@ -967,7 +985,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v83';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v84';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1606,7 +1624,7 @@ function renderCar(){
     if (typeof renderPeopleList === 'function') renderPeopleList();
     $('btnPark').style.display = '';
     $('carNav').style.display = 'none';
-    if (typeof measureSheet === 'function'){ measureSheet(); applySheet(false); }
+    if (typeof prepocitatPanel === 'function') prepocitatPanel(true);
     return;
   }
   const ll = [c.lat, c.lng];
@@ -1628,7 +1646,7 @@ function renderCar(){
   $('carNav').style.display = 'block';
   if (typeof renderPeopleList === 'function') renderPeopleList();
   updateCarNav();
-  if (typeof measureSheet === 'function'){ measureSheet(); applySheet(false); }
+  if (typeof prepocitatPanel === 'function') prepocitatPanel(true);
 }
 
 function updateCarNav(){
@@ -1902,7 +1920,7 @@ function ptejSe(otazka, popisekAno, akce){
   $('carPtam')._akce = akce;
   clearTimeout($('carPtam')._t);
   $('carPtam')._t = setTimeout(skryjPtani, 12000);
-  if (typeof measureSheet === 'function'){ measureSheet(); applySheet(false); }
+  if (typeof prepocitatPanel === 'function') prepocitatPanel(true);
 }
 function skryjPtani(){
   const p = $('carPtam'); if (!p) return;
@@ -1910,7 +1928,7 @@ function skryjPtani(){
   p.hidden = true; p._akce = null;
   $('carAkce').hidden = false;
   $('btnCarAgain').dataset.jistota = '';
-  if (typeof measureSheet === 'function'){ measureSheet(); applySheet(false); }
+  if (typeof prepocitatPanel === 'function') prepocitatPanel(true);
 }
 $('btnCarNo').onclick = () => skryjPtani();
 $('btnCarYes').onclick = () => {
@@ -2095,7 +2113,7 @@ function nastavDno(){
   }
 }
 
-function measureSheet(){
+function measureSheet(plne){
   nastavDno();
   const carNav = document.getElementById('carNav');
   const naviguju = carNav && carNav.offsetParent !== null;
@@ -2123,11 +2141,18 @@ function measureSheet(){
      u prvku bez posuvníku chová podle nastavení overflow, což je přesně
      ta nejistota, kterou tu nechceme. Strop proto na okamžik sundáme,
      poctivě změříme a vrátíme ho – to platí v každém prohlížeči stejně. */
-  const puvodniStrop = sheetEl.style.maxHeight;
-  if (puvodniStrop) sheetEl.style.maxHeight = 'none';
-  const plnaVyska = Math.round(sheetEl.getBoundingClientRect().height);
-  if (puvodniStrop) sheetEl.style.maxHeight = puvodniStrop;
-  peekOffset = Math.max(0, plnaVyska - headVyska);
+  /* Audit 52: tohle měření je drahé – sundá strop, donutí prohlížeč
+     přepočítat rozvržení a strop vrátí. Dřív běželo při každém volání
+     measureSheet, tedy i na každý posun mapy (visualViewport hlásí
+     scroll průběžně). Odtud škubání. `peekOffset` přitom potřebuje
+     jen tažení prstem a diagnostika, ne přepočet po změně viewportu. */
+  if (plne){
+    const puvodniStrop = sheetEl.style.maxHeight;
+    if (puvodniStrop) sheetEl.style.maxHeight = 'none';
+    const plnaVyska = Math.round(sheetEl.getBoundingClientRect().height);
+    if (puvodniStrop) sheetEl.style.maxHeight = puvodniStrop;
+    peekOffset = Math.max(0, plnaVyska - headVyska);
+  }
 }
 
 function applySheet(animate){
@@ -2177,14 +2202,47 @@ function applySheet(animate){
      Že není co schovávat, se pozná samo – strop se nastaví na výšku,
      kterou panel stejně má, a nic to neudělá. */
   const slozeno = sheetPeek;
+  /* Audit 52: PANEL PO STARTU CUKAL
+
+     applySheet se volal po každé události viewportu a pokaždé sáhl na
+     třídu, transform i strop – i když všechny tři měly už tu správnou
+     hodnotu. Každý takový zápis znamená přepočet rozvržení a při
+     `dragging` (transition:none) i viditelný skok. Když se nic nemění,
+     nesmí se sahat na nic. */
+  const strop = slozeno ? (headVyska + 'px') : '';
+  if (sheetEl.classList.contains('peek') === slozeno
+      && sheetEl.style.maxHeight === strop
+      && sheetEl.style.transform === 'translateY(0px)'){
+    if (!animate) sheetEl.classList.remove('dragging');
+    return;
+  }
   /* Audit 45: třída .peek mění rozvržení hlavy – zmizí podklad a úchyt
      jde mimo tok. Kdyby se výška měřila před ní, ořezali bychom panel
      na míru, kterou už nemá. Nasadit, pak změřit, pak ořezat. */
   sheetEl.classList.toggle('peek', slozeno);
-  if (slozeno) measureSheet();
+  if (slozeno){
+    measureSheet();
+    sheetEl.style.maxHeight = headVyska + 'px';
+  } else {
+    sheetEl.style.maxHeight = '';
+  }
   sheetEl.style.transform = 'translateY(0px)';
-  sheetEl.style.maxHeight = slozeno ? (headVyska + 'px') : '';
   if (!animate) requestAnimationFrame(()=> sheetEl.classList.remove('dragging'));
+}
+
+/* Audit 52: události, které panel přepočítávají, chodí v hejnech –
+   visualViewport hlásí scroll průběžně při posunu mapy. Sloučíme je
+   na jeden přepočet za snímek; víc než jednou za snímek se stejně
+   nic nevykreslí. */
+let prepocetCeka = false;
+function prepocitatPanel(plne){
+  if (prepocetCeka) return;
+  prepocetCeka = true;
+  requestAnimationFrame(() => {
+    prepocetCeka = false;
+    measureSheet(plne);
+    applySheet(false);
+  });
 }
 
 function setSheetPeek(v, animate){
@@ -2192,7 +2250,7 @@ function setSheetPeek(v, animate){
   LS.set('sheetPeek', sheetPeek);
   const g = $('grab');
   if (g) g.setAttribute('aria-expanded', sheetPeek ? 'false' : 'true');
-  measureSheet();
+  measureSheet(true);
   applySheet(animate !== false);
 }
 
@@ -2236,7 +2294,7 @@ sheetEl.addEventListener('pointerdown', e => {
      na počítači nedal ani složit, ani vytáhnout – úchyt nedělal nic. */
   const onGrab = !!e.target.closest('.grab');
   if (!onGrab && !draggableTarget(e.target)) return;
-  measureSheet();
+  measureSheet(true);
   if (peekOffset <= 0) return;
   dragStartY = dragLastY = e.clientY;
   dragLastT = Date.now();
@@ -2258,7 +2316,7 @@ sheetEl.addEventListener('pointerdown', e => {
    přepnul dvakrát a zůstal, kde byl – myší to vypadalo jako mrtvé
    tlačítko, tažením to šlo. Jeden zdroj přepínání stačí. */
 
-window.addEventListener('resize', () => { measureSheet(); applySheet(false); bannerOffset(); });
+window.addEventListener('resize', () => { prepocitatPanel(true); bannerOffset(); });
 
 /* Audit 50: tělo panelu se plní až po startu – seznam lidí, navigace
    k autu, popisky. Dřív se na to čekalo přes rozptýlené volání
@@ -2270,7 +2328,7 @@ if (typeof ResizeObserver === 'function'){
     let cekam = null;
     new ResizeObserver(() => {
       clearTimeout(cekam);
-      cekam = setTimeout(() => { measureSheet(); applySheet(false); }, 60);
+      cekam = setTimeout(() => prepocitatPanel(true), 60);
     }).observe(telo);
   }
 }
@@ -2280,17 +2338,17 @@ if (typeof ResizeObserver === 'function'){
    spočítané podle staré výšky a rozhraní vypadalo zaseknuté. */
 /* Fonty a emoji mění výšku tlačítek až po prvním vykreslení. */
 if (document.fonts && document.fonts.ready){
-  document.fonts.ready.then(() => { measureSheet(); applySheet(false); bannerOffset(); });
+  document.fonts.ready.then(() => { prepocitatPanel(true); bannerOffset(); });
 }
-window.addEventListener('load', () => { measureSheet(); applySheet(false); bannerOffset(); });
-window.addEventListener('pageshow', () => { measureSheet(); applySheet(false); bannerOffset(); });
+window.addEventListener('load', () => { prepocitatPanel(true); bannerOffset(); });
+window.addEventListener('pageshow', () => { prepocitatPanel(true); bannerOffset(); });
 
 if (window.visualViewport){
-  const prepocitat = () => { measureSheet(); applySheet(false); bannerOffset(); };
+  const prepocitat = () => { prepocitatPanel(false); bannerOffset(); };
   window.visualViewport.addEventListener('resize', prepocitat);
   window.visualViewport.addEventListener('scroll', prepocitat);
 }
-window.addEventListener('orientationchange', () => setTimeout(()=>{ measureSheet(); applySheet(false); }, 300));
+window.addEventListener('orientationchange', () => setTimeout(()=> prepocitatPanel(true), 300));
 
 /* ============================================================
    NÁLEZY
@@ -7392,8 +7450,11 @@ kresliHistorii();
 kresliNejlepsi();
 renderCar();
 renderPeopleList();
-measureSheet(); applySheet(false);
-window.addEventListener('load', () => { measureSheet(); applySheet(false); });
+/* Audit 52: tohle jedine volani zustava synchronni. Kdyby slo pres
+   slucovac, panel by prvni snimek stravil nezlozeny - a to je presne
+   ten bily pruh, ktery jsme opravovali. */
+measureSheet(true); applySheet(false);
+window.addEventListener('load', () => prepocitatPanel(true));
 if (!state.name) askName();
 setShare(false);                 // výchozí stav je VYP, vždy
 initFirebase();
