@@ -222,6 +222,7 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .bigbtn.sber:disabled{opacity:.6}
 .bigbtn.kam{background:#2e5c3a;margin-bottom:8px}
 .bigbtn.lens{background:#585048;margin-bottom:8px}
+.podtitulek{font-size:11px;line-height:1.4;color:var(--muted);margin:-2px 0 10px}
 .bigbtn.kam:disabled{opacity:.6}
 .kamlok{border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:10px;background:#fbfaf7}
 .kamlok.prvni{border-color:var(--green);border-width:2px;background:#f2f7f2}
@@ -514,7 +515,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
        V hlavě zůstává jen to, co se mačká v lese: najdi les + auto.
        „Kam dnes" se plánuje doma, ta patří do vytaženého panelu. -->
   <div class="hlavniradek">
-    <button class="bigbtn sber" id="btnSber">🌲 &nbsp;Najdi mi les</button>
+    <button class="bigbtn sber" id="btnSber">🌲 &nbsp;Najdi les kolem mě</button>
     <button class="bigbtn auto" id="btnPark" aria-label="Označit, kde stojí auto">🚗<span class="pop2">Označit<br>auto</span></button>
   </div>
 
@@ -545,7 +546,10 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
  </div>
 
  <div class="sheet-body">
-  <button class="bigbtn kam" id="btnKam">🍄 &nbsp;Kam dnes na houby?</button>
+  <button class="bigbtn kam" id="btnKam">🚗 &nbsp;Kam vyrazit autem?</button>
+  <p class="podtitulek">Nahoře <b>les kolem mě</b> – nejbližší vhodný porost do 15 km od místa,
+  kde právě stojíš. Hned, bez počasí. Tady <b>kam vyrazit autem</b> – projde 7 672 míst v celé ČR,
+  spočítá dojezd od domova a přidá srážky za tři týdny.</p>
   <!-- Audit 13: kontrola houby byla schovaná v drobné liště jako „Určit".
        Zápis nálezu je přitom pro nečleny zamčený, takže tohle je jediná
        věc, kterou s houbou v ruce udělat jde – patří na plné tlačítko. -->
@@ -1215,11 +1219,116 @@ const ortofoto = new ArcDlazdice('', {
   errorTileUrl: PRAZDNA_DLAZDICE, attribution: '&copy; ČÚZK ortofoto'
 });
 
+/* ============================================================
+   KDE JE NĚKDO VIDĚL – komunitní pozorování z GBIF
+   Audit 14: „Kde sbírat" je odvozené z map – druh dřevin a stáří
+   porostu proti tomu, co která houba chce. Je to model, ne pozorování.
+   Tahle vrstva je jeho protiváha: 1 535 míst, kde někdo houbu opravdu
+   vyfotil a odborně určil. Dá se tím porovnat, jestli model sedí.
+
+   Data: GBIF.org, převážně iNaturalist research-grade. Staženo
+   29. 8. 2026, ČR, jen záznamy s uvedenou přesností do 1 000 m.
+   Medián přesnosti 12 m, devět z deseti do 267 m. Roky 1873–2026,
+   medián 2024. Po měsících sedí na sezónu: září 462, říjen 430,
+   srpen 280 – to je nezávislé potvrzení sezónní křivky v appce.
+
+   Co to NENÍ: mapa výskytu hub. Je to mapa toho, kde chodí lidi
+   s foťákem. Kde nikdo nefotí, není bod – a to o houbách neříká nic.
+   Proto se tahle vrstva nezapočítává do skóre ani do doporučení;
+   je čistě na koukání a porovnání. */
+const gbifVrstva = L.layerGroup();
+let gbifData = null, gbifNacitam = false;
+
+async function nactiGbif(){
+  if (gbifData || gbifNacitam) return gbifData;
+  gbifNacitam = true;
+  try {
+    const r = await fetch('nalezy-gbif.json', {cache:'force-cache'});
+    if (!r.ok) throw new Error('stav ' + r.status);
+    gbifData = await r.json();
+  } catch(e){
+    banner('<b>Komunitní pozorování se nepodařilo načíst.</b> Ostatní vrstvy fungují dál.', false, 8000);
+    gbifData = null;
+  }
+  gbifNacitam = false;
+  return gbifData;
+}
+
+const MES_CZ = ['','leden','únor','březen','duben','květen','červen',
+                'červenec','srpen','září','říjen','listopad','prosinec'];
+
+function gbifSedi(skupina){
+  if (FILTR.druh === 'vse') return true;
+  return skupina === FILTR.druh;
+}
+
+async function kresliGbif(){
+  if (!map.hasLayer(gbifVrstva)) return;
+  const d = await nactiGbif();
+  gbifVrstva.clearLayers();
+  if (!d) return;
+  const meze = map.getBounds().pad(0.2);
+  const z = map.getZoom();
+  let vykresleno = 0, skryto = 0;
+  d.body.forEach(b => {
+    const [di, la, ln, rok, mes, presnost] = b;
+    const druh = d.druhy[di];
+    if (!gbifSedi(druh[1])){ skryto++; return; }
+    if (!meze.contains([la, ln])) return;
+    const bedla = druh[1] === 'bedly';
+    const barva = bedla ? '#b8860b' : '#8b4513';
+    /* Poloměr kolečka = skutečná nepřesnost souřadnice. Kdo se
+       přiblíží, vidí rovnou, jestli je bod na metry nebo na půl kilometru. */
+    if (z >= 14 && presnost > 0){
+      L.circle([la, ln], {radius: presnost, color: barva, weight: 1,
+        opacity: .35, fillOpacity: .06, interactive: false}).addTo(gbifVrstva);
+    }
+    L.circleMarker([la, ln], {
+      radius: z >= 13 ? 6 : 4, color: '#fff', weight: 1.5,
+      fillColor: barva, fillOpacity: .95
+    }).bindPopup(
+      '<div class="pop"><h3>' + druh[0] + '</h3>' +
+      '<div class="sub">Někdo tady tuhle houbu vyfotil a určil.</div>' +
+      '<table>' +
+      '<tr><td>Kdy</td><td>' + (mes ? MES_CZ[mes] + ' ' : '') + (rok || 'neuvedeno') + '</td></tr>' +
+      '<tr><td>Přesnost</td><td>' + (presnost >= 0 ? '±' + presnost + ' m' : 'neuvedena') + '</td></tr>' +
+      '<tr><td>Zdroj</td><td>GBIF / iNaturalist</td></tr>' +
+      '</table>' +
+      '<p class="pozn" style="margin:8px 0 0;font-size:11px">Jeden nález z jednoho dne. ' +
+      'Neříká, že tam houby jsou i teď – ani že jinde nejsou.</p></div>', POPOPT
+    ).addTo(gbifVrstva);
+    vykresleno++;
+  });
+  const t = $('gbifPocet');
+  if (t) t.textContent = vykresleno;
+}
+
+map.on('overlayadd', async (e) => {
+  if (e.layer !== gbifVrstva) return;
+  await kresliGbif();
+  /* Audit 14: kolem Mratína je těch bodů sedm do deseti kilometrů.
+     Kdyby to appka neřekla, vypadala by vrstva rozbitě. Řekne rovnou,
+     kolik jich ve výřezu je a proč jich jinde bývá víc. */
+  const d = gbifData;
+  if (!d) return;
+  const meze = map.getBounds();
+  const tady = d.body.filter(b => meze.contains([b[1], b[2]])).length;
+  banner('<b>Komunitní pozorování zapnuta.</b> V tomhle výřezu ' +
+    (tady === 0 ? 'nemám ani jedno' :
+     tady === 1 ? 'je 1 bod' :
+     tady < 5   ? 'jsou ' + tady + ' body' : 'je ' + tady + ' bodů') +
+    ' z celkem 1 535 v ČR. Je to mapa toho, <b>kde chodí lidi s foťákem</b> – ' +
+    'kde nikdo nefotí, není bod, a to o houbách neříká nic.', false, 11000);
+});
+map.on('moveend zoomend', () => { if (map.hasLayer(gbifVrstva)) kresliGbif(); });
+map.on('overlayremove', (e) => { if (e.layer === gbifVrstva) gbifVrstva.clearLayers(); });
+
 L.control.layers({
   'Mapa': tiles,
   'Letecká (ČÚZK)': ortofoto
 }, {
   '<b>Kde sbírat</b> – porosty podle tvojí houby': rustVrstva,
+  '<b>Kde je někdo viděl</b> – 1 535 pozorování (GBIF)': gbifVrstva,
   '<b>Ověřené tipy</b> – 16 popsaných míst': overeneTipy,
   '<b>Místa z map</b> – celá ČR podle filtrů': mistaVrstva
 }, {collapsed:true}).addTo(map);
@@ -3511,7 +3620,7 @@ function vykresliFiltrPanel(){
   $('filtrObsah').innerHTML = filtryHTML();
   /* Houba mění i mapu růstu – sezónní křivka bedly a hřibu není stejná,
      tak se obarvení lesa po změně filtru přepočítá. */
-  pripojFiltry('filtrObsah', () => { vykresliFiltrPanel(); prekresliMista(); prekresliRustBrzy(); });
+  pripojFiltry('filtrObsah', () => { vykresliFiltrPanel(); prekresliMista(); prekresliRustBrzy(); kresliGbif(); });
 }
 /* Audit 9: filtry mají svoje místo v Nastavení. Lišta míst na ně
    jen skočí, ať se za nimi nemusí rolovat. */

@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v46';
+const VER        = 'houby-v47';
 const SHELL      = VER + '-shell';
 
 /* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
@@ -33,6 +33,7 @@ const SHELL_FILES = [
   './index.html',
   './config.js',
   './manifest.json',
+  './nalezy-gbif.json',
   './icon-180.png',
   './icon-192.png',
   './icon-512.png',
