@@ -742,17 +742,6 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
   <div class="mbox">
     <h2>Nastavení</h2>
 
-    <section class="sekce" id="sekceFiltr">
-      <h3>Co ti mám ukazovat na mapě</h3>
-      <div id="filtrObsah"></div>
-      <p class="pozn"><b>Houba</b> mění obarvení lesa, jeho hodnocení v procentech
-      i to, která parkoviště se ukážou. <b>Porost</b> mění, které porosty se obarví a
-      která parkoviště projdou. Obojí platí pro mapu i pro doporučení.<br>
-      <b>Dojezd a chráněná území mění jen „Kam vyrazit autem"</b> – na mapě nepoznáš
-      nic. U dojezdu se musí ptát navigace a u rezervací server AOPK, a to bod po bodu;
-      při posouvání mapy by to znamenalo tisíce dotazů.</p>
-    </section>
-
     <section class="sekce" id="sekceDomov">
       <h3>Domov</h3>
       <p class="pozn" id="domovKde"></p>
@@ -775,6 +764,29 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
          Dynamické bloky se vkládají před tenhle prvek. -->
     <div id="pomoc"></div>
     <div class="dole"><button id="legendClose">Uložit</button></div>
+  </div>
+</div>
+
+<!-- Audit 38: ozubené kolo i lišta s podmínkami otevíraly jedno a totéž
+     okno o 3 821 px, tedy 5,7 obrazovky iPhonu. Filtry v něm byly nahoře
+     a zbytek – vrstvy, offline mapy, oblíbená, domov, jméno, rodina a
+     nápověda – pod nimi. Dvě různé práce v jednom svitku.
+
+     Filtry se mění před každou vycházkou a musí být na jedno klepnutí
+     z lišty. Nastavení se otevře jednou za čas. Proto dvě okna:
+     lišta → tohle, kolo → Nastavení. -->
+<div class="modal" role="dialog" aria-modal="true" id="filtrModal">
+  <div class="mbox">
+    <h2>Co hledáme</h2>
+    <div id="filtrObsah"></div>
+    <details class="napoveda"><summary>Co která volba ovlivňuje</summary>
+    <p class="pozn"><b>Houba</b> mění obarvení lesa, jeho hodnocení v procentech
+    i to, která parkoviště se ukážou. <b>Porost</b> mění, které porosty se obarví a
+    která parkoviště projdou. Obojí platí pro mapu i pro doporučení.<br>
+    <b>Dojezd a chráněná území mění jen „Kam vyrazit autem"</b> – na mapě nepoznáš
+    nic. U dojezdu se musí ptát navigace a u rezervací server AOPK, a to bod po bodu;
+    při posouvání mapy by to znamenalo tisíce dotazů.</p></details>
+    <div class="dole"><button id="filtrClose">Hotovo</button></div>
   </div>
 </div>
 
@@ -852,7 +864,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v66';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v67';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -3605,6 +3617,11 @@ async function nactiMista(){
 
 /* ---------- filtry ---------- */
 const FILTR = LS.get('filtr', {druh:'vse', minuty:60, chranena:true, porost:'vse'});
+/* Audit 38: skupina „Hřibovité" už nemá tlačítko. Komu zůstala uložená
+   z minulé verze, tomu by v filtru nesvítilo nic a nešlo by poznat, co
+   je vlastně vybrané. Převedeme ji na „Vše" – je to nejbližší význam
+   a zapíše se hned, ať se to neopakuje. */
+if (FILTR.druh === 'hriby'){ FILTR.druh = 'vse'; LS.set('filtr', FILTR); }
 function ulozFiltr(){ LS.set('filtr', FILTR); }
 
 function sedíPorost(m){
@@ -3979,15 +3996,27 @@ function filtryHTML(){
   const chip = (skup, hod, popis) =>
     '<button class="fchip' + (FILTR[skup] === hod ? ' on' : '') + '" data-f="' + skup + '" data-v="' + hod + '">' + popis + '</button>';
   return '<div class="filtry">' +
-    /* Audit 33: rozdělit tenhle jeden filtr do dvou řádků („Houba"
-       a „Konkrétně") byla chyba – vypadalo to jako dvě samostatná
-       nastavení a při volbě „Vše" byl celý druhý řádek šedý, jako by
-       nefungoval. Je to jedna volba z devíti: nejdřív tři hrubé,
-       pak šest konkrétních, oddělené jen tenkou čárou. */
+    /* Audit 33: rozdělit tenhle filtr do dvou řádků („Houba" a
+       „Konkrétně") byla chyba – vypadalo to jako dvě samostatná
+       nastavení a při volbě „Vše" byl druhý řádek šedý, jako by
+       nefungoval.
+
+       Audit 38: jenže i jeden řádek míchal dvě úrovně. Nahoře stály
+       vedle sebe „Hřibovité" (skupina o šesti druzích) a „Bedly"
+       (jeden druh), pod čarou pak šest konkrétních – a všech šest
+       bylo hřibovitých. Bedla se tedy tvářila jako skupina, do které
+       se nedá vejít, a mezi druhy chyběla.
+
+       Teď je to jedna rovina: „Vše" a pod ním sedm druhů v pořadí,
+       v jakém se u nás sbírají. Skupina „Hřibovité" zmizela – kdo
+       nechce vybírat, klepne na Vše, což je totéž jako dřív, jen
+       o jeden druh širší. */
+    /* Oddělovač tu byl proto, aby oddělil skupiny od druhů. Úrovně
+       jsou teď jen jedna, takže by dělil jen „Vše" od zbytku a nechával
+       ho samotné na řádku – sto pixelů za nic. */
     '<div class="fr"><span>Houba</span><div>' +
-      chip('druh','vse','Vše') + chip('druh','hriby','Hřibovité') + chip('druh','bedly','Bedly') +
-      '<span class="oddelovac" aria-hidden="true"></span>' +
-      ['hrib_smrkovy','hrib_dubovy','masak','klouzky','kremenac','kozak']
+      chip('druh','vse','Vše') +
+      ['bedly','hrib_smrkovy','hrib_dubovy','kremenac','kozak','klouzky','masak']
         .map(k => chip('druh', k, HOUBY[k].kratkyChip)).join('') +
       '<p class="pozn popisHouby">' + popisHouby() + '</p>' +
     '</div></div>' +
@@ -4022,11 +4051,17 @@ function vykresliFiltrPanel(){
      tak se obarvení lesa po změně filtru přepočítá. */
   pripojFiltry('filtrObsah', () => { vykresliFiltrPanel(); prekresliMista(); prekresliRustBrzy(); kresliGbif(); });
 }
-/* Audit 9: filtry mají svoje místo v Nastavení. Lišta míst na ně
-   jen skočí, ať se za nimi nemusí rolovat. */
+/* Audit 38: filtry mají vlastní okno. Dřív byly sekcí v Nastavení a
+   lišta na ně jen odrolovala – jenže pod nimi zůstalo dalších pět
+   obrazovek cizích věcí a nebylo poznat, kde volba končí. */
 function otevriFiltry(){
-  otevriNastaveni('sekceFiltr');
+  vykresliFiltrPanel();
+  const m = $('filtrModal');
+  m.classList.add('show');
+  const box = m.querySelector('.mbox');
+  if (box) box.scrollTop = 0;
 }
+$('filtrClose').onclick = () => $('filtrModal').classList.remove('show');
 
 /* ---------- místa na mapě ---------- */
 /* Body se překreslují při každém posunu mapy. Kdyby se vrstva pokaždé
@@ -6184,7 +6219,10 @@ function refreshPomoc(){
   if (!el || el.dataset.hotovo) return;
   el.dataset.hotovo = '1';
   el.innerHTML =
-    '<details class="napoveda" open><summary>Jak se v appce hledají místa</summary>' +
+    /* Audit 38: tenhle blok měl 1 736 px – skoro polovinu celého okna
+       nastavení – a byl rozbalený. Čte se jednou; přepínače nad ním
+       každou vycházku. Sbalený jako zbylé dva. */
+    '<details class="napoveda"><summary>Jak se v appce hledají místa</summary>' +
     '<p><b>🌲 Najdi mi les tady</b> je nejrychlejší cesta: appka vezme, kde stojíš, ' +
     'zeptá se ČÚZK na porosty v okolí patnácti kilometrů, vybere ten, který nejlíp sedí ' +
     'na houbu z filtru, a skočí na něj.<br><br>' +
@@ -6296,7 +6334,6 @@ function otevriNastaveni(kam){
       banner('Zkopírovat to nešlo. Odkaz je vypsaný nad tlačítkem, dá se označit prstem.', false, 8000);
     }
   };
-  vykresliFiltrPanel();
   refreshDomov();
   $('whoTxt').textContent = state.name || 'bez jména';
   refreshPomoc();
