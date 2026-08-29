@@ -73,6 +73,8 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
    sedělo přes plusko zoomu. Teď je z něj opravdový ovladač Leafletu,
    takže se řadí do stejného sloupce jako vrstvy a zoom a překrýt je
    nemůže na žádné šířce. */
+.mapbtn[hidden]{display:none!important}
+.mapbtn.zrus{color:#a8431f;font-weight:700}
 .mapbtn{
   width:48px;height:48px;border-radius:10px;background:var(--card);
   border:2px solid rgba(0,0,0,.2);box-shadow:0 1px 5px rgba(0,0,0,.4);
@@ -490,6 +492,11 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      polovinu displeje. Je z toho jeden panel o dvou řádcích; každý
      řádek je useknutý na jednu řádku a klepnutím se rozbalí celý. -->
 <button class="mapbtn leaflet-control" id="btnLegend" aria-label="Nastavení a nápověda" title="Nastavení">⚙</button>
+<!-- Audit 17: oranžová čára k parkovišti se dala nakreslit, ale ne
+     zrušit – zůstávala na mapě, dokud jsi nenakreslil jinou. Tlačítko
+     je vidět jen tehdy, když nějaká čára je. -->
+<button class="mapbtn leaflet-control zrus" id="btnZrusPark" hidden
+        aria-label="Zrušit čáru k parkovišti" title="Zrušit čáru k parkovišti">✕</button>
 
 <div class="mistabar" id="mistaBar" role="status" aria-live="polite">
   <div class="txt" id="stavTxt">
@@ -553,7 +560,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
   <!-- Audit 13: kontrola houby byla schovaná v drobné liště jako „Určit".
        Zápis nálezu je přitom pro nečleny zamčený, takže tohle je jediná
        věc, kterou s houbou v ruce udělat jde – patří na plné tlačítko. -->
-  <button class="bigbtn lens" id="btnLupa">🔍 &nbsp;Určit houbu přes Lens</button>
+  <button class="bigbtn lens" id="btnLupa" aria-label="Vyfotit houbu nebo vybrat fotku z galerie a poslat ji do Google Lens">🔍 &nbsp;Určit houbu přes Lens</button>
   <div class="row">
     <div class="toggle" id="tgShare" role="switch" tabindex="0" aria-checked="false" aria-label="Sdílím polohu">
       <div class="sw" aria-hidden="true"><i></i></div>
@@ -573,7 +580,13 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
     <div class="mini" id="btnFind2" role="button" tabindex="0" aria-label="Zapsat nález houby"><b aria-hidden="true">🍄</b>Nález</div>
     <div class="mini" id="btnTrasa" role="button" tabindex="0" aria-label="Začít nebo ukončit záznam trasy"><b aria-hidden="true">⏺</b>Trasa</div>
   </div>
-  <input type="file" id="lupaInput" accept="image/*" capture="environment" hidden>
+  <!-- Audit 16: „capture" natvrdo otevřel fotoaparát a nedalo se vybrat
+       fotku, kterou už máš. Bez něj se telefon zeptá sám – na iPhonu
+       „Knihovna fotografií / Vyfotit / Vybrat soubor". Jedno klepnutí,
+       a volba je na tobě. U zápisu nálezu capture zůstává schválně:
+       tam se k fotce ukládá poloha, kde právě stojíš, takže stará
+       fotka z galerie by nález umístila na špatné místo. -->
+  <input type="file" id="lupaInput" accept="image/*" hidden>
  </div>
 </div>
 
@@ -1358,6 +1371,21 @@ const OvladacNastaveni = L.Control.extend({
 });
 map.addControl(new OvladacNastaveni());
 
+const OvladacZrus = L.Control.extend({
+  options: {position:'topright'},
+  onAdd(){ const el = document.getElementById('btnZrusPark');
+           L.DomEvent.disableClickPropagation(el);
+           return el; }
+});
+map.addControl(new OvladacZrus());
+
+function zrusParkCaru(){
+  if (parkVrstva){ map.removeLayer(parkVrstva); parkVrstva = null; }
+  const b = document.getElementById('btnZrusPark');
+  if (b) b.hidden = true;
+}
+document.getElementById('btnZrusPark').onclick = zrusParkCaru;
+
 L.control.zoom({position:'topright', zoomInTitle:'Přiblížit', zoomOutTitle:'Oddálit'}).addTo(map);
 
 /* Audit 6: appka se otevírala na celou republiku, kde nejde ukázat ani
@@ -2074,7 +2102,7 @@ function navodLens(voSchrance){
       ? '<p class="pozn"><b>Fotka je ve schránce.</b> Otevři Lens a v poli pro obrázek ji vlož ' +
         '(podrž prst a dej Vložit).</p>'
       : '<p class="pozn">Otevři Lens, klepni na ikonu obrázku a vyber fotku z galerie ' +
-        '– je tam poslední, kterou jsi vyfotil.</p>') +
+        '– tu, kterou jsi právě vybral nebo vyfotil.</p>') +
     '<a class="fotobtn" style="border-style:solid;color:var(--ink)" target="_blank" rel="noopener" href="' + LENS_WEB + '">🔍 &nbsp;Otevřít Google Lens</a>' +
     '<p class="pozn"><b>Ani Lens, ani tahle appka nerozhoduje, co je jedlé.</b> ' +
     'Lens řekne, co si myslí, že na fotce je. Houbu držíš v ruce ty – ' +
@@ -4905,9 +4933,11 @@ async function kdeZaparkovat(lat, lng, jmenoPorostu){
           'appka o něm neví – to uvidíš na místě.</div></div>', POPOPT)
     ]).addTo(map);
 
+    document.getElementById('btnZrusPark').hidden = false;
     map.fitBounds(L.latLngBounds([[cil.lat, cil.lng], [lat, lng]]).pad(0.35));
     banner('<b>Zaparkuj ' + fmtDist(cil.d) + ' od porostu</b> · ' + zdroj +
-           '. Oranžová čárkovaná vede k místu' + (jmenoPorostu ? ' (' + jmenoPorostu + ')' : '') + '.', false, 12000);
+           '. Oranžová čárkovaná vede k místu' + (jmenoPorostu ? ' (' + jmenoPorostu + ')' : '') +
+           '. Zrušíš ji křížkem vpravo nahoře.', false, 12000);
   } catch(e){
     banner('<b>Parkování se nepodařilo najít.</b> ' + e.message, true, 9000);
   }
