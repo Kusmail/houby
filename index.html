@@ -540,7 +540,9 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
     <div class="mini" id="btnCar" role="button" tabindex="0" aria-label="Posunout mapu na zaparkované auto"><b aria-hidden="true">🚗</b>Na auto</div>
     <div class="mini" id="btnFind2" role="button" tabindex="0" aria-label="Zapsat nález houby"><b aria-hidden="true">🍄</b>Nález</div>
     <div class="mini" id="btnTrasa" role="button" tabindex="0" aria-label="Začít nebo ukončit záznam trasy"><b aria-hidden="true">⏺</b>Trasa</div>
+    <div class="mini" id="btnLupa" role="button" tabindex="0" aria-label="Vyfotit houbu a poslat ji do Google Lens"><b aria-hidden="true">🔍</b>Určit</div>
   </div>
+  <input type="file" id="lupaInput" accept="image/*" capture="environment" hidden>
  </div>
 </div>
 
@@ -608,6 +610,14 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
     <button id="trackSave">Uložit trasu</button>
     <button class="ghost" id="trackNic">Nic jsem nenašel</button>
     <button class="ghost" id="trackDrop">Zahodit</button>
+  </div>
+</div>
+
+<div class="modal" role="dialog" aria-modal="true" id="lupaModal">
+  <div class="mbox">
+    <h2>Určit houbu</h2>
+    <div id="lupaObsah"></div>
+    <button class="ghost" id="lupaClose">Zavřít</button>
   </div>
 </div>
 
@@ -1797,6 +1807,93 @@ function zmensiFotku(file, maxHrana, kvalita){
   });
 }
 
+/* ============================================================
+   URČENÍ HOUBY PŘES GOOGLE LENS
+   Audit 10: tlačítko „Určit v jiné appce" tu bylo napůl. Ukázalo se
+   jen tehdy, když prohlížeč umí sdílet soubory, a když ne, tak
+   se neukázalo nic – ani vysvětlení. A i když se ukázalo, otevřelo
+   holou nabídku sdílení bez jediného slova o tom, co v ní hledat.
+   Doděláno na tři cesty, v tomhle pořadí:
+     1) navigator.share se souborem – na iPhonu je v nabídce Google
+        („Hledat pomocí Lens"), pokud má člověk appku Google;
+     2) fotka do schránky + otevřený lens.google.com;
+     3) jen otevřený lens.google.com s návodem, kam fotku pustit.
+   Lens ani tahle appka NEROZHODUJE, co je jedlé. Lens řekne, co si
+   myslí, že na fotce je; jestli to sníš, je na tobě a tvých očích. */
+const LENS_WEB = 'https://lens.google.com/';
+
+async function posliDoLens(soubor){
+  // 1) nativní sdílení souboru – nejlepší cesta na telefonu
+  if (navigator.canShare && navigator.canShare({files:[soubor]}) && navigator.share){
+    try {
+      await navigator.share({files:[soubor], title:'Houba – určit'});
+      banner('V nabídce vyber <b>Google</b> a pak <b>Hledat pomocí Lens</b>. ' +
+             'Co Lens napíše, je jeho odhad – <b>jestli je houba jedlá, rozhoduješ ty</b>.', false, 12000);
+      return 'share';
+    } catch(err){
+      if (err && err.name === 'AbortError') return 'zrušeno';   // člověk nabídku zavřel
+      /* jinak spadneme na další cestu */
+    }
+  }
+  // 2) zkusit fotku do schránky, ať se dá v Lens rovnou vložit
+  let voSchrance = false;
+  try {
+    if (navigator.clipboard && window.ClipboardItem){
+      const png = await naPng(soubor);
+      await navigator.clipboard.write([new ClipboardItem({'image/png': png})]);
+      voSchrance = true;
+    }
+  } catch(err){ voSchrance = false; }
+  navodLens(voSchrance);
+  return voSchrance ? 'schránka' : 'návod';
+}
+
+/* Lens na webu bere jen PNG/JPEG ze schránky, ne datovou URL. */
+function naPng(soubor){
+  return new Promise((res, rej) => {
+    const img = new Image();
+    const url = URL.createObjectURL(soubor);
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b ? res(b) : rej(new Error('canvas')), 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('obrázek')); };
+    img.src = url;
+  });
+}
+
+function navodLens(voSchrance){
+  $('lupaObsah').innerHTML =
+    '<p class="pozn">Tenhle prohlížeč neumí poslat fotku rovnou do jiné appky, ' +
+    'tak to musíš dojít ručně – jsou to dvě klepnutí.</p>' +
+    (voSchrance
+      ? '<p class="pozn"><b>Fotka je ve schránce.</b> Otevři Lens a v poli pro obrázek ji vlož ' +
+        '(podrž prst a dej Vložit).</p>'
+      : '<p class="pozn">Otevři Lens, klepni na ikonu obrázku a vyber fotku z galerie ' +
+        '– je tam poslední, kterou jsi vyfotil.</p>') +
+    '<a class="fotobtn" style="border-style:solid;color:var(--ink)" target="_blank" rel="noopener" href="' + LENS_WEB + '">🔍 &nbsp;Otevřít Google Lens</a>' +
+    '<p class="pozn"><b>Ani Lens, ani tahle appka nerozhoduje, co je jedlé.</b> ' +
+    'Lens řekne, co si myslí, že na fotce je. Houbu držíš v ruce ty – ' +
+    'pochvu, prstenec a barvu na řezu na fotce nikdo neuvidí.</p>';
+  $('lupaModal').classList.add('show');
+}
+$('lupaClose').onclick = () => $('lupaModal').classList.remove('show');
+window.__lens = posliDoLens;   /* jen pro testovací prostředí */
+
+/* Rychlá kontrola bez zapisování nálezu – tlačítko 🔍 Určit v panelu. */
+$('btnLupa').onclick = () => $('lupaInput').click();
+$('lupaInput').onchange = async e => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  try { await posliDoLens(f); }
+  catch(err){ banner('Fotku se nepodařilo poslat dál. Zkus to znovu, nebo otevři Lens ručně.', true); }
+};
+
 $('fotoInput').onchange = async e => {
   const f = e.target.files && e.target.files[0];
   if (!f) return;
@@ -1804,19 +1901,22 @@ $('fotoInput').onchange = async e => {
   try {
     fotoNahledData = await zmensiFotku(f, 320, 0.6);
     const kb = Math.round(fotoNahledData.length * 0.75 / 1024);
-    let html = '<img src="' + fotoNahledData + '" alt="náhled">';
-    // sdílení do jiné appky – Lens, Fotky, cokoli máš
-    if (navigator.canShare && navigator.canShare({files: [f]})){
-      html += '<button class="urcit" id="btnUrcit">🔍 &nbsp;Určit v jiné appce</button>';
-    }
-    $('fotoNahled').innerHTML = html;
+    /* Audit 10: tlačítko je tu vždycky. Když prohlížeč sdílet neumí,
+       nezmizí – jen vede na návod, jak fotku do Lens dostat ručně. */
+    $('fotoNahled').innerHTML =
+      '<img src="' + fotoNahledData + '" alt="náhled">' +
+      '<button class="urcit" id="btnUrcit">🔍 &nbsp;Určit v Google Lens</button>';
     $('fotoNahled').classList.add('show');
     $('findPozn').innerHTML = 'Náhled ' + kb + ' kB se uloží k nálezu. ' +
       '<b>Tahle appka neurčuje, co je jedlé</b> – od toho jsi tu ty a tvoje oči.';
     const bu = $('btnUrcit');
-    if (bu) bu.onclick = async () => {
-      try { await navigator.share({files: [fotoSoubor], title: 'Houba'}); }
-      catch(err){ /* uživatel sdílení zavřel, nic se neděje */ }
+    bu.onclick = async () => {
+      bu.disabled = true;
+      const puv = bu.innerHTML;
+      bu.textContent = 'Posílám…';
+      try { await posliDoLens(fotoSoubor); }
+      catch(err){ banner('Fotku se nepodařilo poslat dál. Zkus to znovu, nebo otevři Lens ručně.', true); }
+      finally { bu.disabled = false; bu.innerHTML = puv; }
     };
   } catch(err){
     banner('Fotku se nepodařilo zpracovat, nález ulož i bez ní.', false, 8000);
