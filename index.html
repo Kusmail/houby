@@ -729,7 +729,8 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
        a volba je na tobě. U zápisu nálezu capture zůstává schválně:
        tam se k fotce ukládá poloha, kde právě stojíš, takže stará
        fotka z galerie by nález umístila na špatné místo. -->
-  <input type="file" id="lupaInput" accept="image/*" hidden>
+  <input type="file" id="lupaInput" accept="image/*" capture="environment" hidden>
+  <input type="file" id="lupaGalerie" accept="image/*" hidden>
  </div>
 </div>
 
@@ -966,7 +967,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v82';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v83';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2476,7 +2477,7 @@ let lupaSoubor = null;
 
 $('btnLupa').onclick = () => $('lupaInput').click();
 
-$('lupaInput').onchange = async e => {
+async function lupaZFotky(e){
   const f = e.target.files && e.target.files[0];
   e.target.value = '';
   if (!f) return;
@@ -2485,12 +2486,23 @@ $('lupaInput').onchange = async e => {
   try { nahled = '<img src="' + (await zmensiFotku(f, 420, 0.7)) + '" alt="náhled" ' +
                  'style="width:100%;border-radius:11px;display:block;margin-bottom:12px">'; }
   catch(err){ /* náhled je hezký, ne nutný */ }
-  $('lupaObsah').innerHTML = nahled +
+  /* Audit 43: tlačítko patří nahoru, pod palec. Náhled je jen kontrola,
+     že fotka sedí – nemusí zabírat půl obrazovky. iOS nedovolí odeslat
+     do jiné appky bez klepnutí člověka, takže tenhle jeden krok zůstat
+     musí; může ale být okamžitý a na ráně. */
+  $('lupaObsah').innerHTML =
     '<button id="btnPosliLens" style="margin-bottom:10px">📤 &nbsp;Poslat do Google Lens</button>' +
-    '<p class="pozn">Otevře se nabídka sdílení – vyber v ní <b>Google</b> a pak ' +
-    '<b>Hledat pomocí Lens</b>. <b>Ani Lens, ani tahle appka nerozhoduje, co je jedlé.</b> ' +
+    '<p class="pozn" style="margin-bottom:10px">V nabídce vyber <b>Google</b> → ' +
+    '<b>Hledat pomocí Lens</b>. Podržením ikony Google v nabídce si ji přesuneš dopředu ' +
+    'a příště je to jedno klepnutí.</p>' +
+    nahled +
+    '<button class="ghost" id="btnLupaZnovu" style="margin-bottom:6px">📷 &nbsp;Vyfotit znovu</button>' +
+    '<button class="ghost" id="btnLupaGal" style="margin-bottom:10px">🖼 &nbsp;Vybrat z galerie</button>' +
+    '<p class="pozn"><b>Ani Lens, ani tahle appka nerozhoduje, co je jedlé.</b> ' +
     'Pochvu, prstenec a barvu na řezu na fotce nikdo neuvidí.</p>';
   $('lupaModal').classList.add('show');
+  $('btnLupaZnovu').onclick = () => $('lupaInput').click();
+  $('btnLupaGal').onclick   = () => $('lupaGalerie').click();
   $('btnPosliLens').onclick = async () => {
     const b = $('btnPosliLens');
     b.disabled = true; b.textContent = 'Otevírám…';
@@ -2501,7 +2513,9 @@ $('lupaInput').onchange = async e => {
       banner('Fotku se nepodařilo poslat dál. Zkus to znovu, nebo otevři Lens ručně.', true);
     } finally { b.disabled = false; b.innerHTML = '📤 &nbsp;Poslat do Google Lens'; }
   };
-};
+}
+$('lupaInput').onchange   = lupaZFotky;
+$('lupaGalerie').onchange = lupaZFotky;
 
 $('fotoInput').onchange = async e => {
   const f = e.target.files && e.target.files[0];
