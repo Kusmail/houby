@@ -82,7 +82,24 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   color:var(--ink);background:var(--bg);
   -webkit-text-size-adjust:100%}
-#map{position:absolute;top:0;left:0;right:0;bottom:0}
+/* ============================================================
+   Audit 44: STRÁNKA JE KRATŠÍ NEŽ DISPLEJ
+
+   Ve appce z ikonky končí plocha stránky 59 px nad spodní hranou
+   displeje – ověřeno rozborem snímku: pod panelem svítí přesně
+   #f6f4ef, tedy pozadí stránky, ne mapa a ne panel.
+
+   Dokud se panel skládal posunem dolů, tenhle pruh nechtěně zakrýval
+   a nebylo ho vidět; zato se o něj pokaždé natáhl složený pruh. Odtud
+   těch padesát až šedesát pixelů navíc, které se nedařilo najít –
+   hledal jsem chybu ve výpočtu výšky, jenže výška byla správně a
+   posunutý byl celý spodek stránky.
+
+   --dno je ta mezera. Mapa i panel se o ni protáhnou dolů, takže
+   sahají na skutečný okraj displeje. Když mezera není (Safari,
+   počítač), --dno je nula a nic se nemění.
+   ============================================================ */
+#map{position:absolute;top:0;left:0;right:0;bottom:calc(-1 * var(--dno, 0px))}
 .sheet, .mistabar, .banner, .updbar, .recbar{position:fixed}
 
 /* ---------- horní lišta ---------- */
@@ -127,7 +144,7 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
 
 /* ---------- spodní panel ---------- */
 .sheet{
-  position:absolute;left:0;right:0;bottom:0;z-index:1200;
+  position:absolute;left:0;right:0;bottom:calc(-1 * var(--dno, 0px));z-index:1200;
   background:var(--card);border-top:1px solid var(--line);
   border-radius:16px 16px 0 0;box-shadow:0 -3px 18px rgba(0,0,0,.16);
   padding:8px 12px calc(var(--safe-b) + 10px);
@@ -899,7 +916,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v74';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v75';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2002,7 +2019,33 @@ function odHornihoOkraje(el){
   return Math.round(el.getBoundingClientRect().bottom - sheetEl.getBoundingClientRect().top);
 }
 
+/* Mezera mezi spodní hranou plochy stránky a spodkem displeje.
+   #map má position:absolute a bottom je vázané na tutéž plochu jako
+   panel, ale nemá žádnou transformaci – je to tedy poctivé měřítko.
+   Strop 160 px, ať se z nesmyslné hodnoty nestane díra přes půl mapy. */
+function zmerDno(){
+  const m = document.getElementById('map');
+  if (!m) return 0;
+  const puvodni = document.documentElement.style.getPropertyValue('--dno');
+  document.documentElement.style.setProperty('--dno', '0px');
+  const d = Math.round(window.innerHeight - m.getBoundingClientRect().bottom);
+  if (puvodni) document.documentElement.style.setProperty('--dno', puvodni);
+  return Math.max(0, Math.min(160, d));
+}
+
+let dnoPx = 0;
+function nastavDno(){
+  const d = zmerDno();
+  if (d === dnoPx) return;
+  dnoPx = d;
+  document.documentElement.style.setProperty('--dno', d + 'px');
+  if (typeof map !== 'undefined' && map && map.invalidateSize) {
+    setTimeout(() => { try { map.invalidateSize(false); } catch(e){} }, 0);
+  }
+}
+
 function measureSheet(){
+  nastavDno();
   const carNav = document.getElementById('carNav');
   const naviguju = carNav && carNav.offsetParent !== null;
   const posledni = naviguju ? carNav : sheetEl.querySelector('.hlavniradek');
@@ -2013,8 +2056,11 @@ function measureSheet(){
      takže cokoli nad to je chyba měření, ne bezpečná zóna – a strop
      ji utne. Když prohlížeč hlásí míň, respektuje se jeho hodnota. */
   const SAFE_MAX = 34;
+  /* Po protažení dolů sahá panel na skutečný okraj displeje, takže
+     stačí odstup na čárku domovské obrazovky – těch 34 px. Přičítat
+     k tomu celé protažení by pruh zbytečně nafouklo. */
   const safeB = Math.min(SAFE_MAX, parseFloat(getComputedStyle(document.documentElement)
-                  .getPropertyValue('--safe-b')) || 0);
+                  .getPropertyValue('--safe-b')) || 0) || SAFE_MAX;
   const MEZERA = 6;                        // aby řádek nesplýval s okrajem displeje
   headVyska = posledni
     ? odHornihoOkraje(posledni) + MEZERA + safeB
@@ -6112,6 +6158,8 @@ function diagnostika(){
       ' · složeno ' + (sh.classList.contains('peek') ? 'ano' : 'ne') +
       ' · uloženo ' + (LS.get('sheetPeek', true) ? 'složeno' : 'vytaženo') +
       ' · strop ' + (sh.style.maxHeight || 'žádný') +
+      '<br>plocha stránky končí ' + dnoPx + ' px nad spodkem displeje' +
+      ' · spodek panelu ' + Math.round(r.bottom) + ' z ' + window.innerHeight +
       '</div>';
   } catch(e){ return ''; }
 }
