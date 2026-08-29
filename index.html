@@ -724,6 +724,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
+const APP_VERZE = 'houby-v53';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1332,7 +1333,11 @@ async function kresliGbif(){
 
 map.on('overlayadd', async (e) => {
   if (e.layer !== gbifVrstva) return;
+  /* Příznak se musí přečíst TEĎ, ne po awaitu – než se dokreslí, je
+     obnovování dávno hotové a hláška by vyskočila i po startu. */
+  const zeStartu = obnovujiVrstvy;
   await kresliGbif();
+  if (zeStartu) return;
   /* Audit 14: kolem Mratína je těch bodů sedm do deseti kilometrů.
      Kdyby to appka neřekla, vypadala by vrstva rozbitě. Řekne rovnou,
      kolik jich ve výřezu je a proč jich jinde bývá víc. */
@@ -1350,6 +1355,44 @@ map.on('overlayadd', async (e) => {
 map.on('moveend zoomend', () => { if (map.hasLayer(gbifVrstva)) kresliGbif(); });
 map.on('overlayremove', (e) => { if (e.layer === gbifVrstva) gbifVrstva.clearLayers(); });
 
+/* ============================================================
+   Audit 21: která vrstva je zapnutá
+   Leaflet si výběr nepamatuje a nová vrstva („Ověřené nálezy") se
+   objevila vypnutá – kdo o ní nevěděl, nikdy ji neviděl. Pravidlo:
+   při první návštěvě a po každé aktualizaci appky jsou zapnuté
+   všechny; pak už se pamatuje, co sis vypnul, dokud nepřijde další
+   verze. Klíč je verze appky, ne datum – aktualizace se pozná spolehlivě.
+   ============================================================ */
+const VRSTVY = {rust: null, gbif: null, mista: null};
+let obnovujiVrstvy = false;
+
+function ulozVrstvy(){
+  if (obnovujiVrstvy) return;
+  LS.set('vrstvy', {
+    verze: APP_VERZE,
+    rust:  map.hasLayer(rustVrstva),
+    gbif:  map.hasLayer(gbifVrstva),
+    mista: map.hasLayer(mistaVrstva)
+  });
+}
+
+function obnovVrstvy(){
+  const v = LS.get('vrstvy', null);
+  const poAktualizaci = !v || v.verze !== APP_VERZE;
+  obnovujiVrstvy = true;
+  const chci = poAktualizaci ? {rust:true, gbif:true, mista:true} : v;
+  [[rustVrstva, chci.rust], [gbifVrstva, chci.gbif], [mistaVrstva, chci.mista]].forEach(([vr, zap]) => {
+    if (zap && !map.hasLayer(vr)) map.addLayer(vr);
+    if (!zap && map.hasLayer(vr)) map.removeLayer(vr);
+  });
+  obnovujiVrstvy = false;
+  LS.set('vrstvy', {verze: APP_VERZE, rust: chci.rust, gbif: chci.gbif, mista: chci.mista});
+  if (poAktualizaci && v) {
+    banner('<b>Nová verze appky</b> – zapnul jsem zpátky všechny tři vrstvy, ' +
+           'ať ti nic neuteče. Vypnout je můžeš ikonou vrstev vpravo nahoře.', false, 9000);
+  }
+}
+
 L.control.layers({
   'Mapa': tiles,
   'Letecká (ČÚZK)': ortofoto
@@ -1358,6 +1401,9 @@ L.control.layers({
   '<b>Ověřené nálezy</b> – 1 535 pozorování (GBIF)': gbifVrstva,
   '<b>Parkoviště</b> – 7 656 míst u lesa v celé ČR': mistaVrstva
 }, {collapsed:true}).addTo(map);
+
+map.on('overlayadd overlayremove', ulozVrstvy);
+obnovVrstvy();
 
 /* Na letecké mapě jsou tmavé polygony porostů špatně vidět – zesvětlí se. */
 map.on('baselayerchange', (e) => {
@@ -6215,7 +6261,24 @@ if ('serviceWorker' in navigator){
       // jinak by prohlížeč mohl novou verzi přehlédnout až na den
       const reg = await navigator.serviceWorker.register('sw.js', {updateViaCache: 'none'});
 
-      if (reg.waiting && navigator.serviceWorker.controller) nabidniAktualizaci(reg);
+      /* Audit 21: nabídka „Načíst" dává smysl, když appku zrovna používáš –
+         přerušit tě uprostřed hledání by bylo horší než počkat. Ale když
+         appku teprve otevíráš a nová verze už čeká, není co přerušovat:
+         vezme se rovnou. Na ploše (appka z ikonky) je to tím pádem bez
+         ptaní, stejně jako u normálních aplikací. Pojistka proti smyčce:
+         jednou za spuštění. */
+      if (reg.waiting && navigator.serviceWorker.controller){
+        let uzJsemToZkusil = false;
+        try { uzJsemToZkusil = sessionStorage.getItem('hb_update_pokus') === '1'; } catch(e){}
+        if (!uzJsemToZkusil){
+          try { sessionStorage.setItem('hb_update_pokus', '1'); } catch(e){}
+          chystamePrenacteni = true;
+          reg.waiting.postMessage('prevzit-rizeni');
+          setTimeout(() => location.reload(), 2500);
+        } else {
+          nabidniAktualizaci(reg);
+        }
+      }
 
       reg.addEventListener('updatefound', () => {
         const novy = reg.installing;
