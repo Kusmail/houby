@@ -19,7 +19,7 @@
 :root{
   --ink:#1d1b17; --muted:#6b6560; --line:#e3ded4; --card:#fff; --bg:#f6f4ef;
   --green:#2e5c3a; --green-l:#3f7d4f;
-  --park:#1d6fd6; --area:#2e8b45; --home:#c02a2a; --route:#7a4b18;
+  --sloupec:400px; --park:#1d6fd6; --area:#2e8b45; --home:#c02a2a; --route:#7a4b18;
   --car:#e07b1a; --me:#1d6fd6; --other:#8e44ad; --stale:#9a948d;
   --danger:#c0392b;
   --safe-b:env(safe-area-inset-bottom,0px);
@@ -379,7 +379,22 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .leaflet-control-layers{font-size:12.5px}
 .leaflet-top.leaflet-right{margin-top:calc(var(--safe-t) + 56px + var(--bannerH,0px));transition:margin-top .2s}
 .leaflet-control-zoom{display:none}
-@media(min-width:820px){ .leaflet-control-zoom{display:block} .sheet{max-width:420px;right:auto;border-radius:16px;left:12px;bottom:12px;border:1px solid var(--line)} }
+/* Audit 7: na počítači se všechny lišty roztahovaly přes celou šířku
+   monitoru, takže dvě slova plavala ve 1400 px prázdna a mapy bylo
+   míň než na telefonu. Na širokém displeji z toho dělám jeden levý
+   sloupec – panel, hláška i lišta míst mají stejnou šířku a mapa
+   dostane zbytek. Telefon zůstává beze změny. */
+@media(min-width:820px){
+  .leaflet-control-zoom{display:block}
+  .sheet{width:var(--sloupec);max-width:var(--sloupec);right:auto;border-radius:16px;left:12px;bottom:12px;border:1px solid var(--line)}
+  .top{left:12px;right:auto;width:var(--sloupec)}
+  .banner{left:12px;right:auto;width:var(--sloupec)}
+  .recbar{left:12px;right:auto;width:var(--sloupec)}
+  .mistabar{left:12px;right:auto;width:var(--sloupec)}
+  .updbar{left:12px;right:auto;width:var(--sloupec)}
+  .leaflet-top.leaflet-right{margin-top:12px}
+}
+@media(min-width:1200px){ :root{--sloupec:440px} }
 </style>
 </head>
 <body>
@@ -915,34 +930,58 @@ tiles.addTo(map);
 
 /* Jedna chybějící dlaždice je běžná. Když jich naprší víc najednou,
    je to celý kus mapy a stojí za to říct proč. Jednou za spuštění. */
-/* Audit 6: tahle hláška křičela i nad mapou, která byla celá vidět.
-   Počítaly se jen chybějící dlaždice, ne ty načtené – jenže při každém
-   posunu se pár dlaždic nestihne a OSM občas jednu odmítne. Teď se
-   porovnává: hláška má smysl jen když se nedaří VĚTŠINA dlaždic, a ne
-   v prvních vteřinách po spuštění, kdy se stahuje celá obrazovka. */
+/* Audit 7: hláška pořád křičela nad mapou, která byla celá vidět.
+   Důvod: Leaflet hlásí 'tileerror' i pro dlaždice, které sám zrušil
+   během zoomu – ty už nejsou v DOMu a nikomu nechybí. A hlavně:
+   nic se nečíslovalo. Teď se před hláškou opravdu zkusí stáhnout
+   jedna dlaždice; když přijde, appka mlčí. Žádné věštění. */
 let chybejiciDlazdice = 0, nactenychDlazdic = 0, reklJsemOdlazdicich = false, dlazdiceTimer = null;
+let zrusenychDlazdic = 0, overujiDlazdici = false;
 const startAppky = Date.now();
 tiles.on('tileload', () => { nactenychDlazdic++; });
-tiles.on('tileerror', () => {
+tiles.on('tileerror', (e) => {
+  /* dlaždice, kterou Leaflet sundával při zoomu, není chyba serveru */
+  if (e && e.tile && !e.tile.parentNode){ zrusenychDlazdic++; return; }
   chybejiciDlazdice++;
   clearTimeout(dlazdiceTimer);
-  dlazdiceTimer = setTimeout(() => {
+  dlazdiceTimer = setTimeout(async () => {
     const vsech = chybejiciDlazdice + nactenychDlazdic;
     const podilChyb = vsech ? chybejiciDlazdice / vsech : 0;
-    if (reklJsemOdlazdicich || chybejiciDlazdice < 6 ||
-        (navigator.onLine && podilChyb < 0.5) ||
-        Date.now() - startAppky < 6000){
+    if (reklJsemOdlazdicich || overujiDlazdici || chybejiciDlazdice < 8 ||
+        (navigator.onLine && podilChyb < 0.6) ||
+        Date.now() - startAppky < 8000){
       chybejiciDlazdice = 0; nactenychDlazdic = 0; return;
     }
+    if (!navigator.onLine){
+      reklJsemOdlazdicich = true;
+      banner('<b>Tuhle oblast nemáš staženou.</b> Jsi bez signálu a mapové dlaždice v telefonu nejsou. Poloha, auto i trasa fungují dál – jen pod nimi není mapa.', false, 12000);
+      chybejiciDlazdice = 0; nactenychDlazdic = 0; return;
+    }
+    /* než začnu křičet, zkusím to sám */
+    overujiDlazdici = true;
+    const c = map.getCenter(), z = Math.max(3, Math.min(18, map.getZoom()));
+    const n = Math.pow(2, z);
+    const x = Math.floor((c.lng + 180) / 360 * n);
+    const lr = c.lat * Math.PI / 180;
+    const y = Math.floor((1 - Math.log(Math.tan(lr) + 1/Math.cos(lr)) / Math.PI) / 2 * n);
+    let zivy = false;
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 5000);
+      const r = await fetch('https://tile.openstreetmap.org/' + z + '/' + x + '/' + y + '.png?ov=' + Date.now(),
+                            {cache:'no-store', signal: ctrl.signal});
+      clearTimeout(t);
+      zivy = r.ok;
+    } catch(_){ zivy = false; }
+    overujiDlazdici = false;
+    if (zivy){ chybejiciDlazdice = 0; nactenychDlazdic = 0; return; }
     reklJsemOdlazdicich = true;
-    banner(navigator.onLine
-      ? '<b>Šrafovaná místa se nepodařilo načíst.</b> Server s mapou zrovna neodpovídá – zkus to za chvíli, nebo si výřez stáhni doma na Wi-Fi.'
-      : '<b>Tuhle oblast nemáš staženou.</b> Jsi bez signálu a šrafovaná místa v telefonu nejsou. Poloha, auto i trasa fungují dál – jen pod nimi není mapa.',
-      false, 12000);
+    banner('<b>Mapový podklad zrovna nechodí.</b> Z posledních ' + vsech + ' dlaždic se nenačetlo ' + chybejiciDlazdice +
+           ' a zkusil jsem si ještě jednu stáhnout – taky nepřišla. Zkus to za chvíli. Porosty, poloha i trasa fungují dál.',
+           false, 12000);
     chybejiciDlazdice = 0; nactenychDlazdic = 0;
-  }, 1200);
-});
-L.control.scale({imperial:false}).addTo(map);
+  }, 1500);
+});L.control.scale({imperial:false}).addTo(map);
 
 function pinIcon(cls, txt, size){
   const s = size || 24;
@@ -997,10 +1036,14 @@ function popupHTML(d, index){
    2 288 ha a jeden z nich vedl přes pole a obec s nulou procent lesa.
    Plocha se teď odvozuje z dat až na vyžádání – tlačítkem v bublině
    nebo z doporučení „Kam dnes". Na mapě zůstává parkoviště a trasa. */
+/* Audit 7: hnědé čárkované smyčky jsem sem kdysi nakreslil rukou.
+   Přeměřeno proti ZABAGED: smyčka „Meze a remízky Sluhy–Bášť–Předboj"
+   má ve své obálce 211 ha, z toho 5,1 ha lesa = 2,4 %. Na mapě to
+   ale vypadalo jako vyznačená houbařská trasa přes pole. Kreslila
+   se tedy lež. Na mapě zůstává jen parkoviště (to je ověřené) a
+   plochy z dat. Trasa se ukáže jen tomu, kdo si o ni v bublině řekne. */
 LOC.forEach((d, idx) => {
-  const g = overeneTipy;
-  L.polyline(d.route, {color:'#7a4b18', weight:2.5, opacity:.75, dashArray:'7,7'}).addTo(g);
-  L.marker(d.park, {icon: pinIcon('park','P')}).bindPopup(() => popupHTML(d, idx), POPOPT).addTo(g);
+  L.marker(d.park, {icon: pinIcon('park','P')}).bindPopup(() => popupHTML(d, idx), POPOPT).addTo(overeneTipy);
 });
 
 /* Letecký podklad z ČÚZK. Z ptačí perspektivy je vidět, jestli je to
