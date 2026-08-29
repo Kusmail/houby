@@ -763,7 +763,11 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
          každou vycházku – tak jsou vysvětlivky sbalené a ovládání nahoře.
          Dynamické bloky se vkládají před tenhle prvek. -->
     <div id="pomoc"></div>
-    <div class="dole"><button id="legendClose">Uložit</button></div>
+    <!-- Audit 38: tlačítko říkalo „Uložit", ale nic neukládá – každá
+         volba v Nastavení se zapisuje hned při klepnutí a tohle okno
+         jen zavírá. Slovo slibovalo krok, který neexistuje, a kdo ho
+         nestiskl, mohl si myslet, že o změny přišel. -->
+    <div class="dole"><button id="legendClose">Hotovo</button></div>
   </div>
 </div>
 
@@ -864,7 +868,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v67';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v68';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
