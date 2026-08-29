@@ -724,7 +724,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v53';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v54';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2162,14 +2162,45 @@ function navodLens(voSchrance){
 $('lupaClose').onclick = () => $('lupaModal').classList.remove('show');
 window.__lens = posliDoLens;   /* jen pro testovací prostředí */
 
-/* Rychlá kontrola bez zapisování nálezu – tlačítko 🔍 Určit v panelu. */
+/* ============================================================
+   Audit 23: proč to na iPhonu končilo návodem místo Lensu
+
+   navigator.share smí iOS spustit JEN z klepnutí, které udělal člověk.
+   Appka ho volala z okamžiku, kdy se vrátila vybraná fotka – a to už
+   klepnutí není, je to událost fotoaparátu. Safari share zamítl,
+   a protože zamítnutí vypadá stejně jako „tenhle prohlížeč to neumí",
+   spadlo to na náhradní cestu s odkazem, kam se fotka nahrává znovu.
+   Řešení: po vybrání fotky se ukáže náhled a tlačítko. Odeslání
+   pak vychází z klepnutí, které udělal člověk, a Safari ho pustí. */
+let lupaSoubor = null;
+
 $('btnLupa').onclick = () => $('lupaInput').click();
+
 $('lupaInput').onchange = async e => {
   const f = e.target.files && e.target.files[0];
   e.target.value = '';
   if (!f) return;
-  try { await posliDoLens(f); }
-  catch(err){ banner('Fotku se nepodařilo poslat dál. Zkus to znovu, nebo otevři Lens ručně.', true); }
+  lupaSoubor = f;
+  let nahled = '';
+  try { nahled = '<img src="' + (await zmensiFotku(f, 420, 0.7)) + '" alt="náhled" ' +
+                 'style="width:100%;border-radius:11px;display:block;margin-bottom:12px">'; }
+  catch(err){ /* náhled je hezký, ne nutný */ }
+  $('lupaObsah').innerHTML = nahled +
+    '<button id="btnPosliLens" style="margin-bottom:10px">📤 &nbsp;Poslat do Google Lens</button>' +
+    '<p class="pozn">Otevře se nabídka sdílení – vyber v ní <b>Google</b> a pak ' +
+    '<b>Hledat pomocí Lens</b>. <b>Ani Lens, ani tahle appka nerozhoduje, co je jedlé.</b> ' +
+    'Pochvu, prstenec a barvu na řezu na fotce nikdo neuvidí.</p>';
+  $('lupaModal').classList.add('show');
+  $('btnPosliLens').onclick = async () => {
+    const b = $('btnPosliLens');
+    b.disabled = true; b.textContent = 'Otevírám…';
+    try {
+      const jak = await posliDoLens(lupaSoubor);
+      if (jak === 'share') $('lupaModal').classList.remove('show');
+    } catch(err){
+      banner('Fotku se nepodařilo poslat dál. Zkus to znovu, nebo otevři Lens ručně.', true);
+    } finally { b.disabled = false; b.innerHTML = '📤 &nbsp;Poslat do Google Lens'; }
+  };
 };
 
 $('fotoInput').onchange = async e => {
@@ -3895,18 +3926,42 @@ let sberKlic = null, sberAbort = null;
 /* Plátno místo SVG: stovky porostů se na telefonu překreslují plynule. */
 const rustPlatno = L.canvas({padding: 0.3});
 
+/* ============================================================
+   Audit 22: „vše" bylo horší než obojí zvlášť
+
+   Průměr byl chyba, a měřitelná: ve VŠECH 16 kombinacích porostu a
+   výšky vyšel průměr níž než lepší z obou hodnot. Přes práh 70 %,
+   od kterého se počítají „hektary na houby", prošly u bedel 4 z 16
+   kombinací, u hřibů 8 z 16 – ale u „vše" jenom 2. Odtud to, čeho
+   sis všiml: na „vše" appka ukazovala míň než na „hřiby a klouzky".
+
+   Logika je přitom prostá: „vše" znamená, že bereš cokoli. Když je
+   smrčina výborná na hřiby, je pro tebe výborná i tehdy, když ti je
+   jedno, co přineseš. Platí tedy LEPŠÍ z obou, ne průměr.
+
+   Ano, mapa je pak pod „vše" zelenější. To není chyba zobrazení –
+   je to pravda o českém lese: skoro v každém porostu roste něco.
+   Rozlišení nezmizí, jen se přesune z „kreslit / nekreslit" do
+   odstínu a do toho, co ti appka o porostu napíše. */
 function vhodnostPorostu(druh, vyska){
-  const bedlove = FILTR.druh === 'bedly';
   const t = (klic) => {
     const d = VHODNOST[klic][druh] || VHODNOST[klic]['bez určení'];
     return d[vyska] !== undefined ? d[vyska] : 0.4;
   };
   if (FILTR.druh === 'bedly') return t('bedly');
   if (FILTR.druh === 'hriby') return t('hriby');
-  /* U „vše" se bral lepší z obou – jenže pak vyhovoval skoro každý porost
-     a mapa byla celá zelená, tedy k ničemu. Průměr rozliší porost, který
-     sedí na obojí, od toho, co sedí jen na jedno. */
-  return (t('bedly') + t('hriby')) / 2;
+  return Math.max(t('bedly'), t('hriby'));
+}
+
+/* Pod „vše" se hodí vědět, ze které houby to hodnocení vzešlo. */
+function houbaZaSkore(druh, vyska){
+  const t = (klic) => {
+    const d = VHODNOST[klic][druh] || VHODNOST[klic]['bez určení'];
+    return d[vyska] !== undefined ? d[vyska] : 0.4;
+  };
+  if (FILTR.druh === 'bedly') return 'bedly';
+  if (FILTR.druh === 'hriby') return 'hriby';
+  return t('bedly') >= t('hriby') ? 'bedly' : 'hriby';
 }
 
 /* Plocha a obvod prstence ve stupních → hektary a podíl okraje.
@@ -4007,7 +4062,7 @@ async function kresliSber(b){
   const mr = await pocasiMrizka(sw, ne);
   const sirkaMr = mr.x1 - mr.x0, vyskaMr = mr.y1 - mr.y0;
 
-  let haCelkem = 0, haNej = 0, nejlepsi = 0, pocasiSoucet = 0;
+  let haCelkem = 0, haNej = 0, nejlepsi = 0, pocasiSoucet = 0, haBedly = 0, haHriby = 0;
   const kusy = [];
   for (const f of features){
     const a = f.properties || {};
@@ -4040,6 +4095,9 @@ async function kresliSber(b){
     pocasiSoucet += pocasi;
     if (skore >= 0.7){ haNej += ha; }
     if (skore > nejlepsi) nejlepsi = skore;
+    if (FILTR.druh === 'vse'){
+      if (houbaZaSkore(druh, vyska) === 'bedly') haBedly += ha; else haHriby += ha;
+    }
     kusy.push({f, druh, vyska, ha, skore, okraj, pocasi, lat, lng});
   }
   kusy.sort((x, y) => x.skore - y.skore);          // nejlepší nahoru, ať nejsou překryté
@@ -4093,7 +4151,12 @@ async function kresliSber(b){
             (vyska === 'bez určení' ? ' porost, výška neurčená' : ' porost, ' + vyska) + '</div>' +
           '<table>' +
           '<tr><td>Co tu bývá</td><td>' + ((CO_TAM_ROSTE[druh] || {})[vyska] || 'podle porostu') + '</td></tr>' +
-          '<tr><td>Hodnocení</td><td><b>' + Math.round(a._skore*100) + ' %</b> pro ' + jmenoHouby + '</td></tr>' +
+          /* Audit 22: pod „vše" platí lepší z obou hodnot – tak ať je vidět,
+             která to byla. „Pro bedly i hřiby dohromady" nic neříkalo. */
+          '<tr><td>Hodnocení</td><td><b>' + Math.round(a._skore*100) + ' %</b> pro ' +
+            (FILTR.druh === 'vse'
+              ? (houbaZaSkore(druh, vyska) === 'bedly' ? 'bedly' : 'hřiby a klouzky') + ' (to je tu z obou lepší)'
+              : jmenoHouby) + '</td></tr>' +
           '<tr><td>Plocha</td><td>' + (a._ha < 10 ? a._ha.toFixed(1).replace('.', ',') : Math.round(a._ha)) + ' ha' +
             (a._okraj > 0.6 ? ' – skoro celé okraj' : '') + '</td></tr>' +
           '<tr><td>Počasí tady</td><td>' + Math.round(a._pocasi*100) + ' %</td></tr>' +
@@ -4105,7 +4168,7 @@ async function kresliSber(b){
       }
     }).addTo(rustVrstva);
   });
-  return {celyKlic, pocet: kusy.length, kreslenych, zahozeno, haCelkem, haNej, nejlepsi, meze, strop,
+  return {celyKlic, pocet: kusy.length, kreslenych, zahozeno, haCelkem, haNej, nejlepsi, haBedly, haHriby, meze, strop,
           pocasi: kusy.length ? pocasiSoucet / kusy.length : 0};
 }
 
@@ -4485,7 +4548,11 @@ function ukazLegenduSberu(v){
     ' <span class="skala">' + BARVY_RUSTU.map((c,i) =>
       '<i style="background:rgb('+c.join(',')+')" title="' + (i+1) + ' z 5"></i>').join('') + '</span> ' +
     '<small>' + v.kreslenych + ' porostů · počasí ' + Math.round(v.pocasi*100) + ' %' +
-    (FILTR.druh === 'vse' ? ' · vyber houbu' : '') + '</small>');
+    /* Audit 22: pod „vše" platí lepší z obou hodnot, takže „vyber houbu"
+       už není výtka – jen se řekne, čeho je tu víc. */
+    (FILTR.druh === 'vse' && (v.haBedly || v.haHriby)
+      ? ' · víc na ' + (v.haHriby >= v.haBedly ? 'hřiby' : 'bedly')
+      : '') + '</small>');
 }
 
 function ukazLegenduRustu(mr, podilLesa){
