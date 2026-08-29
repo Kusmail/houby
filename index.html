@@ -1495,6 +1495,10 @@ const sheetEl = document.querySelector('.sheet');
 /* Audit 7: panel se otevíral vytažený a zabíral šedesát procent displeje.
    Appka je mapa, ne ovládací panel – otevírá se složený a vytáhne se palcem. */
 let sheetPeek = LS.get('sheetPeek', true);
+/* Kdo appku používal dřív, má v telefonu uložené „panel vytažený".
+   Tohle mu ho jednou složí, ať uvidí tu změnu; pak si zas může
+   nastavit, co chce – volba se ukládá dál. */
+if (!LS.get('panelSlozen1x', false)){ sheetPeek = true; LS.set('sheetPeek', true); LS.set('panelSlozen1x', true); }
 let peekOffset = 0;
 
 function isWide(){ return window.innerWidth >= 820; }
@@ -3399,7 +3403,7 @@ function sberOkraj(){
   const z = map.getZoom();
   return z >= 16 ? 2.0 : z === 15 ? 1.0 : z === 14 ? 0.6 : 0.15;
 }
-const SBER_MAX_KM = 14;        // nad to je to přes dva tisíce porostů a půl mega
+const SBER_MAX_KM = 22;        // nad to je to i s filtrem na plochu moc dat
 
 async function nactiPorosty(b){
   const stred = b.getCenter();
