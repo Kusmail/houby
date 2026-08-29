@@ -1063,7 +1063,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v88';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v89';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2245,6 +2245,27 @@ function zmerDno(){
   if (!m) return 0;
   const d = Math.round(window.innerHeight - (m.getBoundingClientRect().bottom - dnoPx));
   return Math.max(0, Math.min(160, d));
+}
+
+/* ============================================================
+   Audit 58: STOPA ZE STARTU
+
+   Bily pruh pri startu se nedari opravit, protoze nevim, ktere z tech
+   dvou cisel se na telefonu hybe a kdy. Diagnostika ukazuje jen stav
+   TED - tedy uz po interakci, kdy je vse spravne.
+
+   Tenhle zaznam bere okno a plochu stranky v nekolika okamzicich po
+   startu a ukaze je v Diagnostice. Jedna fotka pak rekne, jestli se
+   protahuje okno, smrskava plocha, nebo se nemeni nic - a v ktere
+   vterine. Az to budu vedet, zaznam zase zmizi. */
+const dnoStopa = [];
+function zapisStopu(znacka){
+  try {
+    const m = document.getElementById('map');
+    if (!m) return;
+    const plocha = Math.round(m.getBoundingClientRect().bottom - dnoPx);
+    dnoStopa.push(znacka + ' ' + window.innerHeight + '/' + plocha);
+  } catch(e){}
 }
 
 function nastavDno(){
@@ -6472,6 +6493,7 @@ function diagnostika(){
       ' · strop ' + (sh.style.maxHeight || 'žádný') +
       '<br>plocha stránky končí ' + dnoPx + ' px nad spodkem displeje' +
       ' · spodek panelu ' + Math.round(r.bottom) + ' z ' + window.innerHeight +
+      '<br><b>stopa po startu</b> (okno/plocha): ' + (dnoStopa.join(' · ') || 'zatím nic') +
       '</div>';
   } catch(e){ return ''; }
 }
@@ -7639,6 +7661,12 @@ window.addEventListener('load', () => prepocitatPanel(true));
     if (zmerDno() !== dnoPx) prepocitatPanel(true);
   }, 500);
   [150, 400, 900].forEach(t => setTimeout(() => prepocitatPanel(true), t));
+
+  /* stopa ze startu - viz Audit 58 */
+  zapisStopu('0s');
+  requestAnimationFrame(() => zapisStopu('1sn'));
+  [200, 500, 1000, 2000, 4000, 8000].forEach(t =>
+    setTimeout(() => zapisStopu(t < 1000 ? t + 'ms' : (t/1000) + 's'), t));
 })();
 
 /* Navrat z pozadi: iOS mezitim mohl plochu stranky zmenit. */
