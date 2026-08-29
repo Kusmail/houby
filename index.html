@@ -252,6 +252,10 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .filtry .fr{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px}
 .filtry .fr > span{font-size:11px;color:var(--muted);width:62px;flex:none;padding-top:6px;font-weight:650}
 .filtry .fr > div{display:flex;flex-wrap:wrap;gap:4px;flex:1}
+/* tenká čára odděluje hrubou volbu od konkrétních hub – pořád je to
+   jedna řada, jen se čte odshora dolů */
+.filtry .oddelovac{flex:1 0 100%;height:1px;background:var(--line);margin:5px 0 3px}
+.filtry .popisHouby{flex:1 0 100%;margin:6px 0 0;font-size:11.5px;line-height:1.45}
 .mbox .fchip{width:auto;margin:0;padding:6px 9px;font-size:11px;border-radius:20px;
   background:#f3f1ec;color:var(--ink);font-weight:600;border:1.5px solid transparent}
 .mbox .fchip.on{background:var(--green);border-color:var(--green);color:#fff}
@@ -750,7 +754,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v60';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v61';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -3703,17 +3707,18 @@ function filtryHTML(){
   const chip = (skup, hod, popis) =>
     '<button class="fchip' + (FILTR[skup] === hod ? ' on' : '') + '" data-f="' + skup + '" data-v="' + hod + '">' + popis + '</button>';
   return '<div class="filtry">' +
-    /* Audit 32: filtr uměl jen tři volby. Podklad „Pravidla růstu hub"
-       má šest prioritních druhů a každý chce jiný porost, jinou sezónu
-       i jinou latenci po dešti – jedna společná křivka to zamlžila. */
+    /* Audit 33: rozdělit tenhle jeden filtr do dvou řádků („Houba"
+       a „Konkrétně") byla chyba – vypadalo to jako dvě samostatná
+       nastavení a při volbě „Vše" byl celý druhý řádek šedý, jako by
+       nefungoval. Je to jedna volba z devíti: nejdřív tři hrubé,
+       pak šest konkrétních, oddělené jen tenkou čárou. */
     '<div class="fr"><span>Houba</span><div>' +
-      chip('druh','vse','Vše') + chip('druh','hriby','Všechny hřibovité') + chip('druh','bedly','Bedly') +
-    '</div></div>' +
-    '<div class="fr"><span>Konkrétně</span><div>' +
+      chip('druh','vse','Vše') + chip('druh','hriby','Hřibovité') + chip('druh','bedly','Bedly') +
+      '<span class="oddelovac" aria-hidden="true"></span>' +
       ['hrib_smrkovy','hrib_dubovy','masak','klouzky','kremenac','kozak']
-        .map(k => chip('druh', k, HOUBY[k].jm)).join('') +
+        .map(k => chip('druh', k, HOUBY[k].kratkyChip)).join('') +
+      '<p class="pozn popisHouby">' + popisHouby() + '</p>' +
     '</div></div>' +
-    '<div class="fr"><span></span><div><p class="pozn" style="margin:0">' + popisHouby() + '</p></div></div>' +
     '<div class="fr"><span>Porost</span><div>' +
       chip('porost','vse','Vše') + chip('porost','listnate','Listnatý') +
       chip('porost','smisene','Smíšený') + chip('porost','jehlicnate','Jehličnatý') +
@@ -3896,7 +3901,7 @@ const BARVY_RUSTU = [
    ============================================================ */
 const HOUBY = {
   hrib_smrkovy: {
-    jm:'Hřib smrkový', kratce:'hřib smrkový', skupina:'hriby',
+    jm:'Hřib smrkový', kratkyChip:'Hřib smrkový', kratce:'hřib smrkový', skupina:'hriby',
     strom:'smrk, jedle · nejlíp porost 30–70 let',
     nevime:'Smrk od borovice ani modřínu v mapách nerozeznáme – vidíme jen „jehličnaté".',
     latence:[10,16], n:350,
@@ -3907,7 +3912,7 @@ const HOUBY = {
        'bez určení':{'do 2,5 m':0.20,'od 2,5 m do 8 m':0.35,'od 8 m do 20 m':0.55,'nad 20 m':0.50}}},
 
   hrib_dubovy: {
-    jm:'Hřib dubový a bronzový', kratce:'hřiby v doubravě', skupina:'hriby',
+    jm:'Hřib dubový a bronzový', kratkyChip:'Hřib dubový', kratce:'hřiby v doubravě', skupina:'hriby',
     strom:'dub, buk · prosvětlené porosty a okraje, ne zapojený les',
     nevime:'Dub od buku ani od akátu neodlišíme – vidíme jen „listnaté".',
     latence:[10,16], n:85,
@@ -3918,7 +3923,7 @@ const HOUBY = {
        'bez určení':{'do 2,5 m':0.10,'od 2,5 m do 8 m':0.25,'od 8 m do 20 m':0.45,'nad 20 m':0.50}}},
 
   masak: {
-    jm:'Masák (hřib hnědý)', kratce:'masáky', skupina:'hriby',
+    jm:'Masák (hřib hnědý)', kratkyChip:'Masák', kratce:'masáky', skupina:'hriby',
     strom:'smrk, borovice · mechové smrčiny',
     nevime:'Mechový podrost v mapách není – a právě ten masák chce.',
     latence:[10,16], n:348,
@@ -3929,7 +3934,7 @@ const HOUBY = {
        'bez určení':{'do 2,5 m':0.20,'od 2,5 m do 8 m':0.45,'od 8 m do 20 m':0.60,'nad 20 m':0.60}}},
 
   klouzky: {
-    jm:'Klouzky', kratce:'klouzky', skupina:'hriby',
+    jm:'Klouzky', kratkyChip:'Klouzky', kratce:'klouzky', skupina:'hriby',
     strom:'modřín (klouzek sličný), borovice · mladý porost',
     nevime:'Modřín je nejjistější vazba v ČR, ale v mapách ho nerozeznáme. Mířit na mladé jehličnaté.',
     latence:[5,10], n:350,
@@ -3940,7 +3945,7 @@ const HOUBY = {
        'bez určení':{'do 2,5 m':0.25,'od 2,5 m do 8 m':0.50,'od 8 m do 20 m':0.40,'nad 20 m':0.30}}},
 
   kremenac: {
-    jm:'Křemenáče', kratce:'křemenáče', skupina:'hriby',
+    jm:'Křemenáče', kratkyChip:'Křemenáče', kratce:'křemenáče', skupina:'hriby',
     strom:'osika, bříza · mladiny a lemy',
     nevime:'Osika je exkluzivní vazba, ale v mapách ji nenajdeme. Mířit na mladé listnaté.',
     latence:[10,16], n:33,
@@ -3951,7 +3956,7 @@ const HOUBY = {
        'bez určení':{'do 2,5 m':0.25,'od 2,5 m do 8 m':0.55,'od 8 m do 20 m':0.40,'nad 20 m':0.25}}},
 
   kozak: {
-    jm:'Kozáky', kratce:'kozáky', skupina:'hriby',
+    jm:'Kozáky', kratkyChip:'Kozáky', kratce:'kozáky', skupina:'hriby',
     strom:'bříza, habr · i v remízcích a příměstské zeleni',
     nevime:'Břízu od dubu neodlišíme. Mířit na listnaté střední výšky a lemy.',
     latence:[10,16], n:59,
@@ -3962,7 +3967,7 @@ const HOUBY = {
        'bez určení':{'do 2,5 m':0.20,'od 2,5 m do 8 m':0.50,'od 8 m do 20 m':0.55,'nad 20 m':0.35}}},
 
   bedly: {
-    jm:'Bedly', kratce:'bedly', skupina:'bedly', mimoLes:true,
+    jm:'Bedly', kratkyChip:'Bedly', kratce:'bedly', skupina:'bedly', mimoLes:true,
     strom:'žádný – bedla je saprofyt, roste na živné půdě, ne u stromu',
     nevime:'Pastviny a meze v naší lesní vrstvě nejsou. Proto se u bedel počítá hlavně OKRAJ porostu – ' +
            'v zapojeném lese nerostou a appka je tam schválně sráží.',
