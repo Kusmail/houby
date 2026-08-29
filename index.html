@@ -132,7 +132,7 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
   border-radius:16px 16px 0 0;box-shadow:0 -3px 18px rgba(0,0,0,.16);
   padding:8px 12px calc(var(--safe-b) + 10px);
   max-height:calc(100dvh - 96px); overflow:hidden;
-  transition:transform .28s cubic-bezier(.22,.61,.36,1);
+  transition:transform .28s cubic-bezier(.22,.61,.36,1), max-height .28s cubic-bezier(.22,.61,.36,1);
   will-change:transform;touch-action:pan-y
 }
 .sheet.dragging{transition:none}
@@ -899,7 +899,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v73';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v74';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2019,7 +2019,12 @@ function measureSheet(){
   headVyska = posledni
     ? odHornihoOkraje(posledni) + MEZERA + safeB
     : Math.round(110 + safeB);             // kdyby prvek chyběl, ať panel nezmizí
-  peekOffset = Math.max(0, Math.round(sheetEl.offsetHeight - headVyska));
+  /* Audit 43: dřív se tu bralo offsetHeight. Jenže složený panel je teď
+     ořezaný stropem výšky, takže offsetHeight vrátí právě tu ořezanou
+     hodnotu – peekOffset vyšel nula, tažení se nespustilo a klepnutí na
+     úchyt přestalo panel vytahovat. scrollHeight měří obsah bez ohledu
+     na strop, což je přesně to, co potřebujeme vědět. */
+  peekOffset = Math.max(0, Math.round(sheetEl.scrollHeight - headVyska));
 }
 
 function applySheet(animate){
@@ -2027,15 +2032,29 @@ function applySheet(animate){
   /* Audit 27: na širokém displeji se panel nikdy nesložil – ta výjimka
      dávala smysl, dokud byl panel přes celou šířku. Teď je to sloupec
      vlevo a složit se má stejně jako na telefonu. */
-  /* Audit 42: posun byl zadaný jako `calc(100% - X)`. Procento se
-     v transformaci počítá až při vykreslení, a to z výšky, kterou má
-     panel v tu chvíli – ne z té, ze které jsme měřili. Teď se posune
-     o spočítaný počet pixelů, takže je to jedna hodnota z jednoho
-     měření a nemůže se to rozejít. */
+  /* ============================================================
+     Audit 43: PROČ BYL SLOŽENÝ PANEL POŘÁD VĚTŠÍ, NEŽ SE POČÍTALO
+
+     Diagnostika z telefonu: hlava 123, bezpečná zóna 34, po řádek 83 –
+     všechno na pixel stejné jako v prohlížeči. A přesto byl na displeji
+     složený pruh o padesát pixelů vyšší. Číslo tedy nebylo špatně,
+     špatně se používalo.
+
+     Panel se skládal POSUNEM dolů o `výška panelu − hlava`. Ten posun
+     se spočítal jednou. Jenže obsah panelu potom ještě roste – doplní
+     se seznam lidí, kdo sdílí polohu, panel navigace k autu. Panel se
+     tím prodlouží, posun zůstane starý, a o ten rozdíl se odkryje víc,
+     než mělo. V prohlížeči, kde se Firebase nepřipojí a nikdo do
+     seznamu nepřibude, panel nikdy nerostl – proto se to nedalo
+     reprodukovat a tři opravy podle fotky minuly.
+
+     Teď se panel neposouvá, ale ořezává na výšku hlavy. Výška je
+     absolutní hodnota, ne rozdíl, takže pozdější růst obsahu s ní
+     nehne – panel je prostě vysoký tolik, kolik má být vidět.
+     ============================================================ */
   const slozeno = sheetPeek && peekOffset > 0;
-  sheetEl.style.transform = slozeno
-    ? 'translateY(' + peekOffset + 'px)'
-    : 'translateY(0px)';
+  sheetEl.style.transform = 'translateY(0px)';
+  sheetEl.style.maxHeight = slozeno ? (headVyska + 'px') : '';
   sheetEl.classList.toggle('peek', slozeno);
   if (!animate) requestAnimationFrame(()=> sheetEl.classList.remove('dragging'));
 }
@@ -2096,6 +2115,10 @@ sheetEl.addEventListener('pointerdown', e => {
   dragV = 0;
   dragStartOff = sheetPeek ? peekOffset : 0;
   dragging = true;
+  /* Po dobu tažení se panel zase posouvá – strop výšky by prst nepustil.
+     Na konci ho applySheet vrátí. */
+  sheetEl.style.maxHeight = '';
+  sheetEl.style.transform = 'translateY(' + dragStartOff + 'px)';
   sheetEl.classList.add('dragging');
   window.addEventListener('pointermove', onDragMove, {passive:false});
   window.addEventListener('pointerup', onDragEnd);
@@ -6087,6 +6110,8 @@ function diagnostika(){
       ' · po řádek ' + doRadku + '<br>' +
       'spočítáno: hlava ' + headVyska + ' · posun ' + peekOffset +
       ' · složeno ' + (sh.classList.contains('peek') ? 'ano' : 'ne') +
+      ' · uloženo ' + (LS.get('sheetPeek', true) ? 'složeno' : 'vytaženo') +
+      ' · strop ' + (sh.style.maxHeight || 'žádný') +
       '</div>';
   } catch(e){ return ''; }
 }
