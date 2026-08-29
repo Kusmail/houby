@@ -280,6 +280,13 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 }
 #kamObsah .pozn{font-size:11.5px;color:var(--muted);line-height:1.45;margin:2px 0 12px}
 .pin.oblibene{background:#c9a227;color:#fff;border-color:#fff}
+/* odznak nejlepšího porostu ve výřezu */
+.nejlepsi{width:46px;height:46px;border-radius:50%;background:#1f4a2e;color:#fff;
+  border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  line-height:1;cursor:pointer}
+.nejlepsi b{font-size:16px;font-weight:800}
+.nejlepsi i{font-style:normal;font-size:9.5px;font-weight:700;opacity:.9;margin-top:1px}
 .bigbtn.prepsat{background:#d99327;font-size:13.5px;line-height:1.35}
 .fotobtn{display:block;text-align:center;padding:13px;border:1.5px dashed var(--line);border-radius:11px;
   font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:10px}
@@ -762,7 +769,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v62';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v63';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1052,6 +1059,8 @@ const mistaVrstva = L.layerGroup().addTo(map);
 /* Mapa růstu: prázdná skupina, obrázek do ní dodá prekresliRust().
    Zapnutá hned – to je ten původní úkol, kvůli kterému appka vznikla. */
 const rustVrstva = L.layerGroup().addTo(map);
+/* Odznaky „kde začít" jedou s vrstvou Kde sbírat – patří k ní. */
+const zacniTadyVrstva = L.layerGroup().addTo(map);
 
 function popupHTML(d, index){
   const parkBox = d.park_ok === 'ok'
@@ -3232,9 +3241,75 @@ function faktorSezonyDruhu(mesic, klic){
   const v = h.sezona[mesic];
   return v === undefined ? 0.3 : v;
 }
-function faktorSezonyFiltru(mesic){
+
+/* ============================================================
+   Audit 35: NADMOŘSKÁ VÝŠKA
+   V podkladu má 15 % váhy a appka ji neznala vůbec – pro Mratín
+   (209 m) i pro Šumavu (764 m) platila stejná křivka, ačkoli se
+   sezóna liší o tři až čtyři týdny. Podle podkladu se posouvá
+   o 3–5 dní na každých 100 m; beru 4 dny a vztažnou výšku 300 m,
+   protože v tom pásmu je většina našich nálezů.
+
+   Výšku vrací Open-Meteo pro až sto souřadnic jedním dotazem
+   (ověřeno: 50.2/14.5 → 209 m, 49.1/13.2 → 764 m). Cachuje se
+   po čtvercích, terén se nemění.
+   ============================================================ */
+const VYSKY = {};                 // "50.21,14.56" -> metry
+const REF_VYSKA = 300, DNI_NA_100M = 4;
+
+function klicVysky(lat, lng){ return lat.toFixed(2) + ',' + lng.toFixed(2); }
+
+async function nactiVysky(body){
+  const chybi = [];
+  const videno = new Set();
+  for (const b of body){
+    const k = klicVysky(b[0], b[1]);
+    if (VYSKY[k] === undefined && !videno.has(k)){ videno.add(k); chybi.push([k, b]); }
+  }
+  if (!chybi.length) return;
+  const davka = chybi.slice(0, 100);
+  const la = davka.map(x => x[1][0].toFixed(4)).join(',');
+  const ln = davka.map(x => x[1][1].toFixed(4)).join(',');
+  try {
+    const r = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + la + '&longitude=' + ln);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    (j.elevation || []).forEach((v, i) => { if (davka[i]) VYSKY[davka[i][0]] = v; });
+  } catch(e){
+    /* bez výšky se počítá jako dosud – jen se neposouvá sezóna */
+    davka.forEach(x => { VYSKY[x[0]] = null; });
+  }
+}
+
+function vyskaBodu(lat, lng){
+  const v = VYSKY[klicVysky(lat, lng)];
+  return (typeof v === 'number') ? v : null;
+}
+
+/* Sezónní křivka je po měsících; posun o dny se proto počítá
+   v setinách měsíce a mezi měsíci se lineárně proloží. */
+function sezonaDruhuVeVysce(klic, vyska){
+  const h = HOUBY[klic];
+  if (!h) return 0.3;
+  const d = new Date();
+  let m = (d.getMonth() + 1) + (d.getDate() - 1) / 30;
+  if (typeof vyska === 'number'){
+    m -= ((vyska - REF_VYSKA) / 100 * DNI_NA_100M) / 30;
+  }
+  m = Math.max(1, Math.min(12.999, m));
+  const a = Math.floor(m), b = Math.min(12, a + 1), t = m - a;
+  const va = h.sezona[a] === undefined ? 0.3 : h.sezona[a];
+  const vb = h.sezona[b] === undefined ? 0.3 : h.sezona[b];
+  return va + (vb - va) * t;
+}
+
+function faktorSezonyFiltru(mesic, vyska){
   let nej = 0;
-  for (const k of clenoveFiltru(FILTR.druh)) nej = Math.max(nej, faktorSezonyDruhu(mesic, k));
+  for (const k of clenoveFiltru(FILTR.druh)){
+    nej = Math.max(nej, (vyska === undefined)
+      ? faktorSezonyDruhu(mesic, k)
+      : sezonaDruhuVeVysce(k, vyska));
+  }
   return nej;
 }
 
@@ -4263,6 +4338,7 @@ async function kresliSber(b){
      zadrhne. Kreslí se proto na plátno a jen porosty, které za pozornost
      opravdu stojí; „tady nic" říká mapa tím, že je bez barvy. */
   rustVrstva.clearLayers();
+  zacniTadyVrstva.clearLayers();
   const podleStupne = [[], [], [], [], []];
   let zahozeno = 0;
   for (const k of kusy){
@@ -4287,6 +4363,53 @@ async function kresliSber(b){
     }
   }
   const jmenoHouby = jmenoFiltru(FILTR.druh);
+
+  /* ============================================================
+     Audit 36: KDE ZAČÍT
+     Obarvený les říká „tady je to lepší než tam", ale když je celý
+     výřez zelený, člověk pořád neví, kam šlápnout první. Tohle jsou
+     tři nejlepší porosty v tom, na co se zrovna díváš – seřazené,
+     s procentem a s hektary. Není to nová informace, je to ta samá,
+     jen dotažená do rozhodnutí.
+
+     Pravidla, aby to neplácalo: jen porosty nad 60 %, jen do třetice,
+     a musí být od sebe aspoň 400 m – tři odznaky na jedné mýtině
+     nikomu nepomůžou. */
+  /* Audit 36: mezi stažením porostů a jejich vykreslením uběhne pár
+     vteřin. Když si mezitím vypneš vrstvu, dokreslila se do vypnuté
+     mapy – proto se stav kontroluje TĚSNĚ před kreslením, ne jen na
+     začátku. */
+  zacniTadyVrstva.clearLayers();
+  if (!rustZapnuty()) return;
+  const kandidati = kusy.slice().sort((x, y) => y.skore - x.skore || y.ha - x.ha);
+  const vybrani = [];
+  for (const k of kandidati){
+    if (k.skore < 0.6 || vybrani.length >= 3) break;
+    if (vybrani.some(z => distM([z.lat, z.lng], [k.lat, k.lng]) < 400)) continue;
+    vybrani.push(k);
+  }
+  vybrani.forEach((k, i) => {
+    const proc = Math.round(k.skore * 100);
+    L.marker([k.lat, k.lng], {
+      icon: L.divIcon({className:'', iconSize:[46,46], iconAnchor:[23,23],
+        html:'<div class="nejlepsi"><b>' + (i+1) + '</b><i>' + proc + ' %</i></div>'}),
+      zIndexOffset: 950
+    }).bindPopup('<div class="pop"><h3>' + (i+1) + '. nejlepší tady</h3>' +
+      '<div class="sub">' + druhSlovy(k.druh) +
+        (k.vyska === 'bez určení' ? ' porost, výška neurčená' : ' porost, ' + k.vyska) + '</div>' +
+      '<table>' +
+      '<tr><td>Hodnocení</td><td><b>' + proc + ' %</b> pro ' +
+        ((HOUBY[houbaZaSkore(k.druh, k.vyska)] || {}).kratce || jmenoHouby) + '</td></tr>' +
+      '<tr><td>Plocha</td><td>' + (k.ha < 10 ? k.ha.toFixed(1).replace('.', ',') : Math.round(k.ha)) + ' ha' +
+        (k.okraj > 0.6 ? ' – skoro celé okraj' : '') + '</td></tr>' +
+      '<tr><td>Počasí tady</td><td>' + Math.round(k.pocasi*100) + ' %</td></tr>' +
+      '</table>' +
+      '<button class="popbtn" data-park="' + k.lat + ',' + k.lng + '">🚗 Kde zaparkovat</button>' +
+      '<p class="pozn" style="margin:8px 0 0;font-size:11px">Pořadí platí jen pro tenhle výřez ' +
+      'a pro houbu z filtru. Posuň mapu a přepočítá se.</p></div>', POPOPT)
+      .addTo(zacniTadyVrstva);
+  });
+
   podleStupne.forEach((prvky, st) => {
     if (!prvky.length) return;
     const c = BARVY_RUSTU[st];
@@ -4331,6 +4454,11 @@ let rustProbiha = false, rustTimer = null, rustPokryti = null;
 const rustPocasiCache = new Map();
 
 function rustZapnuty(){ return !!(rustVrstva && map.hasLayer(rustVrstva)); }
+/* Odznaky „kde začít" patří k vrstvě Kde sbírat – vypne se, zmizí i ony. */
+/* Audit 36: „overlayremove" hlásí jen ovládání vrstev a v Leafletu se
+   na něj nedá spolehnout u vrstvy, kterou appka přidala sama. Mapa
+   naopak vždycky hlásí „layerremove" – a to stačí. */
+map.on('layerremove', (e) => { if (e.layer === rustVrstva) zacniTadyVrstva.clearLayers(); });
 
 /* Výřez natažený za okraj obrazovky, v metrech Mercatoru.
    Naměřeno: při okraji 30 % stačil posun o 60 pixelů a maska už
@@ -4435,11 +4563,14 @@ async function pocasiMrizka(sw, ne){
   if (!Array.isArray(d)) d = [d];
   if (d.length !== kroky.length) throw new Error('počasí přišlo pro ' + d.length + ' z ' + kroky.length + ' bodů');
   const mesic = new Date().getMonth() + 1;
+  /* Audit 35: výšku bereme pro stejné body, pro které máme počasí –
+     jeden dotaz navíc na celý výřez, terén se pak drží v cache. */
+  await nactiVysky(kroky.map(k => [k.lat, k.lng]));
   const hodnoty = kroky.map((k, idx) => {
     const p = rozborPocasi(d[idx].daily);
     const vlhkost = indexVlhkosti(p.vazene);
     const teplo = (p.horko >= 4 ? 0.75 : 1) * (p.zima >= 3 ? 0.6 : 1);
-    const sez = faktorSezonyFiltru(mesic);
+    const sez = faktorSezonyFiltru(mesic, vyskaBodu(k.lat, k.lng));
     return Math.max(0, Math.min(1, vlhkost * teplo * sez));
   });
   const vysl = {nx, ny, hodnoty, x0: o.x0, y0: o.y0, x1: o.x1, y1: o.y1};
@@ -4587,6 +4718,7 @@ async function kresliPrehled(){
 async function prekresliRust(){
   if (!rustZapnuty()){
     rustVrstva.clearLayers();
+    zacniTadyVrstva.clearLayers();   // odznaky patří k téhle vrstvě
     rustPokryti = null;
     skryjLegenduRustu();
     return;
@@ -4596,6 +4728,7 @@ async function prekresliRust(){
   /* Oddálená mapa: místo „přibliž" se ukáže, kde v republice je dnes
      vůbec šance. Klepnutím na kolečko se dá na kraj skočit. */
   if (map.getZoom() <= PREHLED_MAX_Z){
+    zacniTadyVrstva.clearLayers();
     rustPokryti = null;
     rustProbiha = true;
     try {
