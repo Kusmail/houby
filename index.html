@@ -107,15 +107,18 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 .sheet-body{transition:opacity .2s}
 .sheet.peek .sheet-body{opacity:.35}
 /* hlavní řádek: široké tlačítko na les + čtvercové na auto */
-.hlavniradek{display:flex; gap:8px; margin-bottom:8px}
-.hlavniradek .sber{flex:1; margin-bottom:0}
+.hlavniradek{display:flex; gap:8px; margin-bottom:8px; align-items:stretch}
+.hlavniradek .sber{flex:1}
 /* Audit 12: tlačítko mělo pevných 68 px a text „Označit auto" z něj
    lezl ven přes okraj. Buď popiska, nebo šířka – tady obojí:
    ikona nad dvouřádkovou popiskou, jako v dolní liště. */
-.bigbtn.auto{flex:0 0 96px; background:#c2701a; padding:4px 2px; margin-bottom:0;
-  flex-direction:column; gap:2px; font-size:22px; line-height:1;
-  overflow:hidden; text-align:center}
-.bigbtn.auto .pop2{font-size:10.5px; font-weight:700; line-height:1.15; letter-spacing:-.01em}
+/* Audit 13: po zúžení popisky bylo tlačítko auta o 8 px vyšší než
+   „Najdi mi les" vedle – řádek se roztáhl podle něj. Obě tlačítka
+   mají teď stejnou pevnou výšku a obsah auta se do ní vejde. */
+.bigbtn.auto{flex:0 0 96px; background:#c2701a; padding:2px; margin-bottom:0;
+  height:60px; min-height:60px; flex-direction:column; gap:1px;
+  font-size:19px; line-height:1; overflow:hidden; text-align:center}
+.bigbtn.auto .pop2{font-size:10px; font-weight:700; line-height:1.12; letter-spacing:-.01em}
 
 .bigbtn{
   width:100%;min-height:60px;border:0;border-radius:14px;
@@ -212,9 +215,13 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
    prstem po něm nikdo nechce koukat. */
 :focus-visible{outline:3px solid #2e5c3a;outline-offset:2px;border-radius:10px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.bigbtn.sber{background:#1f4a2e;margin-bottom:8px}
+.bigbtn.sber{background:#1f4a2e}
+/* Audit 13: tenhle margin byl v souboru níž než .hlavniradek .sber,
+   takže ho přebil a řádek byl o 8 px vyšší než tlačítka v něm. */
+.hlavniradek .sber, .hlavniradek .auto{margin-bottom:0}
 .bigbtn.sber:disabled{opacity:.6}
 .bigbtn.kam{background:#2e5c3a;margin-bottom:8px}
+.bigbtn.lens{background:#585048;margin-bottom:8px}
 .bigbtn.kam:disabled{opacity:.6}
 .kamlok{border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:10px;background:#fbfaf7}
 .kamlok.prvni{border-color:var(--green);border-width:2px;background:#f2f7f2}
@@ -539,6 +546,10 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
 
  <div class="sheet-body">
   <button class="bigbtn kam" id="btnKam">🍄 &nbsp;Kam dnes na houby?</button>
+  <!-- Audit 13: kontrola houby byla schovaná v drobné liště jako „Určit".
+       Zápis nálezu je přitom pro nečleny zamčený, takže tohle je jediná
+       věc, kterou s houbou v ruce udělat jde – patří na plné tlačítko. -->
+  <button class="bigbtn lens" id="btnLupa">🔍 &nbsp;Určit houbu přes Lens</button>
   <div class="row">
     <div class="toggle" id="tgShare" role="switch" tabindex="0" aria-checked="false" aria-label="Sdílím polohu">
       <div class="sw" aria-hidden="true"><i></i></div>
@@ -557,7 +568,6 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
     <div class="mini" id="btnCar" role="button" tabindex="0" aria-label="Posunout mapu na zaparkované auto"><b aria-hidden="true">🚗</b>Na auto</div>
     <div class="mini" id="btnFind2" role="button" tabindex="0" aria-label="Zapsat nález houby"><b aria-hidden="true">🍄</b>Nález</div>
     <div class="mini" id="btnTrasa" role="button" tabindex="0" aria-label="Začít nebo ukončit záznam trasy"><b aria-hidden="true">⏺</b>Trasa</div>
-    <div class="mini" id="btnLupa" role="button" tabindex="0" aria-label="Vyfotit houbu a poslat ji do Google Lens"><b aria-hidden="true">🔍</b>Určit</div>
   </div>
   <input type="file" id="lupaInput" accept="image/*" capture="environment" hidden>
  </div>
@@ -1833,7 +1843,10 @@ const fotoCache = {};        // id -> data URI
    a odešle, až bude signál. */
 function otevriNalez(){
   if (state.approved === false && !PRISTUPOVY_KOD){
-    banner('Nálezy si můžeš zapisovat, až ti někdo z rodiny pošle odkaz s kódem.', false, 8000);
+    /* Audit 13: hláška člověka jen odmítla. Určení houby přitom žádný
+       kód nepotřebuje – tak na něj rovnou ukážeme. */
+    banner('<b>Zápis nálezů je pro rodinu</b> – jde až s odkazem s kódem. ' +
+           'Určit houbu přes Lens můžeš hned, tlačítkem <b>🔍 Určit houbu přes Lens</b> v panelu.', false, 10000);
     return;
   }
   vybranyDruh = null; fotoSoubor = null; fotoNahledData = null; vybraneMnozstvi = 3;
