@@ -725,7 +725,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v56';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v57';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1855,8 +1855,10 @@ sheetEl.addEventListener('pointerdown', e => {
   window.addEventListener('pointercancel', onDragEnd);
 });
 
-/* Myš neudělá „tažení" – klepnutí na úchyt musí přepnout samo. */
-$('grab').addEventListener('click', () => { if (!dragging) setSheetPeek(!sheetPeek, true); });
+/* Audit 29: tady jsem měl navíc posluchač 'click'. Jenže krátké klepnutí
+   už řeší onDragEnd („Math.abs(dy) < 8 → přepnout"), takže se panel
+   přepnul dvakrát a zůstal, kde byl – myší to vypadalo jako mrtvé
+   tlačítko, tažením to šlo. Jeden zdroj přepínání stačí. */
 
 window.addEventListener('resize', () => { measureSheet(); applySheet(false); });
 window.addEventListener('orientationchange', () => setTimeout(()=>{ measureSheet(); applySheet(false); }, 300));
