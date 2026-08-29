@@ -815,22 +815,47 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
    a lišty pak zalezou pod hodiny. Když nula přijde, dopočítáme
    odsazení z rozměru displeje. Záměrně dolní odhad (47 px místo 59
    u ostrůvku), ať se nikdy nepřesadí, když env funguje správně. */
+/* Audit 41: pojistka měla dosud jen dolní mez – doplňovala nulu, když
+   iOS ve standalone hlásil odsazení jako nic. Chyběl horní strop, a ten
+   je potřeba víc.
+
+   Naměřeno na dvou snímcích z iPhonu 15 Pro (1179×2556): po zúžení
+   panelu ve v71 mělo tlačítko správných 54 px a nad ním 12 px, ale POD
+   ním zůstávalo 98 px prázdna. Spodní odsazení panelu je
+   `calc(var(--safe-b) + 10px)`, takže z těch 98 vychází --safe-b
+   kolem 88 px. Čárka pro domovskou obrazovku přitom zabírá 34.
+
+   Strop ve výpočtu složeného panelu (v71) na tohle nestačil – proměnná
+   se používá i jinde, hlavně na spodní odsazení panelu, a tam se ta
+   nafouknutá hodnota propsala dál. Proto se ořezává rovnou proměnná:
+   jedno místo, a platí to pro všechno, co z ní čte.
+
+   Meze: nahoře 59 px (nejvyšší ostrůvek), dole 34 px (čárka pro
+   domovskou obrazovku). Nic víc iOS nikdy nepotřebuje. */
 (function safeAreaPojistka(){
+  var STROP_T = 59, STROP_B = 34;
   function uprav(){
-    var vs = window.matchMedia('(display-mode: standalone)').matches ||
-             window.navigator.standalone === true;
-    if (!vs) return;
     var st = getComputedStyle(document.documentElement);
     var t = parseFloat(st.getPropertyValue('--safe-t')) || 0;
     var b = parseFloat(st.getPropertyValue('--safe-b')) || 0;
+    var vs = window.matchMedia('(display-mode: standalone)').matches ||
+             window.navigator.standalone === true;
     var kratsi = Math.min(screen.width, screen.height);
     var delsi  = Math.max(screen.width, screen.height);
     var vyrez  = (delsi / kratsi) > 1.9;      // iPhone s výřezem nebo ostrůvkem
-    if (t < 1) document.documentElement.style.setProperty('--safe-t', (vyrez ? 47 : 20) + 'px');
-    if (b < 1 && vyrez) document.documentElement.style.setProperty('--safe-b', '34px');
+
+    /* dolní mez: jen v appce z ikonky, kde iOS hlásí nulu i pod hodinami */
+    if (vs && t < 1) { t = vyrez ? 47 : 20; document.documentElement.style.setProperty('--safe-t', t + 'px'); }
+    if (vs && b < 1 && vyrez) { b = 34; document.documentElement.style.setProperty('--safe-b', '34px'); }
+
+    /* horní strop: platí vždycky, i v Safari – nafouknutá hodnota je chyba
+       měření, ne bezpečná zóna, a ukusuje z mapy */
+    if (t > STROP_T) document.documentElement.style.setProperty('--safe-t', STROP_T + 'px');
+    if (b > STROP_B) document.documentElement.style.setProperty('--safe-b', STROP_B + 'px');
   }
   try { uprav(); } catch(e){}
   window.addEventListener('orientationchange', function(){ setTimeout(function(){ try{ uprav(); }catch(e){} }, 300); });
+  window.addEventListener('resize', function(){ try{ uprav(); }catch(e){} });
 })();
 
 /* 2) Chybějící Leaflet nesmí zůstat holou stránkou.
@@ -874,7 +899,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v71';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v72';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
