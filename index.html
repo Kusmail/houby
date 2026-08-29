@@ -165,18 +165,24 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
    tlačítek – zůstává vidět a chytatelný, ale nepřidává ani pixel výšky.
    Dotyková plocha kolem něj (.grab::after) platí dál.
    ============================================================ */
-/* overflow smí být ve složeném stavu vidět: tělo panelu je průhledné
-   a neklikatelné, takže nic neprosvítá – zato se úchyt může vznášet
-   nad tlačítky a nebýt oříznutý. */
-.sheet.peek{background:transparent;border-top:0;box-shadow:none;padding-top:0;overflow:visible}
+/* Audit 46: úchyt se původně vznášel NAD tlačítky, což si vyžádalo
+   overflow:visible. Jenže tím se změnilo i chování scrollHeight, ze
+   kterého se počítala plná výška panelu – a to je přesně ta neznámá,
+   kvůli které se pak panel choval na telefonu jinak než v prohlížeči.
+   Úchyt proto zůstává uvnitř panelu a místo pro něj dělá odsazení
+   shora. Stojí to 14 px a nestojí to žádnou nejistotu. */
+.sheet.peek{background:transparent;border-top:0;box-shadow:none;padding-top:14px}
+/* Úchyt se musí umístit vůči panelu, ne vůči hlavě – jinak by seděl
+   až za odsazením, tedy přesně na tlačítkách. */
+.sheet.peek .sheet-head{position:static}
 .sheet.peek .grab{
-  position:absolute;left:50%;top:-24px;transform:translateX(-50%);
-  width:40px;height:16px;margin:0;border-radius:99px;
+  position:absolute;left:50%;top:0;transform:translateX(-50%);
+  width:40px;height:14px;margin:0;border-radius:99px;
   background:rgba(255,255,255,.94);box-shadow:0 1px 4px rgba(0,0,0,.35);
   display:flex;align-items:center;justify-content:center
 }
 .sheet.peek .grab::before{
-  content:'';width:9px;height:9px;margin-top:2px;
+  content:'';width:8px;height:8px;margin-top:2px;
   border-left:2px solid #6b6560;border-top:2px solid #6b6560;
   transform:rotate(45deg);border-radius:1px
 }
@@ -947,7 +953,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v76';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v77';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2096,12 +2102,18 @@ function measureSheet(){
   headVyska = posledni
     ? odHornihoOkraje(posledni) + MEZERA + safeB
     : Math.round(110 + safeB);             // kdyby prvek chyběl, ať panel nezmizí
-  /* Audit 43: dřív se tu bralo offsetHeight. Jenže složený panel je teď
-     ořezaný stropem výšky, takže offsetHeight vrátí právě tu ořezanou
-     hodnotu – peekOffset vyšel nula, tažení se nespustilo a klepnutí na
-     úchyt přestalo panel vytahovat. scrollHeight měří obsah bez ohledu
-     na strop, což je přesně to, co potřebujeme vědět. */
-  peekOffset = Math.max(0, Math.round(sheetEl.scrollHeight - headVyska));
+  /* Audit 43: dřív se tu bralo offsetHeight – jenže složený panel je
+     ořezaný stropem, takže vracelo právě tu ořezanou hodnotu, peekOffset
+     vyšel nula a klepnutí na úchyt přestalo panel vytahovat.
+     Audit 46: náhrada za scrollHeight byla taky vedle. scrollHeight se
+     u prvku bez posuvníku chová podle nastavení overflow, což je přesně
+     ta nejistota, kterou tu nechceme. Strop proto na okamžik sundáme,
+     poctivě změříme a vrátíme ho – to platí v každém prohlížeči stejně. */
+  const puvodniStrop = sheetEl.style.maxHeight;
+  if (puvodniStrop) sheetEl.style.maxHeight = 'none';
+  const plnaVyska = Math.round(sheetEl.getBoundingClientRect().height);
+  if (puvodniStrop) sheetEl.style.maxHeight = puvodniStrop;
+  peekOffset = Math.max(0, plnaVyska - headVyska);
 }
 
 function applySheet(animate){
