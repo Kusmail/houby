@@ -92,6 +92,14 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
 .sekce{margin:0 0 18px;padding:0 0 16px;border-bottom:1px solid var(--line)}
 .sekce h3{margin:0 0 9px;font-size:14px;font-weight:750;letter-spacing:-.01em}
 .jmenoradek{display:flex;align-items:center;gap:9px;min-height:var(--tap)}
+.oblist{margin:0 0 10px}
+.oblpol{border:1px solid var(--line);border-radius:11px;padding:9px 11px;margin-bottom:7px;background:#fbfaf7}
+.obljm b{font-size:13.5px;display:block}
+.obljm em{font-style:normal;color:var(--muted);font-size:11px}
+.oblakce{display:flex;gap:6px;margin-top:8px}
+.oblmini{flex:1;min-height:var(--tap);border-radius:9px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);font-size:12px;font-weight:650;cursor:pointer;padding:0 6px}
+.oblmini.smaz{color:#8a3b1c}
 .jmenoradek .jm{flex:1;min-width:0;font-weight:650;font-size:14px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ghost.uzky{width:auto;flex:0 0 auto;padding:0 16px;margin:0}
@@ -754,7 +762,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v61';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v62';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2460,6 +2468,11 @@ map.on('popupopen', async e => {
     map.closePopup();
     ukazPlochu(mistoZTipu(i), LOC[i].name);
   };
+  const plXY = el2 && el2.querySelector('[data-plocha-xy]');
+  if (plXY){
+    const [la, ln] = plXY.dataset.plochaXy.split(',').map(Number);
+    plXY.onclick = () => { map.closePopup(); ukazPlochuXY(la, ln); };
+  }
   const plB = el2 && el2.querySelector('[data-plocha-bod]');
   if (plB) plB.onclick = () => {
     const id = plB.dataset.plochaBod;
@@ -3582,24 +3595,56 @@ async function prepniOblibene(klic, popis, lat, lng){
   return !!o[klic];
 }
 
+/* ============================================================
+   Audit 34: oblíbená se kreslila jako zlatá hvězda PŘES parkoviště,
+   které si člověk oblíbil. Hvězda byla nahoře, brala klepnutí a její
+   bublina uměla jedinou věc: „Zrušit oblíbené". Tím se u oblíbeného
+   místa ztratilo „Ukázat, kde hledat" i navigace – funkce zmizely
+   právě u míst, na kterých člověku záleží nejvíc.
+
+   Teď platí: oblíbené parkoviště zůstává parkovištěm, jen zezlátne.
+   Vlastní bod (kdekoli na mapě) je hvězda s plnou bublinou.
+   ============================================================ */
 let oblibenaVrstva = null;
+
+function jeVlastniBod(k){ return k.indexOf('vlastni:') === 0; }
+
 function kresliOblibena(){
   if (oblibenaVrstva){ map.removeLayer(oblibenaVrstva); oblibenaVrstva = null; }
   const o = oblibena();
-  const vlastni = Object.keys(o).filter(k => k.indexOf('bod:') === 0);
-  if (!vlastni.length) return;
-  oblibenaVrstva = L.layerGroup();
-  vlastni.forEach(k => {
-    const b = o[k];
-    if (typeof b.lat !== 'number') return;
-    L.marker([b.lat, b.lng], {icon: pinIcon('oblibene','★',22), zIndexOffset:700})
-      .bindPopup('<div class="pop"><h3>★ Oblíbené místo</h3><div class="sub">' +
-        (b.popis || 'bez názvu') + '</div>' +
-        '<button class="smazOblibene" data-k="' + k + '">Zrušit oblíbené</button></div>', POPOPT)
-      .addTo(oblibenaVrstva);
-  });
-  oblibenaVrstva.addTo(map);
+  const vlastni = Object.keys(o).filter(jeVlastniBod);
+  if (vlastni.length){
+    oblibenaVrstva = L.layerGroup();
+    vlastni.forEach(k => {
+      const b = o[k];
+      if (typeof b.lat !== 'number') return;
+      L.marker([b.lat, b.lng], {icon: pinIcon('oblibene','★',24), zIndexOffset:700})
+        .bindPopup('<div class="pop"><h3>★ ' + (b.popis || 'Oblíbené místo') + '</h3>' +
+          '<div class="sub">Vlastní bod · ' + b.lat.toFixed(5) + ', ' + b.lng.toFixed(5) + '</div>' +
+          '<div class="nav"><a class="alt" target="_blank" rel="noopener" ' +
+          'href="https://www.google.com/maps/dir/?api=1&destination=' + b.lat + ',' + b.lng + '">Navigovat sem</a></div>' +
+          '<button class="oblTlac" data-plocha-xy="' + b.lat + ',' + b.lng + '">🌲 &nbsp;Ukázat, kde hledat</button>' +
+          '<button class="oblTlac" data-park="' + b.lat + ',' + b.lng + '">🚗 &nbsp;Kde zaparkovat</button>' +
+          '<button class="smazOblibene" data-k="' + k + '">Zrušit oblíbené</button></div>', POPOPT)
+        .addTo(oblibenaVrstva);
+    });
+    oblibenaVrstva.addTo(map);
+  }
+  /* parkoviště se překreslí, aby oblíbená zezlátla */
+  if (typeof prekresliMistaBrzy === 'function') prekresliMistaBrzy();
+  if (typeof refreshOblibene === 'function') refreshOblibene();
 }
+
+/* Dlouhé podržení prstu na mapě = oblíbené místo přesně tam.
+   Audit 34: doteď se dalo označit jen parkoviště nebo „střed mapy"
+   z nastavení. Když si člověk pamatuje konkrétní roh lesa, chce
+   hvězdičku tam, ne na parkovišti o půl kilometru vedle. */
+map.on('contextmenu', async (e) => {
+  const klic = 'vlastni:' + Date.now().toString(36);
+  await prepniOblibene(klic, 'Vlastní místo', +e.latlng.lat.toFixed(5), +e.latlng.lng.toFixed(5));
+  banner('<b>Oblíbené místo přidané.</b> Najdeš ho v Nastavení → Oblíbená místa. ' +
+         'Klepnutím na hvězdu se dostaneš k „kde hledat" i k parkování.', false, 9000);
+});
 
 /* ---------- dialog Kam dnes ---------- */
 function slovniSance(s){
@@ -3771,7 +3816,7 @@ function popisPorostu(m){
 
 function ukazMista(mista){
   const chci = new Set();
-  mista.slice(0, 300).forEach(m => chci.add(m.id));
+  mista.slice(0, 300).forEach(m => chci.add(m.id + (jeOblibene('bod:' + m.id) ? '★' : '')));
 
   mistaNaMape.forEach((zn, id) => {
     if (chci.has(id)) return;
@@ -3781,7 +3826,8 @@ function ukazMista(mista){
   });
 
   mista.slice(0, 300).forEach(m => {
-    if (mistaNaMape.has(m.id)) return;
+    const idKlic = m.id + (jeOblibene('bod:' + m.id) ? '★' : '');
+    if (mistaNaMape.has(idKlic)) return;
     /* Ověřené parkoviště = stejná tečka, jen tmavší a s prstencem.
        Bublina má navíc psané poznámky, kde přesně hledat. */
     if (m.overene){
@@ -3789,11 +3835,15 @@ function ukazMista(mista){
         fillColor:'#7a5ea8', fillOpacity:.95})
         .bindPopup(() => popupHTML(m.loc, m.locIndex), POPOPT);
       zn.addTo(mistaVrstva);
-      mistaNaMape.set(m.id, zn);
+      mistaNaMape.set(idKlic, zn);
       return;
     }
-    const zn = L.circleMarker([m.lat, m.lng], {radius:6, color:'#7a5ea8', weight:2, opacity:.9,
-      fillColor:'#a98fd0', fillOpacity:.75})
+    /* Audit 34: oblíbené parkoviště zezlátne, ale zůstává parkovištěm
+       se vším, co uměl – žádná hvězda mu už neukradne klepnutí. */
+    const obl = jeOblibene('bod:' + m.id);
+    const zn = L.circleMarker([m.lat, m.lng], obl
+      ? {radius:8, color:'#8a6a12', weight:3, opacity:1, fillColor:'#e0b53c', fillOpacity:.95}
+      : {radius:6, color:'#7a5ea8', weight:2, opacity:.9, fillColor:'#a98fd0', fillOpacity:.75})
      .bindPopup('<div class="pop"><h3>Parkoviště u lesa</h3>' +
        '<div class="sub"><span class="znacka mapa">z map, nikdy jsme tam nebyli</span></div>' +
        '<div class="ok" style="background:#f2efe6;border-color:#d8d0bd">' +
@@ -3812,7 +3862,7 @@ function ukazMista(mista){
        (jeOblibene('bod:' + m.id) ? '★ Oblíbené' : '☆ Přidat do oblíbených') + '</button>' +
        '</div>', POPOPT);
     zn.addTo(mistaVrstva);
-    mistaNaMape.set(m.id, zn);
+    mistaNaMape.set(idKlic, zn);
   });
 }
 
@@ -4929,6 +4979,16 @@ function zrusPlochu(){
   if (plochaVrstva){ map.removeLayer(plochaVrstva); plochaVrstva = null; }
 }
 
+/* Audit 34: plochu „kde hledat" uměla appka spočítat jen kolem
+   parkoviště ze seznamu. U vlastního oblíbeného bodu, který žádné id
+   nemá, se tlačítko nedalo použít. Tady se z holých souřadnic udělá
+   místo se stejnými vlastnostmi a zbytek už funguje jako dřív. */
+async function ukazPlochuXY(lat, lng){
+  const m = {id:'xy:'+lat.toFixed(5)+','+lng.toFixed(5), lat, lng,
+             jehl:50, list:50, cest:3, overene:false};
+  return ukazPlochu(m, 'oblíbené místo ' + lat.toFixed(3) + ', ' + lng.toFixed(3));
+}
+
 async function ukazPlochu(m, jmeno){
   if (plochaProbiha) return;
   plochaProbiha = true;
@@ -5709,17 +5769,15 @@ function refreshNastroje(){
     '<button class="ghost" id="btnOffline2" style="margin-bottom:8px">⬇︎ &nbsp;Stáhnout tenhle výřez na offline</button>' +
     '<p style="font-size:11.5px;color:var(--muted);margin:0 0 8px" id="mistoTxt">Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.</p>' +
     '<button class="ghost" id="btnSmazMapy" style="margin-bottom:12px">Smazat uložené mapy</button>' +
+    /* Audit 34: „Máš 2 oblíbená místa" bylo všechno, co appka o oblíbených
+       řekla – nedalo se zjistit která, ani se na ně dostat. Tady je jejich
+       jediný soupis: kde jsou, jak daleko, a co se s nimi dá udělat. */
     '<h3>Oblíbená místa</h3>' +
-    '<button class="ghost" id="btnOblibeneSem" style="margin-bottom:6px">★ &nbsp;Přidat oblíbené místo doprostřed mapy</button>' +
+    '<div id="oblibeneSeznam"></div>' +
+    '<button class="ghost" id="btnOblibeneSem" style="margin-bottom:6px">★ &nbsp;Přidat střed mapy</button>' +
     '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">' +
-    (function(){ const o = oblibena();
-      const lok = Object.keys(o).filter(k => k.indexOf('lok:')===0).length;
-      const bod = Object.keys(o).filter(k => k.indexOf('bod:')===0).length;
-      return (lok+bod) ? ('Máš ' + sklonuj(lok,'oblíbenou lokalitu','oblíbené lokality','oblíbených lokalit') +
-             ' a ' + sklonuj(bod,'vlastní místo','vlastní místa','vlastních míst') +
-             '. Do doporučování se počítají.') :
-             'Zatím žádné. Hvězdičku najdeš v bublině lokality nebo v doporučení „Kam dnes".'; })() +
-    '</p>' +
+    'Oblíbené místo přidáš i <b>podržením prstu na mapě</b> – hvězdička sedne přesně tam. ' +
+    'Do doporučování „Kam vyrazit autem" se počítají (+0,15 ke skóre).</p>' +
     lesHTML() +
     '<div class="toggle' + (historieZap ? ' on' : '') + '" id="tgHistorie" role="switch" tabindex="0" aria-checked="' +
       historieZap + '" aria-label="Kde jsme už hledali" style="margin-bottom:12px">' +
@@ -5770,7 +5828,7 @@ function refreshNastroje(){
   $('btnOffline2').onclick = () => { $('legendModal').classList.remove('show'); stahniVyrez(); };
   $('btnOblibeneSem').onclick = async () => {
     const c = map.getCenter();
-    const klic = 'bod:' + Date.now().toString(36);
+    const klic = 'vlastni:' + Date.now().toString(36);
     await prepniOblibene(klic, 'Vlastní místo', +c.lat.toFixed(5), +c.lng.toFixed(5));
     $('legendModal').classList.remove('show');
     banner('Oblíbené místo přidáno doprostřed mapy. Klepnutím na hvězdičku ho zrušíš.', false, 8000);
@@ -5927,6 +5985,8 @@ function otevriNastaveni(kam){
   $('whoTxt').textContent = state.name || 'bez jména';
   refreshPomoc();
   refreshNastroje();
+  /* až po refreshNastroje – ten blok se seznamem přepisuje */
+  refreshOblibene();
   refreshPeopleModal();
   refreshOdchod();
   $('legendModal').classList.add('show');
@@ -5941,6 +6001,50 @@ function otevriNastaveni(kam){
 /* Audit 11: aby se špatná souřadnice domova nemohla znovu měsíce
    tiše vézt, jde přepsat z místa, kde člověk zrovna stojí. Dojezd
    „z domova" se pak počítá odsud. */
+/* Audit 34: hromadný soupis oblíbených – jediné místo, kde je vidíš
+   všechny najednou. U každého vzdálenost, skok na mapu, plocha
+   „kde hledat" i smazání. */
+function refreshOblibene(){
+  const el = $('oblibeneSeznam');
+  if (!el) return;
+  const o = oblibena();
+  const klice = Object.keys(o).filter(k => typeof o[k].lat === 'number');
+  if (!klice.length){
+    el.innerHTML = '<p style="font-size:12px;color:var(--muted);margin:0 0 10px">' +
+      'Zatím žádné. Hvězdičku najdeš v bublině parkoviště, nebo podrž prst na mapě.</p>';
+    return;
+  }
+  const odkud = (state.me && typeof state.me.lat === 'number') ? [state.me.lat, state.me.lng] : HOME;
+  const rady = klice.map(k => {
+    const b = o[k];
+    return {k, b, d: distM(odkud, [b.lat, b.lng])};
+  }).sort((x, y) => x.d - y.d);
+  el.innerHTML = '<div class="oblist">' + rady.map(r =>
+    '<div class="oblpol">' +
+      '<div class="obljm"><b>' + (r.b.popis || 'Oblíbené místo') + '</b>' +
+        '<em>' + fmtDist(r.d) + ' · ' + r.b.lat.toFixed(4) + ', ' + r.b.lng.toFixed(4) + '</em></div>' +
+      '<div class="oblakce">' +
+        '<button class="oblmini" data-obl-skok="' + r.k + '">Na mapu</button>' +
+        '<button class="oblmini" data-obl-plocha="' + r.k + '">Kde hledat</button>' +
+        '<button class="oblmini smaz" data-obl-smaz="' + r.k + '">Smazat</button>' +
+      '</div></div>').join('') + '</div>';
+
+  el.querySelectorAll('[data-obl-skok]').forEach(b => b.onclick = () => {
+    const x = o[b.dataset.oblSkok];
+    $('legendModal').classList.remove('show');
+    map.setView([x.lat, x.lng], Math.max(map.getZoom(), 15));
+  });
+  el.querySelectorAll('[data-obl-plocha]').forEach(b => b.onclick = () => {
+    const x = o[b.dataset.oblPlocha];
+    $('legendModal').classList.remove('show');
+    ukazPlochuXY(x.lat, x.lng);
+  });
+  el.querySelectorAll('[data-obl-smaz]').forEach(b => b.onclick = async () => {
+    await prepniOblibene(b.dataset.oblSmaz);
+    refreshOblibene();
+  });
+}
+
 function refreshDomov(){
   const vlastni = domovJeVlastni();
   $('domovKde').innerHTML = vlastni
