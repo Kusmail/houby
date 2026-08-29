@@ -1,6 +1,6 @@
 {
-  "name": "Houby",
-  "short_name": "Houby",
+  "name": "Houbař",
+  "short_name": "Houbař",
   "description": "Houbařské lokality kolem Mratína, zaparkované auto a poloha.",
   "start_url": "./index.html",
   "scope": "./",
