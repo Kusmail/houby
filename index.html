@@ -112,16 +112,28 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;
 .bigbtn[disabled]{opacity:.5}
 
 /* panel navigace k autu */
-.carnav{display:flex;align-items:center;gap:12px;background:#fdf4e8;border:1.5px solid #f0c48a;
+.carnav{display:block;background:#fdf4e8;border:1.5px solid #f0c48a;
   border-radius:14px;padding:10px 12px}
+.carnav-top{display:flex;align-items:center;gap:12px}
+.carnav-akce{display:flex;gap:8px;margin-top:9px}
+.carnav [hidden]{display:none!important}
+#carAkce[hidden],#carPtam[hidden]{display:none!important}
+.carbtn{flex:1;min-height:46px;border-radius:11px;border:1.5px solid #e2c9a4;background:#fff;
+  color:var(--ink);font-size:13.5px;font-weight:650;cursor:pointer;padding:0 8px;
+  display:inline-flex;align-items:center;justify-content:center;text-align:center}
+.carbtn.del{color:#8a3b1c}
+.jen-siroke{display:none}
+@media(min-width:380px){ .jen-siroke{display:inline} }
+.carbtn.ano{background:#b03a1a;border-color:#b03a1a;color:#fff}
+.carnav-ptam{margin-top:9px;border-top:1px dashed #e2c9a4;padding-top:9px}
+.carnav-ptam .ot{font-size:12.5px;line-height:1.4;font-weight:600}
 .arrowwrap{width:58px;height:58px;flex:0 0 58px;border-radius:50%;background:#fff;
   border:2px solid var(--car);display:flex;align-items:center;justify-content:center;position:relative}
 #arrow{transition:transform .25s ease;font-size:30px;line-height:1;color:var(--car)}
 .carinfo{flex:1;min-width:0}
 .carinfo .d{font-size:26px;font-weight:750;line-height:1.05;letter-spacing:-.02em}
 .carinfo .s{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.35}
-.carnav .x{width:40px;height:40px;flex:0 0 40px;border-radius:10px;border:1px solid var(--line);
-  background:#fff;font-size:16px;cursor:pointer}
+
 
 /* řádek přepínačů */
 .row{display:flex;gap:8px;margin-top:9px;align-items:stretch}
@@ -225,7 +237,6 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 #kamObsah .pozn{font-size:11.5px;color:var(--muted);line-height:1.45;margin:2px 0 12px}
 .pin.oblibene{background:#c9a227;color:#fff;border-color:#fff}
 .bigbtn.prepsat{background:#d99327;font-size:13.5px;line-height:1.35}
-.carnav .x.ptam{background:#d99327;color:#fff}
 .fotobtn{display:block;text-align:center;padding:13px;border:1.5px dashed var(--line);border-radius:11px;
   font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:10px}
 #fotoNahled{display:none;margin-bottom:10px}
@@ -437,16 +448,32 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
        „Kam dnes" se plánuje doma, ta patří do vytaženého panelu. -->
   <div class="hlavniradek">
     <button class="bigbtn sber" id="btnSber">🌲 &nbsp;Najdi mi les</button>
-    <button class="bigbtn auto" id="btnPark" aria-label="Zaparkoval jsem tady">🚗</button>
+    <button class="bigbtn auto" id="btnPark" aria-label="Označit, kde stojí auto">🚗<span class="jen-siroke">&nbsp;&nbsp;Označit auto</span></button>
   </div>
 
+  <!-- Audit 8: koš se při potvrzování měnil na otazník. Ikona, která
+       místo zpřesnění zesložití, je past – proto je tu teď obyčejná
+       otázka a dvě pojmenovaná tlačítka. A přeparkování bylo mrtvý
+       kód (btnPark se schovával), takže se sem přidalo natvrdo. -->
   <div class="carnav" id="carNav" style="display:none" role="group" aria-label="Navigace k autu">
-    <div class="arrowwrap"><div id="arrow">↑</div></div>
-    <div class="carinfo">
-      <div class="d" id="carDist">–</div>
-      <div class="s" id="carMeta">–</div>
+    <div class="carnav-top">
+      <div class="arrowwrap"><div id="arrow">↑</div></div>
+      <div class="carinfo">
+        <div class="d" id="carDist">–</div>
+        <div class="s" id="carMeta">–</div>
+      </div>
     </div>
-    <button class="x" id="btnCarClear" title="Auto vyzvednuto" aria-label="Auto vyzvednuto – smazat pozici">🗑</button>
+    <div class="carnav-akce" id="carAkce">
+      <button class="carbtn" id="btnCarAgain">🚗 &nbsp;Přeparkoval jsem</button>
+      <button class="carbtn del" id="btnCarClear">🗑 &nbsp;Auto mám</button>
+    </div>
+    <div class="carnav-ptam" id="carPtam" hidden>
+      <div class="ot" id="carPtamTxt">Vyzvedl jsi auto? Značka zmizí i tomu druhému.</div>
+      <div class="carnav-akce">
+        <button class="carbtn ano" id="btnCarYes">Ano, smazat</button>
+        <button class="carbtn" id="btnCarNo">Ne, nech to být</button>
+      </div>
+    </div>
   </div>
  </div>
 
@@ -1166,6 +1193,7 @@ function renderCar(){
   const c = state.car;
   if (!c){
     if (carMarker){ map.removeLayer(carMarker); carMarker = null; }
+    if ($('carPtam')){ $('carPtam').hidden = true; $('carAkce').hidden = false; }
     $('btnPark').style.display = '';
     $('carNav').style.display = 'none';
     if (typeof measureSheet === 'function'){ measureSheet(); applySheet(false); }
@@ -1187,7 +1215,7 @@ function renderCar(){
       href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}">Navigovat k autu</a></div></div>`, POPOPT);
 
   $('btnPark').style.display = 'none';
-  $('carNav').style.display = 'flex';
+  $('carNav').style.display = 'block';
   updateCarNav();
   if (typeof measureSheet === 'function'){ measureSheet(); applySheet(false); }
 }
@@ -1368,15 +1396,15 @@ document.querySelector('.arrowwrap').addEventListener('click', initCompass);
 /* ============================================================
    OVLÁDÁNÍ
    ============================================================ */
-/* Audit 3: kdo klepne později, přepíše auto tomu prvnímu. Dva lidé u dvou aut
-   nebo jedno omylnuté klepnutí – a druhý je naváděný na špatné místo.
-   Proto se u existující pozice ptáme, ale jen jednou a rovnou na tlačítku,
-   ať se to dá odklepnout v rukavicích. */
+/* Audit 8: „Zaparkoval jsem tady" je věta v minulém čase, která na
+   tlačítku visela pořád. Matěj to četl jako tvrzení appky („tvrdíš,
+   že tu mám auto") i ve chvíli, kdy tam žádné auto nebylo. Tlačítko
+   teď říká, co udělá, ne co se prý stalo. */
 function obnovPark(){
   const b = $('btnPark');
   b.dataset.prepsat = '';
   b.classList.remove('prepsat');
-  b.innerHTML = '🚗 &nbsp;Zaparkoval jsem tady';
+  b.innerHTML = '🚗<span class="jen-siroke">&nbsp;&nbsp;Označit auto</span>';
 }
 
 $('btnKam').onclick = () => kamDnes();
@@ -1385,20 +1413,16 @@ $('kamClose').onclick = () => $('kamModal').classList.remove('show');
 $('btnFiltr').onclick = () => otevriFiltry();
 $('filtrClose').onclick = () => $('filtrModal').classList.remove('show');
 
-$('btnPark').onclick = async () => {
+/* Jedna cesta pro označení i přeparkování. Cizí auto se přepisuje až
+   po potvrzení – dva lidé u dvou aut si nemají navádět jeden druhého. */
+async function oznacAuto(){
   const b = $('btnPark');
-  if (state.car && b.dataset.prepsat !== '1'){
-    b.dataset.prepsat = '1';
-    b.classList.add('prepsat');
-    b.innerHTML = 'Auto označil ' + (state.car.byName || '?') + ' ' + fmtAge(state.car.ts) +
-                  '.<br><b>Klepni znovu, chceš-li ho přepsat</b>';
-    clearTimeout(b._t); b._t = setTimeout(obnovPark, 9000);
-    return;
-  }
   clearTimeout(b._t);
   b.dataset.prepsat = '';
   b.classList.remove('prepsat');
+  const puvodni = b.innerHTML;
   b.disabled = true; b.textContent = '📡  Zaměřuju…';
+  skryjPtani();
   initCompass();
   try {
     const p = await getPositionOnce();
@@ -1411,35 +1435,61 @@ $('btnPark').onclick = async () => {
   } catch(e){
     banner('<b>Nepodařilo se zaměřit polohu.</b> Zkontroluj, že je povolená poloha, a zkus to znovu na otevřenějším místě.', true);
   } finally {
-    b.disabled = false; obnovPark();
+    b.disabled = false; b.innerHTML = puvodni; obnovPark();
   }
-};
+}
 
-/* Audit 12: nativní confirm() vypadal proti zbytku appky cize a na iOS
-   zablokuje všechno ostatní. Dvě klepnutí dělají totéž a nikam neodskočí. */
-$('btnCarClear').onclick = () => {
-  const b = $('btnCarClear');
-  if (b.dataset.jistota !== '1'){
-    b.dataset.jistota = '1';
-    b.textContent = '?';
-    b.setAttribute('aria-label', 'Klepni znovu pro smazání pozice auta');
-    b.classList.add('ptam');
-    clearTimeout(b._t);
-    b._t = setTimeout(() => {
-      b.dataset.jistota = ''; b.textContent = '🗑';
-      b.setAttribute('aria-label', 'Auto vyzvednuto – smazat pozici');
-      b.classList.remove('ptam');
-    }, 5000);
-    const cizi = state.car && state.car.by && state.car.by !== state.uid;
-    banner('Smazat pozici auta' + (cizi ? ', kterou označil ' + (state.car.byName || 'někdo z vás') : '') +
-           '? <b>Klepni na otazník ještě jednou.</b> Zmizí i ostatním.', false, 5000);
+$('btnPark').onclick = () => oznacAuto();
+
+$('btnCarAgain').onclick = () => {
+  const c = state.car;
+  const cizi = c && c.by && c.by !== state.uid;
+  if (cizi && $('btnCarAgain').dataset.jistota !== '1'){
+    $('btnCarAgain').dataset.jistota = '1';
+    ptejSe('Auto sem dal ' + (c.byName || 'někdo z vás') + ' ' + fmtAge(c.ts) +
+           '. Přepsat ho tvojí polohou?', 'Ano, přepsat', () => {
+             $('btnCarAgain').dataset.jistota = ''; oznacAuto();
+           });
     return;
   }
-  clearTimeout(b._t);
-  b.dataset.jistota = ''; b.textContent = '🗑';
-  b.setAttribute('aria-label', 'Auto vyzvednuto – smazat pozici');
-  b.classList.remove('ptam');
-  state.car = null; LS.del('car'); renderCar(); pushCar(null);
+  oznacAuto();
+};
+
+/* Audit 8: dřív se koš při potvrzování měnil na „?" a odpověď se
+   schovávala do zmizející hlášky nahoře. Otázka i odpověď teď stojí
+   v té samé kartě, oboje pojmenované, oboje přes 44 px. */
+function ptejSe(otazka, popisekAno, akce){
+  $('carPtamTxt').textContent = otazka;
+  $('btnCarYes').textContent = popisekAno;
+  $('carAkce').hidden = true;
+  $('carPtam').hidden = false;
+  $('carPtam')._akce = akce;
+  clearTimeout($('carPtam')._t);
+  $('carPtam')._t = setTimeout(skryjPtani, 12000);
+  if (typeof measureSheet === 'function'){ measureSheet(); applySheet(false); }
+}
+function skryjPtani(){
+  const p = $('carPtam'); if (!p) return;
+  clearTimeout(p._t);
+  p.hidden = true; p._akce = null;
+  $('carAkce').hidden = false;
+  $('btnCarAgain').dataset.jistota = '';
+  if (typeof measureSheet === 'function'){ measureSheet(); applySheet(false); }
+}
+$('btnCarNo').onclick = () => skryjPtani();
+$('btnCarYes').onclick = () => {
+  const a = $('carPtam')._akce;
+  skryjPtani();
+  if (typeof a === 'function') a();
+};
+
+$('btnCarClear').onclick = () => {
+  const c = state.car;
+  const cizi = c && c.by && c.by !== state.uid;
+  ptejSe('Vyzvedl jsi auto?' + (cizi ? ' Označil ho ' + (c.byName || 'někdo z vás') + '.' : '') +
+         ' Značka zmizí i tomu druhému.', 'Ano, smazat', () => {
+    state.car = null; LS.del('car'); renderCar(); pushCar(null);
+  });
 };
 
 $('btnMe').onclick = () => {
@@ -1577,7 +1627,7 @@ let dragStartY = null, dragStartOff = 0, dragLastY = 0, dragLastT = 0, dragV = 0
 
 function draggableTarget(t){
   // z tlačítek a přepínačů se netáhne, ať se nekazí jejich ovládání
-  return !t.closest('button, a, .toggle, .mini, .bigbtn, .carnav .x, input');
+  return !t.closest('button, a, .toggle, .mini, .bigbtn, .carnav .carbtn, input');
 }
 
 function onDragMove(e){
