@@ -985,7 +985,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v84';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v85';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2098,7 +2098,11 @@ function zmerDno(){
   const puvodni = document.documentElement.style.getPropertyValue('--dno');
   document.documentElement.style.setProperty('--dno', '0px');
   const d = Math.round(window.innerHeight - m.getBoundingClientRect().bottom);
+  /* Audit 53: kdyz promenna jeste nebyla nastavena, `puvodni` je prazdny
+     retezec a stara podminka ji nechala natvrdo na nule. Uklidime po sobe
+     poradne, at plati fallback z CSS. */
   if (puvodni) document.documentElement.style.setProperty('--dno', puvodni);
+  else document.documentElement.style.removeProperty('--dno');
   return Math.max(0, Math.min(160, d));
 }
 
@@ -7455,6 +7459,52 @@ renderPeopleList();
    ten bily pruh, ktery jsme opravovali. */
 measureSheet(true); applySheet(false);
 window.addEventListener('load', () => prepocitatPanel(true));
+
+/* ============================================================
+   Audit 53: BILY PRUH DOLE PRI SPUSTENI
+
+   Ctyri snimky z telefonu, jeden po druhem: hned po otevreni je pod
+   tlacitky bily pruh a mapa konci nad nim. Po vytazeni a slozeni
+   panelu je pruh pryc a mapa saha na okraj displeje.
+
+   Co se lisi: `--dno`. Ta promenna protahuje mapu i panel pod spodni
+   hranu plochy stranky a pocita se jako `innerHeight - spodek mapy`.
+   Z diagnostiky vime, ze v appce z ikonky ma plocha stranky 793 px,
+   zatimco okno hlasi 852 - rozdil 59 px, presne ten pruh.
+
+   Jenze hned po startu hlasi `innerHeight` taky 793. Rozdil je tedy
+   nula, `--dno` zustane nula a pruh zustane odkryty. Okno se na 852
+   protahne az za chvili a iOS k tomu neposle zadnou udalost, na kterou
+   by se dalo cekat - proto to samo nenaskocilo a spravilo se to teprve
+   tim, ze uzivatel panel vytahl (a tim vyvolal prepocet rucne).
+
+   Reseni je hlidka: par prepoctu behem prvnich tri vterin. Skonci
+   drive, jakmile se mezera objevi a potvrdi. Kazdy prepocet je po
+   Auditu 52 laciny, takze to nic nestoji. */
+(function hlidkaDna(){
+  /* Pevne naplanovane prepocty by stacily jen tehdy, kdyby se okno
+     protahlo do nejake dane vteriny. Nevime to a nemuzeme se na to
+     spolehnout, tak sledujeme primo tu jedinou hodnotu, na ktere to
+     visi. Cteni `innerHeight` je holy pristup k cislu - zadne
+     rozvrzeni, zadne kresleni - takze si ho muzeme dovolit dvakrat
+     za vterinu po celou dobu behu. Prepocet se spusti jen tehdy, kdyz
+     se cislo opravdu zmeni. */
+  let posledni = window.innerHeight;
+  setInterval(() => {
+    if (document.hidden) return;
+    const ted = window.innerHeight;
+    if (ted === posledni) return;
+    posledni = ted;
+    prepocitatPanel(true);
+  }, 500);
+  /* A jeste par prepoctu hned po startu, at se to chytne co nejdriv. */
+  [150, 400, 900].forEach(t => setTimeout(() => prepocitatPanel(true), t));
+})();
+
+/* Navrat z pozadi: iOS mezitim mohl plochu stranky zmenit. */
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) prepocitatPanel(true);
+});
 if (!state.name) askName();
 setShare(false);                 // výchozí stav je VYP, vždy
 initFirebase();
