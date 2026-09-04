@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v97';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v98';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1664,12 +1664,39 @@ map.on('moveend zoomend', () => { if (map.hasLayer(gbifVrstva)) kresliGbif(); })
 
    Pravidlo se schvalne pouzije jen tehdy, kdyz klepnuti dopadlo na
    podklad nebo na porost. Kdyz trefi jinou konkretni znacku
-   (parkoviste, nas nalez, auto), nechavame ji byt - ta uz je trefena
-   presne a prebijet ji by bylo horsi nez to, co opravujeme. */
+   (nas nalez, auto), nechavame ji byt - ta uz je trefena presne a
+   prebijet ji by bylo horsi nez to, co opravujeme.
+
+   ============================================================
+   Audit 66: PARKOVISTE MAJI TENTYZ PROBLEM
+
+   Parkoviste jsou `L.circleMarker`, tedy SVG kolecka bez zvetsene
+   dotykove plochy - presne to, co tenhle audit resil u GBIF bodu.
+   Zasah je polomer + polovina obrysu, tedy 7 px u bezneho a 9,5 px
+   u overeneho parkoviste. Apple chce 44 px, tedy 22 px od stredu.
+
+   Zvetsit sam terc nejde. Zmereno na mista.json (7 656 bodu): k
+   nejblizsimu sousedovi je median 235 m a desetina bodu ma souseda
+   do 68 m, takze pri zoomu 11 by se dotykove plochy o polomeru 22 px
+   prekryvaly u 96 % bodu - klepnuti by sice trefilo parkoviste, ale
+   casto to vedlejsi.
+
+   Rozsiruje se proto totez pravidlo jako u GBIF: neresi se, na CO se
+   trefilo, ale KTERY bod je nejblizsi. Prekryv pak nevadi, protoze
+   vyhrava blizsi bod, ne ten navrchu.
+
+   Od zoomu 13 vys, a to taky ze zmereni: kruhy o polomeru 28 px kolem
+   parkovist pokryji pri zoomu 11 celych 57,7 % displeje, pri 12 uz
+   jen 14,4 % a pri 13 pouhych 3,6 %. Niz nez 13 by pravidlo bralo
+   klepnuti bubline porostu, kvuli ktere se na mapu clovek diva.
+   ============================================================ */
 const DOSAH_PRSTU = 28;   // px
+const ZOOM_PRST_MISTA = 13;
 
 map.on('click', e => {
-  if (!map.hasLayer(gbifVrstva)) return;
+  const gbifJede = map.hasLayer(gbifVrstva);
+  const mistaJedou = map.hasLayer(mistaVrstva) && map.getZoom() >= ZOOM_PRST_MISTA;
+  if (!gbifJede && !mistaJedou) return;
   const t = e.originalEvent && e.originalEvent.target;
   if (!t) return;
   /* podklad = dlaždice mapy, plátno porostů nebo samotný kontejner */
@@ -1679,12 +1706,14 @@ map.on('click', e => {
   if (!naPodkladu) return;
 
   let nej = null, nejD = DOSAH_PRSTU;
-  gbifVrstva.eachLayer(l => {
-    if (!l._gbifBod || !l.getLatLng) return;
+  const zvaz = l => {
+    if (!l.getLatLng || !l.getPopup || !l.getPopup()) return;
     const p = map.latLngToContainerPoint(l.getLatLng());
     const d = p.distanceTo(e.containerPoint);
     if (d < nejD){ nejD = d; nej = l; }
-  });
+  };
+  if (gbifJede) gbifVrstva.eachLayer(l => { if (l._gbifBod) zvaz(l); });
+  if (mistaJedou) mistaVrstva.eachLayer(zvaz);
   if (nej) nej.openPopup();
 });
 
