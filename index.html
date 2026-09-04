@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v98';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v99';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2049,7 +2049,14 @@ function renderPeopleList(){
 
 
 
-setInterval(()=>{ renderPeopleList(); if(state.car) updateCarNav(); }, 15000);
+/* Audit 67: tenhle interval prekresloval seznam lidi a navigaci k autu
+   i tehdy, kdyz je appka na pozadi nebo displej zhasnuty. Nikdo se na to
+   nedival a stalo to probuzeni kazdych patnact vterin. Po navratu do
+   popredi se prekresli hned, takze uzivatel zadne zpozdeni nepozna. */
+setInterval(()=>{
+  if (document.hidden) return;
+  renderPeopleList(); if(state.car) updateCarNav();
+}, 15000);
 
 /* ============================================================
    GEOLOKACE
@@ -4008,7 +4015,27 @@ function rozborPocasi(den){
 
    Výhrada: GBIF jsou POZOROVÁNÍ, ne plodnice. Na podzim chodí do lesa víc
    lidí, takže absolutní čísla jsou zkreslená. Rozdíl mezi bedlou a hřibem
-   ale měříme uvnitř téže skupiny pozorovatelů – ten posun je skutečný. */
+   ale měříme uvnitř téže skupiny pozorovatelů – ten posun je skutečný.
+
+   ============================================================
+   Audit 68: ODKUD TY KŘIVKY DOOPRAVDY JSOU
+
+   Zpětná kontrola proti nalezy-gbif.json (1 535 nálezů z ČR): u SEDMI
+   z osmi druhů se křivka shoduje s českým měsíčním rozdělením hodnota
+   po hodnotě (Pearson 0,975 až 1,000, Spearman 0,993 až 1,000). Nejsou
+   tedy z evropských čísel uvedených výše, ale z týchž českých dat, která
+   appka vozí s sebou. Výjimka je hřib žlutomasý (r = 0,948, n = 38 462),
+   ten evropský opravdu je.
+
+   Praktický důsledek: validovat křivky proti nalezy-gbif.json je
+   kruhové. Změřeno křížově (leave-one-year-out): AUC modelu klesne
+   z 0,861 na 0,845, uvnitř sezóny z 0,706 na 0,674 – o tolik jsou
+   čísla z takové validace nadhodnocená.
+
+   Pole `n` u druhů proto nově ukazuje POČET ČESKÝCH NÁLEZŮ v souboru,
+   ne evropský počet – dřív tam u masáku stálo 348 proti skutečným 223.
+   U hřibu žlutomasého zůstává evropské číslo, protože tam odpovídá.
+   ============================================================ */
 /* Audit 7: „kolik je vody" se počítalo na třech místech stejným výrazem
    min(1, vážený déšť / 25). Naměřeno dnes napříč ČR: vážený déšť je
    14,9 až 77,7 mm, takže při stropu 25 mm sedělo 15 z 24 krajů na 100 %
@@ -4332,8 +4359,8 @@ async function nactiMista(){
 /* Ktere nazvy ze zdroje patri ke kteremu druhu ve filtru. */
 const ZDROJ_DRUHY = {
   hrib_smrkovy:   ['hřib smrkový'],
-  hrib_dubovy:    ['hřib dubový', 'hřib dubový žlutomasý'],
-  hrib_zlutomasy: ['suchohřib žlutomasý', 'suchohřib meruňkový'],
+  hrib_dubovy:    ['hřib dubový', 'hřib přívěskatý'],
+  hrib_zlutomasy: ['suchohřib žlutomasý', 'hřib sametový'],
   masak:          ['hřib hnědý'],
   klouzky:        ['klouzek obecný', 'klouzek sličný', 'klouzek zrnitý', 'klouzek kravský', 'klouzek strakoš'],
   kremenac:       ['křemenáč osikový', 'křemenáč březový'],
@@ -5055,7 +5082,7 @@ const HOUBY = {
     jm:'Hřib smrkový', kratkyChip:'Hřib smrkový', kratce:'hřib smrkový', skupina:'hriby',
     strom:'smrk, jedle · nejlíp porost 30–70 let',
     nevime:'Smrk od borovice ani modřínu v mapách nerozeznáme – vidíme jen „jehličnaté".',
-    latence:[10,16], n:350,
+    latence:[10,16], n:332,
     sezona:{1:0,2:0,3:0,4:0,5:0,6:0.10,7:0.37,8:0.71,9:1.00,10:0.96,11:0.10,12:0.02},
     v:{'jehličnaté':{'do 2,5 m':0.25,'od 2,5 m do 8 m':0.55,'od 8 m do 20 m':1.00,'nad 20 m':0.90},
        'smíšené':   {'do 2,5 m':0.20,'od 2,5 m do 8 m':0.45,'od 8 m do 20 m':0.90,'nad 20 m':0.80},
@@ -5066,7 +5093,7 @@ const HOUBY = {
     jm:'Hřib dubový a bronzový', kratkyChip:'Hřib dubový', kratce:'hřiby v doubravě', skupina:'hriby',
     strom:'dub, buk · prosvětlené porosty a okraje, ne zapojený les',
     nevime:'Dub od buku ani od akátu neodlišíme – vidíme jen „listnaté".',
-    latence:[10,16], n:85,
+    latence:[10,16], n:81,
     sezona:{1:0,2:0,3:0,4:0,5:0.10,6:1.00,7:0.57,8:0.47,9:0.43,10:0.23,11:0.03,12:0},
     v:{'listnaté':  {'do 2,5 m':0.15,'od 2,5 m do 8 m':0.35,'od 8 m do 20 m':0.85,'nad 20 m':1.00},
        'smíšené':   {'do 2,5 m':0.15,'od 2,5 m do 8 m':0.30,'od 8 m do 20 m':0.70,'nad 20 m':0.80},
@@ -5077,7 +5104,7 @@ const HOUBY = {
     jm:'Masák (hřib hnědý)', kratkyChip:'Masák', kratce:'masáky', skupina:'hriby',
     strom:'smrk, borovice · mechové smrčiny',
     nevime:'Mechový podrost v mapách není – a právě ten masák chce.',
-    latence:[10,16], n:348,
+    latence:[10,16], n:223,
     sezona:{1:0,2:0,3:0,4:0,5:0.03,6:0.06,7:0.16,8:0.45,9:0.74,10:1.00,11:0.25,12:0.01},
     v:{'jehličnaté':{'do 2,5 m':0.25,'od 2,5 m do 8 m':0.70,'od 8 m do 20 m':1.00,'nad 20 m':0.95},
        'smíšené':   {'do 2,5 m':0.20,'od 2,5 m do 8 m':0.60,'od 8 m do 20 m':0.90,'nad 20 m':0.85},
@@ -5088,7 +5115,7 @@ const HOUBY = {
     jm:'Klouzky', kratkyChip:'Klouzky', kratce:'klouzky', skupina:'hriby',
     strom:'modřín (klouzek sličný), borovice · mladý porost',
     nevime:'Modřín je nejjistější vazba v ČR, ale v mapách ho nerozeznáme. Mířit na mladé jehličnaté.',
-    latence:[5,10], n:350,
+    latence:[5,10], n:332,
     sezona:{1:0,2:0,3:0,4:0,5:0.02,6:0.16,7:0.16,8:0.31,9:1.00,10:0.75,11:0.08,12:0},
     v:{'jehličnaté':{'do 2,5 m':0.45,'od 2,5 m do 8 m':1.00,'od 8 m do 20 m':0.75,'nad 20 m':0.55},
        'smíšené':   {'do 2,5 m':0.35,'od 2,5 m do 8 m':0.80,'od 8 m do 20 m':0.60,'nad 20 m':0.45},
@@ -5110,7 +5137,7 @@ const HOUBY = {
     jm:'Kozáky', kratkyChip:'Kozáky', kratce:'kozáky', skupina:'hriby',
     strom:'bříza, habr · i v remízcích a příměstské zeleni',
     nevime:'Břízu od dubu neodlišíme. Mířit na listnaté střední výšky a lemy.',
-    latence:[10,16], n:59,
+    latence:[10,16], n:57,
     sezona:{1:0,2:0,3:0,4:0,5:0,6:0.15,7:0.19,8:0.30,9:1.00,10:0.44,11:0.11,12:0},
     v:{'listnaté':  {'do 2,5 m':0.35,'od 2,5 m do 8 m':0.90,'od 8 m do 20 m':1.00,'nad 20 m':0.60},
        'smíšené':   {'do 2,5 m':0.30,'od 2,5 m do 8 m':0.75,'od 8 m do 20 m':0.85,'nad 20 m':0.50},
@@ -5148,7 +5175,7 @@ const HOUBY = {
     strom:'žádný – bedla je saprofyt, roste na živné půdě, ne u stromu',
     nevime:'Pastviny a meze v naší lesní vrstvě nejsou. Proto se u bedel počítá hlavně OKRAJ porostu – ' +
            'v zapojeném lese nerostou a appka je tam schválně sráží.',
-    latence:[7,12], n:290,
+    latence:[7,12], n:286,
     sezona:{1:0,2:0,3:0,4:0,5:0.03,6:0.14,7:0.27,8:0.51,9:0.96,10:1.00,11:0.22,12:0},
     v:{'listnaté':  {'do 2,5 m':0.35,'od 2,5 m do 8 m':0.30,'od 8 m do 20 m':0.20,'nad 20 m':0.15},
        'smíšené':   {'do 2,5 m':0.30,'od 2,5 m do 8 m':0.25,'od 8 m do 20 m':0.18,'nad 20 m':0.12},
@@ -8062,10 +8089,20 @@ window.addEventListener('load', () => prepocitatPanel(true));
      Hlidame proto rovnou tu mezeru. Je to dve cteni cisel, zadny
      zapis do stylu, takze si to muzeme dovolit dvakrat za vterinu.
      Prepocet se spusti jen tehdy, kdyz se mezera opravdu zmeni. */
-  setInterval(() => {
-    if (document.hidden) return;
-    if (zmerDno() !== dnoPx) prepocitatPanel(true);
-  }, 500);
+  /* Audit 67: dvakrat za vterinu, navzdy. Dokud se mezera merila oknem
+     proti oknu (viz Audit 59), byla hlidka jedina sance, jak ji zachytit.
+     Ted se cte z displeje a je spravne uz od prvniho snimku, takze hlidka
+     resi jen to, co prijde pozdeji - otoceni telefonu, notifikace shora -
+     a to posila `resize` i `visualViewport`, na kterych uz posluchace
+     visi. Prvnich pet vterin proto zustava po 500 ms kvuli usazovani
+     rozvrzeni po startu, pak se zpomali na dve vteriny. */
+  const HLIDKA_OD = Date.now();
+  (function tik(){
+    setTimeout(() => {
+      if (!document.hidden && zmerDno() !== dnoPx) prepocitatPanel(true);
+      tik();
+    }, Date.now() - HLIDKA_OD < 5000 ? 500 : 2000);
+  })();
   [150, 400, 900].forEach(t => setTimeout(() => prepocitatPanel(true), t));
 
   /* stopa ze startu - viz Audit 58 */
@@ -8077,7 +8114,11 @@ window.addEventListener('load', () => prepocitatPanel(true));
 
 /* Navrat z pozadi: iOS mezitim mohl plochu stranky zmenit. */
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) prepocitatPanel(true);
+  if (document.hidden) return;
+  prepocitatPanel(true);
+  /* Audit 67: seznam lidi a navigace k autu se na pozadi neprekresluji,
+     takze po navratu musi dostat jeden prepocet hned. */
+  renderPeopleList(); if (state.car) updateCarNav();
 });
 if (!state.name) askName();
 setShare(false);                 // výchozí stav je VYP, vždy
