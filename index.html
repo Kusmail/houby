@@ -107,11 +107,20 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
    rozdil posouval cely panel dolu - jenze kdyby ten pruh na displeji
    videt nebyl, posunul by se panelu obsah pod okraj a spodni rada
    tlacitek by se orizla. Panel proto zustava, kde je, a pod nim je
-   jen barevna vypln. Kdyz je pruh videt, navazuje na panel a nic
-   nesviti; kdyz videt neni, vypln je mimo obraz a nikomu nevadi.
-   Bez rizika v obou pripadech. */
-.sheet::after{content:'';position:absolute;left:0;right:0;top:100%;
-  height:var(--dno, 0px);background:var(--card);pointer-events:none}
+   jen barevna vypln.
+
+   Audit 60: prvni pokus delal tu vypln pres `.sheet::after` s
+   `top:100%`. To je mimo box panelu a panel ma `overflow:hidden`,
+   takze se vypln orizla a nikdy se nenakreslila - ve slozenem stavu
+   to nebylo poznat (tam ma pruh ukazovat mapu a taky ji ukazuje),
+   ale s vytazenym panelem pod nim prosvitala mapa.
+
+   Vypln je proto ted plny stin posunuty dolu o --dno. Stin se kresli
+   za prvkem a `overflow` na nej neplati. Rozvrzeni se nemeni ani o
+   pixel - je to jen barva. Ve slozenem stavu ma panel `box-shadow:
+   none`, takze tam vypln zamerne neni. Zapisuje se primo do
+   hlavniho pravidla .sheet nize - samostatny radek na tomhle miste
+   by pozdejsi `.sheet{box-shadow:...}` prebilo (past c. 1). */
 .sheet, .mistabar, .banner, .updbar, .recbar{position:fixed}
 
 /* ---------- horní lišta ---------- */
@@ -158,7 +167,8 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
 .sheet{
   position:absolute;left:0;right:0;bottom:0;z-index:1200;
   background:var(--card);border-top:1px solid var(--line);
-  border-radius:16px 16px 0 0;box-shadow:0 -3px 18px rgba(0,0,0,.16);
+  border-radius:16px 16px 0 0;
+  box-shadow:0 -3px 18px rgba(0,0,0,.16), 0 var(--dno, 0px) 0 0 var(--card);
   padding:8px 12px calc(var(--safe-b) + 10px);
   max-height:calc(100dvh - 96px); overflow:hidden;
   transition:transform .28s cubic-bezier(.22,.61,.36,1), max-height .28s cubic-bezier(.22,.61,.36,1);
@@ -1089,7 +1099,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v95';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v96';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
