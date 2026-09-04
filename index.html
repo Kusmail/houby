@@ -100,6 +100,18 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
    počítač), --dno je nula a nic se nemění.
    ============================================================ */
 #map{position:absolute;top:0;left:0;right:0;bottom:calc(-1 * var(--dno, 0px))}
+/* ============================================================
+   Audit 59: VYPLN POD PANELEM
+
+   Plocha stranky konci vys nez displej (viz zmerDno). Driv se o ten
+   rozdil posouval cely panel dolu - jenze kdyby ten pruh na displeji
+   videt nebyl, posunul by se panelu obsah pod okraj a spodni rada
+   tlacitek by se orizla. Panel proto zustava, kde je, a pod nim je
+   jen barevna vypln. Kdyz je pruh videt, navazuje na panel a nic
+   nesviti; kdyz videt neni, vypln je mimo obraz a nikomu nevadi.
+   Bez rizika v obou pripadech. */
+.sheet::after{content:'';position:absolute;left:0;right:0;top:100%;
+  height:var(--dno, 0px);background:var(--card);pointer-events:none}
 .sheet, .mistabar, .banner, .updbar, .recbar{position:fixed}
 
 /* ---------- horní lišta ---------- */
@@ -144,7 +156,7 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
 
 /* ---------- spodní panel ---------- */
 .sheet{
-  position:absolute;left:0;right:0;bottom:calc(-1 * var(--dno, 0px));z-index:1200;
+  position:absolute;left:0;right:0;bottom:0;z-index:1200;
   background:var(--card);border-top:1px solid var(--line);
   border-radius:16px 16px 0 0;box-shadow:0 -3px 18px rgba(0,0,0,.16);
   padding:8px 12px calc(var(--safe-b) + 10px);
@@ -1077,7 +1089,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v94';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v95';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2324,10 +2336,49 @@ let dnoPx = 0;
    prepocet rozvrzeni pri kazdem mereni. Neni to potreba: spodek mapy
    uz to aktualni dno obsahuje, staci ho odecist. Vysledek je stejny,
    ale je to ciste cteni - da se proto merit i pravidelne. */
+function jeZIkonky(){
+  try {
+    if (navigator.standalone === true) return true;
+    return !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  } catch(e){ return false; }
+}
+
+/* ============================================================
+   Audit 59: MERILO BYLO SLEPE
+
+   Stopa startu z iPhonu (v94, houby-v94, 4. 9.):
+     okno 393x793 · displej 393x852
+     stopa (okno/plocha): 0s 793/793 · 1sn 793/793 · 200ms 793/793 ·
+                          500ms 793/793 · 1s 793/793 · 2s 793/793
+   Okno ani plocha se nehnou. Obe hlasi 793, displej ma 852. Mezera je
+   tedy mezi OKNEM a DISPLEJEM, ne mezi plochou a oknem - a presne tu
+   druhou dvojici zmerDno porovnavalo. Merilo okno proti sobe samemu a
+   vyslo mu vzdycky nula. Hlidka po 500 ms proto nemela co zachytit a
+   opravy v85 i v87 minuly, protoze cekaly, az se nektere z tech dvou
+   cisel pohne. Ono se nepohne nikdy.
+
+   Zalozni merilo je proto displej. Pojistky, aby z toho nevznikla
+   dira jinde:
+     - jen v appce z ikonky (v prohlizeci ukrajuji vysku listy Safari
+       a rozdil by byl obrovsky),
+     - jen kdyz sirka displeje odpovida sirce okna (na sirku by rozdil
+       nedaval smysl),
+     - jen kdyz klasicke merilo hlasi nulu,
+     - strop 160 px jako driv. */
+function dnoZDispleje(){
+  if (!jeZIkonky()) return 0;
+  const s = window.screen;
+  if (!s || !s.height || !s.width) return 0;
+  if (Math.abs(s.width - window.innerWidth) > 2) return 0;
+  const e = Math.round(s.height - window.innerHeight);
+  return (e > 0 && e <= 160) ? e : 0;
+}
+
 function zmerDno(){
   const m = document.getElementById('map');
   if (!m) return 0;
-  const d = Math.round(window.innerHeight - (m.getBoundingClientRect().bottom - dnoPx));
+  let d = Math.round(window.innerHeight - (m.getBoundingClientRect().bottom - dnoPx));
+  if (d <= 0) d = dnoZDispleje();
   return Math.max(0, Math.min(160, d));
 }
 
@@ -2348,7 +2399,7 @@ function zapisStopu(znacka){
     const m = document.getElementById('map');
     if (!m) return;
     const plocha = Math.round(m.getBoundingClientRect().bottom - dnoPx);
-    dnoStopa.push(znacka + ' ' + window.innerHeight + '/' + plocha);
+    dnoStopa.push(znacka + ' ' + window.innerHeight + '/' + plocha + '/' + (window.screen ? screen.height : '?'));
   } catch(e){}
 }
 
@@ -6771,8 +6822,9 @@ function diagnostika(){
       ' · uloženo ' + (LS.get('sheetPeek', true) ? 'složeno' : 'vytaženo') +
       ' · strop ' + (sh.style.maxHeight || 'žádný') +
       '<br>plocha stránky končí ' + dnoPx + ' px nad spodkem displeje' +
+      ' (z displeje ' + dnoZDispleje() + ')' + +
       ' · spodek panelu ' + Math.round(r.bottom) + ' z ' + window.innerHeight +
-      '<br><b>stopa po startu</b> (okno/plocha): ' + (dnoStopa.join(' · ') || 'zatím nic') +
+      '<br><b>stopa po startu</b> (okno/plocha/displej): ' + (dnoStopa.join(' · ') || 'zatím nic') +
       '</div>';
   } catch(e){ return ''; }
 }
