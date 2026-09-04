@@ -170,10 +170,23 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
   border-radius:16px 16px 0 0;
   box-shadow:0 -3px 18px rgba(0,0,0,.16), 0 var(--dno, 0px) 0 0 var(--card);
   padding:8px 12px calc(var(--safe-b) + 10px);
-  max-height:calc(100dvh - 96px); overflow:hidden;
+  /* Audit 64: 96 px nahore byla pausalni rezerva. Kdyz nahore sviti
+     vic list (aktualizace + hlaska + zaznam trasy + podminky), rozbaleny
+     panel jim vlezl pod ne i s uchytem. Rezerva se proto pocita z jejich
+     skutecne zmerene vysky (--bannerH plni bannerOffset). */
+  max-height:calc(100dvh - var(--safe-t, 0px) - var(--bannerH, 0px) - 56px); overflow:hidden;
   transition:transform .28s cubic-bezier(.22,.61,.36,1), max-height .28s cubic-bezier(.22,.61,.36,1);
-  will-change:transform,max-height;touch-action:pan-y
+  will-change:transform,max-height;touch-action:pan-y;
+  /* Audit 64: aby se telo dalo rolovat, musi mit vlastni vysku -
+     jinak jen prerusta panel a strop ho utne. */
+  display:flex;flex-direction:column
 }
+.sheet-head{flex:0 0 auto}
+/* Audit 64: kdyz se telo panelu nevejde (telefon na sirku, mala
+   obrazovka), bylo proste odriznute - spodni rada tlacitek "Na me /
+   Na auto / Nalez / Trasa" byla 88 px pod okrajem a nedalo se k ni
+   dostat. Ted se da telo rolovat. */
+.sheet-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .sheet.dragging{transition:none}
 
 /* ============================================================
@@ -266,7 +279,7 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;
 /* Audit 13: po zúžení popisky bylo tlačítko auta o 8 px vyšší než
    „Najdi mi les" vedle – řádek se roztáhl podle něj. Obě tlačítka
    mají teď stejnou pevnou výšku a obsah auta se do ní vejde. */
-.bigbtn.auto{flex:0 0 96px; background:#c2701a; padding:2px; margin-bottom:0;
+.bigbtn.auto{flex:0 0 96px; background:#a1560e; padding:2px; margin-bottom:0;
   height:54px; min-height:54px; flex-direction:column; gap:0; justify-content:center;
   font-size:17px; line-height:1; overflow:hidden; text-align:center}
 .bigbtn.auto .pop2{font-size:10px; font-weight:700; line-height:1.12; letter-spacing:-.01em}
@@ -404,7 +417,7 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .kamsucho{background:#fdf3e3;border-left:3px solid #d99327;padding:11px 12px;border-radius:9px;
   font-size:12.5px;line-height:1.5;margin-bottom:12px}
 .popbtn{
-  display:block;width:100%;margin:8px 0 4px;background:#c2701a;color:#fff;border:0;
+  display:block;width:100%;margin:8px 0 4px;background:#a1560e;color:#fff;border:0;
   border-radius:10px;min-height:var(--tap);font-size:14px;font-weight:700;font-family:inherit;cursor:pointer
 }
 .kamsucho button{
@@ -424,7 +437,7 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
    Delší text se nesmí zlomit do dvou řádků ani vylézt z kolečka. */
 .nejlepsi i{font-style:normal;font-size:9.5px;font-weight:700;opacity:.9;margin-top:1px;
   white-space:nowrap;max-width:42px;overflow:hidden}
-.bigbtn.prepsat{background:#d99327;font-size:13.5px;line-height:1.35}
+.bigbtn.prepsat{background:#a1560e;font-size:13.5px;line-height:1.35}
 .fotobtn{display:block;text-align:center;padding:13px;border:1.5px dashed var(--line);border-radius:11px;
   font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:10px}
 #fotoNahled{display:none;margin-bottom:10px}
@@ -643,7 +656,12 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
    míň než na telefonu. Na širokém displeji z toho dělám jeden levý
    sloupec – panel, hláška i lišta míst mají stejnou šířku a mapa
    dostane zbytek. Telefon zůstává beze změny. */
-@media(min-width:820px){
+/* Audit 64: telefon polozeny na sirku ma 852 px sirky, tedy prelezl
+   tenhle prah a dostal rozvrzeni pro pocitac - panel jako plovouci
+   sloupec vlevo. Na 393 px vysky se pak rozbaleny panel dostal pod
+   listu s podminkami (z-index 1230 > 1200) a UCHYT SEL SCHOVAT:
+   panel uz neslo slozit. Rozvrzeni pro pocitac proto chce i vysku. */
+@media(min-width:820px) and (min-height:600px){
   .leaflet-control-zoom{display:block}
   .sheet{width:var(--sloupec);max-width:var(--sloupec);right:auto;border-radius:16px;left:12px;bottom:12px;border:1px solid var(--line)}
   .banner{left:12px;right:auto;width:var(--sloupec)}
@@ -724,6 +742,20 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      Na velky tucny text norma staci, ale v setmele appce to pusobilo
      krikave. O odstin tmavsi da 4,87:1 a v noci to nebije do oci. */
   .bigbtn.auto, .person.auto .sw{background:#a85f14}
+
+  /* Audit 63: pruh zaznamu trasy nocni rezim vubec nemel. Prvni tmavy
+     blok mu nastavuje pozadi na var(--card), jenze pozdejsi radek
+     `.recbar{background:#fdece9}` ho prebije - stejna vaha, pozdejsi
+     poradi. Vysledek: svetly text --ink na svetle ruzove, 1,11:1.
+     Presne ten vzorec, kvuli kteremu tenhle blok na konci vznikl. */
+  .recbar{background:#3a1d1a;border-color:#7a2f26;color:var(--ink)}
+  /* Cervena tlacitka maji vlastni barvu pisma s vetsi vahou nez
+     `.carbtn{color:var(--ink)}`, takze v noci zustavala tmave hneda
+     na tmave sede: 1,82:1 a 2,20:1. */
+  .carbtn.del{color:#e8917a}
+  .oblmini.smaz{color:#e8917a}
+  /* Prouzek uchytu ve slozenem panelu zustaval skoro bily. */
+  .sheet.peek .grab::before{background:#4a453d}
 
   /* ruzne */
   .b1{background:#1e2a3a;color:var(--ink)}
@@ -1099,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v96';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v97';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2570,6 +2602,10 @@ function setSheetPeek(v, animate){
 let dragStartY = null, dragStartOff = 0, dragLastY = 0, dragLastT = 0, dragV = 0, dragging = false;
 
 function draggableTarget(t){
+  /* Audit 64: kdyz se telo panelu roluje, nesmi se z nej zaroven tahat -
+     onDragMove vola preventDefault a rolovani by nikdy nezacalo. */
+  const telo = t.closest('.sheet-body');
+  if (telo && telo.scrollHeight > telo.clientHeight + 2) return false;
   // z tlačítek a přepínačů se netáhne, ať se nekazí jejich ovládání
   return !t.closest('button, a, .toggle, .mini, .bigbtn, .carnav .carbtn, input');
 }
@@ -4664,7 +4700,7 @@ map.on('contextmenu', async (e) => {
    Stupně jsou proto v množném čísle, ať sedí k „podmínkám". */
 function slovniSance(s){
   if (s >= 0.55) return {t:'dobré', c:'#2e7d4f'};
-  if (s >= 0.32) return {t:'průměrné', c:'#b07a1a'};
+  if (s >= 0.32) return {t:'průměrné', c:'#8f6210'};
   if (s >= 0.15) return {t:'slabé', c:'#a85a2a'};
   return {t:'mizivé', c:'#8a3b1c'};
 }

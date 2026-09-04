@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v96';
+const VER        = 'houby-v97';
 const SHELL      = VER + '-shell';
 
 /* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
@@ -44,7 +44,11 @@ const SHELL_FILES = [
   './icon-180.png',
   './icon-192.png',
   './icon-512.png',
-  './nalezy-gbif.json'
+  './nalezy-gbif.json',
+  /* Audit 65: mista.json (73 kB po gzipu) se stahovalo az ve chvili,
+     kdy si clovek rekl o "Kam vyrazit" nebo "Kde je nejbliz". Kdo to
+     poprve otevrel az v lese bez signalu, nedostal zadne parkoviste. */
+  './mista.json'
 ];
 
 /* Předuložení skořápky nesmí instalaci zaseknout. Když je síť pomalá
