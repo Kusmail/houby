@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v100';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v101';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -3048,14 +3048,19 @@ async function ulozNalez(z){
   renderFinds();
   kresliNejlepsi();
 
-  if (!dbRefs || state.approved !== true){ queue('find', {id, z:bezFotky, foto}); return false; }
+  /* v101: nejdřív do fronty v telefonu, z ní ven až po potvrzení.
+     Dřív se do fronty psalo jen při chybě – jenže Firebase bez signálu
+     chybu nevyhodí, set() prostě čeká. Okno viselo na „Zaměřuju…"
+     a nález žil jen v paměti; když iOS appku zavřel, byl pryč. */
+  const qid = queue('find', {id, z:bezFotky, foto});
+  if (!dbRefs || state.approved !== true) return false;
   try {
-    await dbRefs.set(dbRefs.ref(dbRefs.db, 'finds/' + state.uid + '/' + id), bezFotky);
+    await doLimitu(dbRefs.set(dbRefs.ref(dbRefs.db, 'finds/' + state.uid + '/' + id), bezFotky));
+    if (foto) await doLimitu(posliFotku(id, foto, bezFotky));
   } catch(e){
-    queue('find', {id, z:bezFotky, foto});
-    return false;
+    return false;          // zůstává ve frontě, odejde s flushPending()
   }
-  if (foto) await posliFotku(id, foto, bezFotky);
+  odeberZFronty(qid);
   return true;
 }
 
@@ -7835,8 +7840,25 @@ function migrujFrontu(){
 }
 function frontaZapisu(){ return LS.get('queue', []); }
 const FRONTA_MAX = 100;
+/* v101: zápis do Firebase bez signálu nikdy neskončí chybou, jen čeká.
+   Po tomhle limitu ho bereme jako neodeslaný – záznam zůstane ve frontě
+   a Firebase ho mezitím doručí sám, pokud appka přežije do signálu.
+   Dvojí odeslání nevadí: set() na stejnou adresu se stejnými daty. */
+const ZAPIS_LIMIT = 6000;
+function doLimitu(p){
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('bez signálu')), ZAPIS_LIMIT))]);
+}
+function klicFronty(it){ return it.qid || (it.kind + ':' + it.ts); }   // starší záznamy qid nemají
+function odeberZFronty(qid){
+  LS.set('queue', frontaZapisu().filter(it => klicFronty(it) !== qid));
+}
 function queue(kind, payload){
-  const q = frontaZapisu(); q.push({kind, payload, ts:Date.now()});
+  const q = frontaZapisu();
+  const qid = kind + ':' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  /* Auto má smysl jen poslední – starší poloha poslaná po novější by ji přepsala. */
+  const zbytek = kind === 'car' ? q.filter(it => it.kind !== 'car') : q;
+  q.length = 0; q.push(...zbytek);
+  q.push({kind, payload, ts:Date.now(), qid});
   if (q.length > FRONTA_MAX){
     // Audit 10: dřív se přebytek zahazoval mlčky. Když už musíme něco
     // ztratit, ať se to člověk dozví hned, a ne až doma.
@@ -7846,32 +7868,47 @@ function queue(kind, payload){
            '. Až budeš mít signál, radši appku otevři, ať se zbytek odešle.', true, 12000);
   }
   LS.set('queue', q.slice(-FRONTA_MAX));
+  return qid;
 }
+/* v101: fronta se dřív smazala celá PŘED odesláním. Když signál při
+   odesílání znovu vypadl, zbytek zápisů visel jen v paměti a se
+   zavřením appky zmizel. Teď odchází záznam po záznamu a z fronty se
+   maže až po potvrzení. */
+let frontaBezi = false;
 async function flushPending(){
-  if (!dbRefs) return;
+  if (!dbRefs || frontaBezi) return;
   const q = frontaZapisu(); if (!q.length) return;
-  LS.del('queue');
-  for (const item of q){
-    try {
-      if (item.kind === 'car'){
-        if (item.payload) await dbRefs.set(dbRefs.car, item.payload);
-        else await dbRefs.remove(dbRefs.car);
-      } else if (item.kind === 'me'){
-        await dbRefs.set(dbRefs.me, item.payload);
-      } else if (item.kind === 'find'){
-        await dbRefs.set(dbRefs.ref(dbRefs.db, 'finds/' + state.uid + '/' + item.payload.id), item.payload.z);
-        if (item.payload.foto) await posliFotku(item.payload.id, item.payload.foto, item.payload.z);
+  frontaBezi = true;
+  try {
+    for (const item of q){
+      try {
+        if (item.kind === 'car'){
+          if (item.payload) await doLimitu(dbRefs.set(dbRefs.car, item.payload));
+          else await doLimitu(dbRefs.remove(dbRefs.car));
+        } else if (item.kind === 'me'){
+          await doLimitu(dbRefs.set(dbRefs.me, item.payload));
+        } else if (item.kind === 'find'){
+          await doLimitu(dbRefs.set(dbRefs.ref(dbRefs.db, 'finds/' + state.uid + '/' + item.payload.id), item.payload.z));
+          if (item.payload.foto) await doLimitu(posliFotku(item.payload.id, item.payload.foto, item.payload.z));
+        }
+        odeberZFronty(klicFronty(item));
+      } catch(e){
+        // bez signálu nemá smysl zkoušet další – zkusí se při příštím spojení;
+        // odmítnutí databází (pravidla) nechá záznam ve frontě a jde se dál
+        if (e && e.message === 'bez signálu') break;
       }
-    } catch(e){ queue(item.kind, item.payload); }
-  }
+    }
+  } finally { frontaBezi = false; }
 }
 
 async function pushCar(car){
-  if (!dbRefs){ queue('car', car); return; }
+  const qid = queue('car', car);   // v101: nejdřív do fronty, viz ulozNalez
+  if (!dbRefs) return;
   try {
-    if (car) await dbRefs.set(dbRefs.car, car);
-    else await dbRefs.remove(dbRefs.car);
-  } catch(e){ queue('car', car); banner('Auto je uložené v telefonu, ale zatím se nepodařilo odeslat druhému. Odešlu to, až bude signál.', false, 8000); }
+    if (car) await doLimitu(dbRefs.set(dbRefs.car, car));
+    else await doLimitu(dbRefs.remove(dbRefs.car));
+    odeberZFronty(qid);
+  } catch(e){ banner('Auto je uložené v telefonu, ale zatím se nepodařilo odeslat druhému. Odešlu to, až bude signál.', false, 8000); }
 }
 
 async function pushMyPosition(){
