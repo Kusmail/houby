@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v106';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v107';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -4149,10 +4149,10 @@ function vyskaBodu(lat, lng){
    prosincovou hodnotu natvrdo. */
 function dnuVMesici(rok, mesic){ return new Date(rok, mesic, 0).getDate(); }
 
-function sezonaDruhuVeVysce(klic, vyska){
+function sezonaDruhuVeVysce(klic, vyska, datum){
   const h = HOUBY[klic];
   if (!h) return 0.3;
-  const d = new Date();
+  const d = datum || new Date();      // v107: datum kvůli „kdy začne sezóna"
   const mes = d.getMonth() + 1;
   const podil = (d.getDate() - 0.5) / dnuVMesici(d.getFullYear(), mes);
   let m = mes + (podil - 0.5);
@@ -4177,13 +4177,33 @@ function sezonaDruhuVeVysce(klic, vyska){
 
    Teď je jedna: plynulá křivka. Výška je nepovinná – kde ji appka
    nezná, jen se sezóna neposune. */
-function faktorSezonyFiltru(vyska){
+function faktorSezonyFiltru(vyska, datum){
   let nej = 0;
   for (const k of clenoveFiltru(FILTR.druh)){
-    nej = Math.max(nej, sezonaDruhuVeVysce(k, (typeof vyska === 'number') ? vyska : null));
+    nej = Math.max(nej, sezonaDruhuVeVysce(k, (typeof vyska === 'number') ? vyska : null, datum));
   }
   return nej;
 }
+
+/* v107: pod touhle sezónní hodnotou nedá dohromady ani ideální počasí
+   víc než „mizivé" (podmínky = sezóna × vlhkost × teplota, hranice
+   „slabé" je 0,15). Pak nemá smysl radit podle deště. */
+const SEZONA_PRAH = 0.15;
+const MES_GEN = ['ledna','února','března','dubna','května','června',
+                 'července','srpna','září','října','listopadu','prosince'];
+/* Začátek PŘÍŠTÍ sezóny: když ještě doznívá ta letošní, nejdřív se
+   najde její konec a teprve pak den, kdy křivka znovu přeleze práh. */
+function pristiSezona(od){
+  let mimo = faktorSezonyFiltru(null, od) < SEZONA_PRAH;
+  for (let i = 1; i <= 366; i++){
+    const d = new Date(od.getTime() + i * 864e5);
+    const v = faktorSezonyFiltru(null, d);
+    if (!mimo){ if (v < SEZONA_PRAH) mimo = true; continue; }
+    if (v >= SEZONA_PRAH) return d;
+  }
+  return null;
+}
+function fmtDenMesic(d){ return d.getDate() + '. ' + MES_GEN[d.getMonth()]; }
 
 
 function minutyDojezdu(l){
@@ -4803,12 +4823,27 @@ function slovniSance(s){
 
 
 function kdyMaCenu(nej){
+  /* v107: v zimě appka radila „po dešti zkus vyrazit kolem 15 dnů od
+     dneška" – v lednu, o Vánocích i v březnu. Sezónu jako důvod
+     nezmínila. Teď se nejdřív ptá na sezónu, až pak na déšť. */
+  const ted = new Date();
+  const dalsi = pristiSezona(ted);
+  const kdyDalsi = dalsi ? ' Další sezóna na ' + jmenoFiltru(FILTR.druh) + ' začíná zhruba <b>' +
+                   fmtDenMesic(dalsi) + '</b>.' : '';
+  if ((nej.sez || 0) < SEZONA_PRAH){
+    return 'Hlavně <b>teď není sezóna</b> na ' + jmenoFiltru(FILTR.druh) +
+           ' – v tuhle dobu se v Česku skoro nic nenachází a déšť to nezmění.' + kdyDalsi;
+  }
   // najdi v předpovědi den, po kterém se vyplatí jet
   const b = nej.p.budouci || [];
   let nej_den = null, suma = 0;
   for (const d of b){
     suma += d.mm || 0;
     if (suma >= 12 && nej_den === null) nej_den = d.za;
+  }
+  if (nej_den !== null && faktorSezonyFiltru(null, new Date(ted.getTime() + (nej_den + 10) * 864e5)) < SEZONA_PRAH){
+    return 'Předpověď slibuje <b>' + Math.round(suma) + ' mm</b> během týdne, ale než po dešti podhoubí ' +
+           'zareaguje (osm až čtrnáct dní), bude <b>po sezóně</b>. Letos už to za cestu nejspíš nestojí.' + kdyDalsi;
   }
   if (nej_den !== null){
     return 'Předpověď slibuje <b>' + Math.round(suma) + ' mm</b> během týdne. ' +
