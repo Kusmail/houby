@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v110';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v111';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -4381,6 +4381,10 @@ async function nactiMista(){
     }));
     return MISTA;
   })();
+  /* v111: jedno selhání (třeba bez signálu) se dřív pamatovalo do
+     restartu appky – „Kam dnes", parkoviště i „Kde je nejblíž" pak
+     nefungovaly, ani když se signál vrátil. Teď se příště zkusí znovu. */
+  mistaNacitam.catch(() => { mistaNacitam = null; });
   return mistaNacitam;
 }
 
@@ -6779,7 +6783,10 @@ async function kamDnes(){
   const b = $('btnKam');
   b.disabled = true; b.innerHTML = '⏳ &nbsp;Hledám v celé ČR…';
   try {
-    const {vysl, celkem, vsech, orezano, strop, poDojezdu, kroky} = await najdiMista(OSRM_DAVKA * OSRM_DAVEK);
+    /* v111: když se nenačetla místa, lišta dřív hlásila „nepodařilo se
+       načíst srážky" – člověk hledal chybu v počasí. */
+    const {vysl, celkem, vsech, orezano, strop, poDojezdu, kroky} = await najdiMista(OSRM_DAVKA * OSRM_DAVEK)
+      .catch(e => { e.coSelhalo = 'mista'; throw e; });
     if (!vysl.length){
       $('kamObsah').innerHTML = '<div class="kamsucho">' + procNic(kroky) + '</div>' + filtryHTML();
       $('kamModal').classList.add('show');
@@ -6898,8 +6905,9 @@ async function kamDnes(){
       if (radek) radek.style.display = je ? '' : 'none';
     });
   } catch(e){
-    banner('<b>Nepodařilo se načíst srážky.</b> Bez nich doporučit nic neumím – ' +
-           'zkus to, až budeš mít signál. (' + e.message + ')', true, 10000);
+    banner((e.coSelhalo === 'mista' ? '<b>Nepodařilo se načíst seznam míst.</b> Bez něj'
+                                    : '<b>Nepodařilo se načíst srážky.</b> Bez nich') + ' doporučit nic neumím – ' +
+           'zkus to, až budeš mít signál. (' + esc(e.message) + ')', true, 10000);
   } finally {
     b.disabled = false; b.innerHTML = '🍄 &nbsp;Kam dnes na houby?';
   }
@@ -7761,12 +7769,27 @@ function localOnly(msg){
   renderPeopleList();
 }
 
-async function initFirebase(){
+/* v111: když appka naběhla bez signálu, Firebase se do konce relace
+   nezkusil znovu – nepřišly polohy ostatních, auto ani se neodeslala
+   fronta, dokud člověk appku nezavřel a neotevřel. Teď se to zkusí
+   znovu při návratu signálu, při návratu do appky a jednou za minutu. */
+let fbStav = 'nic';        // nic | bezi | hotovo | chyba
+let fbApp = null;
+function zkusFirebaseZnovu(){
+  if (fbStav === 'chyba' && navigator.onLine !== false) initFirebase(true);
+}
+window.addEventListener('online', zkusFirebaseZnovu);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) zkusFirebaseZnovu(); });
+setInterval(zkusFirebaseZnovu, 60000);
+
+async function initFirebase(opakovani){
+  if (fbStav === 'bezi' || fbStav === 'hotovo') return;
   if (typeof FIREBASE_CONFIG === 'undefined' || !FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey
       || String(FIREBASE_CONFIG.apiKey).indexOf('SEM_') === 0){
     localOnly('V souboru <code>config.js</code> zatím nejsou vyplněné údaje z Firebase – viz README, krok 1 a 2.');
     return;
   }
+  fbStav = 'bezi';           // hned, ať se dva pokusy nepotkají během importu
   try {
     const V = '10.14.1';
     const [{initializeApp}, {getAuth, signInAnonymously, onAuthStateChanged},
@@ -7776,7 +7799,7 @@ async function initFirebase(){
       import(`https://www.gstatic.com/firebasejs/${V}/firebase-database.js`)
     ]);
 
-    const app  = initializeApp(FIREBASE_CONFIG);
+    const app  = fbApp || (fbApp = initializeApp(FIREBASE_CONFIG));
     const auth = getAuth(app);
     const db   = getDatabase(app);
 
@@ -7826,8 +7849,12 @@ async function initFirebase(){
       flushPending();
     });
 
+    fbStav = 'hotovo';
+    if (opakovani) banner('<b>Sdílení s druhým telefonem zase běží.</b>', false, 5000);
   } catch(e){
-    localOnly('Nepodařilo se připojit k Firebase (' + (e && e.message ? e.message : 'neznámá chyba') + ').');
+    fbStav = 'chyba';
+    // při opakovaných pokusech bez signálu lištu znovu neukazujeme
+    if (!opakovani) localOnly('Nepodařilo se připojit k Firebase (' + (e && e.message ? e.message : 'neznámá chyba') + ').');
   }
 }
 

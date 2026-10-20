@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v110';
+const VER        = 'houby-v111';
 const SHELL      = VER + '-shell';
 
 /* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
@@ -14,6 +14,7 @@ const SHELL      = VER + '-shell';
    opravě překlepu. Dlaždice proto verzi nemají a maže je jen uživatel
    tlačítkem „Smazat uložené mapy". */
 const TILES      = 'houby-tiles';
+const SDK        = 'houby-sdk';      // knihovna Firebase, verze je v adrese (v111)
 
 /* Audit 3: strop byl 4 000 dlaždic a počítal se v KUSECH. Jenže dlaždice
    jsou z cizích domén, ukládají se jako neprůhledné odpovědi (opaque) a
@@ -103,7 +104,7 @@ self.addEventListener('activate', e => {
     doplnZeStare().catch(() => {})
       .then(() => caches.keys())
       .then(keys => Promise.all(keys
-        .filter(k => k !== TILES && !k.startsWith(VER))
+        .filter(k => k !== TILES && k !== SDK && !k.startsWith(VER))
         .map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
@@ -221,6 +222,23 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = req.url;
+
+  /* v111: knihovna Firebase má v adrese pevnou verzi a nikdy se nemění.
+     Dřív šla vždy ze sítě; když appka naběhla bez signálu a prohlížeč ji
+     zrovna neměl v cache, import selhal – a prohlížeč si ten neúspěch
+     pamatuje, takže se sdílení nerozjelo ani po návratu signálu.
+     Teď leží ve vlastní trvalé cache (data z Firebase dál nikdy). */
+  if (/^https:\/\/www\.gstatic\.com\/firebasejs\/\d/.test(url)){
+    e.respondWith((async () => {
+      const c = await caches.open(SDK);
+      const hit = await c.match(req);
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (res && res.ok) c.put(req, res.clone()).catch(() => {});
+      return res;
+    })());
+    return;
+  }
 
   // Firebase a Google API vždy ze sítě
   if (/gstatic\.com\/firebasejs|firebaseio\.com|firebasedatabase\.app|googleapis\.com/.test(url)) return;
