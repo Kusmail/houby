@@ -1177,7 +1177,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v121';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v122';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -5026,8 +5026,8 @@ function popisHouby(){
      správný porost s AUC 0,561, s „Vše" jen 0,514 – skoro náhoda. Lepší
      hodnocení přes všechny druhy dá dobrou známku skoro každému lesu. */
   if (d === 'vse')   return 'Bereš cokoli – platí lepší hodnocení z celé nabídky. ' +
-                            '<b>Mapa porostů pak lesy skoro nerozliší</b> – každý je dobrý pro nějakou houbu. ' +
-                            'Když vybereš konkrétní houbu, porosty rozliší líp (změřeno na 1 105 nálezech).';
+                            'Mapa porostů hodnotí les podle hub, <b>které teď rostou</b>. ' +
+                            'Když vybereš konkrétní houbu, porosty rozliší ještě líp (změřeno na 1 105 nálezech).';
   if (d === 'hriby') return 'Všechny hřibovité dohromady – platí ta nejlepší z nich pro daný porost.';
   const h = HOUBY[d];
   if (!h) return '';
@@ -5454,9 +5454,40 @@ function vhodnostJedne(klic, druh, vyska){
 /* Audit 32: „vše" bylo dřív průměr a vycházelo hůř než jednotlivé houby.
    Skupina teď bere LEPŠÍ z členů – když je smrčina výborná na hřib
    smrkový, je výborná i pro toho, komu je jedno, co přinese. */
+/* ============================================================
+   v122: „VŠE" PODLE TOHO, CO PRÁVĚ ROSTE
+
+   Změřeno na 1 105 nálezech z GBIF proti 20 náhodným lesním místům
+   do 1,5 km (analyza-porosty/, vse_sezona.py): „Vše" jako prosté
+   maximum přes osm druhů trefí porost s nálezem s AUC 0,514 – skoro
+   náhoda, protože každý les je výborný pro nějakou houbu, klidně
+   pro tu, která roste v červnu. Když se každý druh váží svou dnešní
+   sezónou (vůči druhu, který je teď v nejlepší sezóně), je to 0,533:
+   Δ +0,019 [+0,006; +0,032], stabilně ve všech polovinách dat
+   (do 2022 / od 2023 / sudé / liché roky: +0,015 až +0,025).
+   Konkrétní houba ve filtru je pořád lepší (0,561).
+   Váha je poměrná, takže barvy porostů zůstávají ve stejném měřítku;
+   mění se jen to, podle které houby se les hodnotí.
+   ============================================================ */
+let vahySezony = null;   // {den, filtr, vahy:{klic:0..1}}
+function vahaSezonyDruhu(k){
+  const clenove = clenoveFiltru(FILTR.druh);
+  if (clenove.length < 2) return 1;                     // jedna houba – váhy nemají smysl
+  const den = new Date().toDateString();
+  if (!vahySezony || vahySezony.den !== den || vahySezony.filtr !== FILTR.druh){
+    const sez = {}; let max = 0;
+    for (const c of clenove){ sez[c] = sezonaDruhuVeVysce(c, null); max = Math.max(max, sez[c]); }
+    const vahy = {};
+    for (const c of clenove) vahy[c] = max > 0 ? sez[c] / max : 1;
+    vahySezony = {den, filtr: FILTR.druh, vahy};
+  }
+  const v = vahySezony.vahy[k];
+  return v === undefined ? 1 : v;
+}
+
 function vhodnostPorostu(druh, vyska){
   let nej = 0;
-  for (const k of clenoveFiltru(FILTR.druh)) nej = Math.max(nej, vhodnostJedne(k, druh, vyska));
+  for (const k of clenoveFiltru(FILTR.druh)) nej = Math.max(nej, vahaSezonyDruhu(k) * vhodnostJedne(k, druh, vyska));
   return nej;
 }
 
@@ -5464,7 +5495,7 @@ function vhodnostPorostu(druh, vyska){
 function houbaZaSkore(druh, vyska){
   let nej = -1, kdo = null;
   for (const k of clenoveFiltru(FILTR.druh)){
-    const v = vhodnostJedne(k, druh, vyska);
+    const v = vahaSezonyDruhu(k) * vhodnostJedne(k, druh, vyska);
     if (v > nej){ nej = v; kdo = k; }
   }
   return kdo;
