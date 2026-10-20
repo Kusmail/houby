@@ -763,6 +763,51 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
   code{background:#2a2723}
   .prehled .pk{border-color:rgba(255,255,255,.75)}
 }
+
+/* ============================================================
+   v118: VYJÍŽDĚCÍ MENU – VÍC MÍSTA PRO MAPU
+
+   Přání: „na hlavní straně udělej vyjížděcí menu a nech víc prostoru
+   pro mapu". Naměřeno ve v117 (393×852, mřížka 8 px, co leží nahoře):
+   volné mapy 75,5 % se složeným panelem, 58 % s označeným autem
+   (panel navigace 294 px) a 48 % na šířku. Složený panel byl sice
+   průhledný, ale celý pás bral dotyky – mapa pod ním nešla posunout.
+
+   Složené menu je teď nízký dok v jedné řadě:
+   ☰ Menu (to je úchyt – klepnutím i tažením menu vyjede) · Určit houbu ·
+   Označit auto. Mimo tlačítka je dok průhledný i pro prst. S autem
+   zůstává ve složeném stavu jen šipka a vzdálenost; „Přeparkoval
+   jsem" / „Auto mám" jsou ve vyjetém menu. Otázka „Vyzvedl jsi auto?"
+   zůstává vidět vždy. Vyjeté menu je beze změny.
+
+   Pravidla stojí na konci stylu schválně (past č. 1 – pozdější pravidla
+   stejné specificity by je přebila).
+   ============================================================ */
+.grab .menuikona{display:none}
+.sheet.peek{padding-top:6px; pointer-events:none}
+.sheet.peek .grab, .sheet.peek .hlavniradek > *, .sheet.peek .carnav{pointer-events:auto}
+.sheet.peek .grab{
+  left:12px; top:6px; transform:none;
+  width:58px; height:54px; border-radius:14px; flex-direction:column; gap:3px;
+  background:rgba(28,28,25,.78)
+}
+.sheet.peek .grab::before{display:none}
+.sheet.peek .grab::after{left:-4px; right:-4px; top:-4px; bottom:-4px; width:auto; height:auto; transform:none}
+.sheet.peek .grab .menuikona{display:flex; flex-direction:column; align-items:center; gap:4px;
+  color:#f3efe8; font-size:10px; font-weight:750; letter-spacing:.02em; line-height:1}
+.sheet.peek .grab .menuikona i{display:block; width:22px; height:2.5px; border-radius:2px; background:#f3efe8;
+  box-shadow:0 -6px 0 #f3efe8, 0 6px 0 #f3efe8; margin:6px 0 5px}
+.sheet.peek .hlavniradek{margin-left:66px}
+/* auto ve složeném stavu: jen šipka a vzdálenost */
+.sheet.peek #carAkce{display:none!important}
+.sheet.peek .carnav{padding:6px 10px}
+.sheet.peek .carnav .arrowwrap{width:44px; height:44px; flex-basis:44px}
+.sheet.peek #arrow{font-size:24px}
+.sheet.peek .carinfo .d{font-size:21px}
+.sheet.peek .carinfo .s{display:none}
+/* měřítko a tiráž mapy nad dokem, ať je prst netrefí místo mapy */
+/* mapa sahá v appce z ikonky o --dno pod okno (v95), dok sedí na spodku okna */
+.leaflet-bottom{bottom:calc(var(--dok, 0px) + var(--dno, 0px))}
 </style>
 </head>
 <body>
@@ -813,7 +858,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
 
 <div class="sheet">
  <div class="sheet-head">
-  <div class="grab" id="grab" role="button" tabindex="0" aria-label="Vytáhnout nebo zatáhnout spodní panel"></div>
+  <div class="grab" id="grab" role="button" tabindex="0" aria-label="Menu – vytáhnout nebo zatáhnout spodní panel"><span class="menuikona" aria-hidden="true"><i></i>Menu</span></div>
 
   <!-- Audit 7: ve složeném stavu byla v hlavě panelu tři velká tlačítka
        přes sebe. Na iPhonu 390x844 pak z mapy zbýval pruh dvou set pixelů.
@@ -1131,7 +1176,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v117';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v118';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2638,6 +2683,8 @@ function applySheet(animate){
   } else {
     sheetEl.style.maxHeight = '';
   }
+  // v118: měřítko a tiráž mapy sedí nad složeným dokem
+  document.documentElement.style.setProperty('--dok', slozeno ? headVyska + 'px' : '0px');
   sheetEl.style.transform = 'translateY(0px)';
   if (!animate) requestAnimationFrame(()=> sheetEl.classList.remove('dragging'));
 }
