@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v99';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v100';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1324,7 +1324,12 @@ const ArcDlazdice = L.TileLayer.extend({
    spouštěcí kód mapy nedosáhl („Cannot access before initialization").
    Je to čistá třída nad Leafletem – patří sem, nad vznik mapy. */
 
-const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+/* v100: dřív https://{s}.tile… – mapa střídala servery a/b/c podle
+   souřadnic, kdežto „Stáhnout výřez na offline" bralo vždycky a.
+   V cache tak ležela jen zhruba třetina dlaždic, které pak mapa v lese
+   hledala. OSM dnes doporučuje jeden server bez písmene; stejnou adresu
+   používá i stahování a SW si dohledá i starší uložené a./b./c. */
+const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 18, attribution: '&copy; OpenStreetMap',
   errorTileUrl: PRAZDNA_DLAZDICE
 });
@@ -7533,8 +7538,9 @@ function zeptejSeSW(zprava, cekat){
   return new Promise(res => {
     const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
     if (!sw) return res(null);
+    const typ = zprava.typ || zprava;   // řetězec, nebo {typ, …} s daty
     const kanal = (e) => {
-      if (!e.data || e.data.typ !== zprava) return;
+      if (!e.data || e.data.typ !== typ) return;
       navigator.serviceWorker.removeEventListener('message', kanal);
       clearTimeout(t); res(e.data);
     };
@@ -7567,7 +7573,7 @@ async function stahniVyrez(){
     const nw = project(bb.getNorthWest(), z), se = project(bb.getSouthEast(), z);
     for (let x = nw.x; x <= se.x; x++)
       for (let y = nw.y; y <= se.y; y++)
-        list.push(`https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`);
+        list.push(`https://tile.openstreetmap.org/${z}/${x}/${y}.png`);   // stejná adresa jako mapa (v100)
   }
   const limit = await limitDlazdic();
   if (list.length > TILE_LIMIT_ABS){
@@ -7589,7 +7595,6 @@ async function stahniVyrez(){
   banner('Stahuju ' + list.length + ' dlaždic (zabere to zhruba ' +
          fmtMB(list.length * ODHAD_NA_DLAZDICI) + ' z místa, které ti prohlížeč dává). ' +
          '<b>Udělej to na Wi-Fi doma</b>, ne v lese na datech.', false, 8000);
-  const pred = await zeptejSeSW('kolik-map');
   let done = 0, fail = 0;
   for (const u of list){
     try { await fetch(u, {mode:'no-cors', cache:'reload'}); done++; }
@@ -7598,13 +7603,13 @@ async function stahniVyrez(){
     await new Promise(r => setTimeout(r, 60));   // šetrné tempo k OSM serverům
   }
   b.innerHTML = REC.aktivni ? '<b>⏹</b>Ukončit' : '<b>⏺</b>Trasa';
-  const po2 = await zeptejSeSW('kolik-map');
-  const pribylo = (pred && po2) ? (po2.dlazdic - pred.dlazdic) : null;
+  const kontrola = await zeptejSeSW({typ:'mam-dlazdice', urls:list}, 10000);
+  const mam = kontrola ? kontrola.mam : null;
   banner(
-    pribylo !== null
-      ? (pribylo >= list.length * 0.95
-          ? 'Hotovo – <b>' + pribylo + '</b> dlaždic je uložených. Tenhle výřez teď funguje i bez signálu.'
-          : 'Uloženo <b>' + pribylo + '</b> z ' + list.length + ' dlaždic. Zbytek server nedal – ' +
+    mam !== null
+      ? (mam >= list.length
+          ? 'Hotovo – <b>' + mam + '</b> dlaždic je uložených. Tenhle výřez teď funguje i bez signálu.'
+          : 'Uloženo <b>' + mam + '</b> z ' + list.length + ' dlaždic. Zbytek server nedal – ' +
             'zkus to za chvíli znovu, doplní se jen to, co chybí.')
       : (fail ? ('Staženo ' + done + ' dlaždic, ' + fail + ' se nepovedlo (asi slabý signál).')
               : ('Hotovo – ' + done + ' dlaždic staženo. Tenhle výřez teď funguje i bez signálu.')),

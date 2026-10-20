@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v99';
+const VER        = 'houby-v100';
 const SHELL      = VER + '-shell';
 
 /* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
@@ -95,6 +95,24 @@ self.addEventListener('activate', e => {
    je jiná adresa a jedna odpověď má i sto kilobajtů – během jedné
    vycházky by to sežralo místo, které jinde hlídáme. Detail porostu
    je bonus pro chvíle, kdy je signál; offline zůstane zelený podklad. */
+/* v100: mapa i stahování na offline teď berou OSM z jednoho serveru
+   (tile.openstreetmap.org). Do v99 se ukládaly pod a./b./c. – a stažené
+   výřezy, které už lidi v telefonu mají, nechceme zahodit. Proto se
+   dlaždice OSM hledá pod novou adresou i pod všemi třemi starými. */
+async function najdiDlazdici(c, req){
+  const hit = await c.match(req);
+  if (hit) return hit;
+  const m = req.url.match(/^https:\/\/(?:[abc]\.)?tile\.openstreetmap\.org\/(\d+\/\d+\/\d+\.png)$/);
+  if (!m) return undefined;
+  for (const h of ['', 'a.', 'b.', 'c.']){
+    const u = 'https://' + h + 'tile.openstreetmap.org/' + m[1];
+    if (u === req.url) continue;
+    const r = await c.match(u);
+    if (r) return r;
+  }
+  return undefined;
+}
+
 function isTile(url){
   /* Maska lesa pro mapu růstu (hb=rust) se neukládá. Je pokaždé jiná –
      jiný výřez, jiná adresa – a jako opaque odpověď by si každá ukousla
@@ -143,6 +161,19 @@ self.addEventListener('message', async e => {
   } catch(err){}
 });
 
+/* v100: kolik z daných dlaždic opravdu leží v cache. Přírůstek počtu
+   (kolik-map před a po) lhal: dlaždice, které člověk už prohlížel,
+   nepřibudou, a stahování pak hlásilo „zbytek server nedal". */
+self.addEventListener('message', async e => {
+  if (!e.data || e.data.typ !== 'mam-dlazdice' || !e.source) return;
+  try {
+    const c = await caches.open(TILES);
+    let mam = 0;
+    for (const u of e.data.urls || []) if (await najdiDlazdici(c, new Request(u))) mam++;
+    e.source.postMessage({typ:'mam-dlazdice', mam});
+  } catch(err){}
+});
+
 /* Audit 5 – nejhorší chyba, jakou tahle appka měla.
    Skořápka se hledala v cache s ignoreSearch:true, tedy „na dotazu za
    otazníkem nezáleží". To je správně pro ./index.html?t=31, ale tenhle
@@ -176,7 +207,7 @@ self.addEventListener('fetch', e => {
   if (isTile(url)){
     e.respondWith((async () => {
       const c = await caches.open(TILES);
-      const hit = await c.match(req);
+      const hit = await najdiDlazdici(c, req);
       if (hit) return hit;
       try {
         const res = await fetch(req);
