@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v115';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v116';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -6276,7 +6276,11 @@ async function zabaged(vrstva, x, y, r, pole){
   const res = await fetch(ZABAGED + vrstva + '/query?' + q.toString());
   if (!res.ok) throw new Error('ČÚZK HTTP ' + res.status);
   const txt = await res.text();
-  return {data: JSON.parse(txt), bajtu: txt.length};
+  const data = JSON.parse(txt);
+  /* v116: ArcGIS hlásí chybu jako HTTP 200 s {error:…}. Dřív to prošlo
+     jako „nic tu není" a zapamatovalo se to do konce relace. */
+  if (data && data.error) throw new Error('ČÚZK: ' + (data.error.message || 'chyba serveru'));
+  return {data, bajtu: txt.length};
 }
 
 /* Lesní typ z ÚHÚL (mapy oblastních plánů rozvoje lesa). Kóduje půdu,
@@ -6317,12 +6321,15 @@ async function lesniTyp(lat, lng){
 }
 
 async function plochaKProhledani(m){
-  const klic = m.overene ? ('lok:' + m.locIndex) : ('bod:' + m.id);
+  /* v116: výsledek se pamatoval jen podle místa – po změně filtru porostu
+     zůstal starý a rada „zkus jiný filtr porostu" tak nic nezměnila.
+     Klíč teď obsahuje i druhy porostu, které se hledají. */
+  const chci   = druhyProMisto(m);
+  const klic = (m.overene ? ('lok:' + m.locIndex) : ('bod:' + m.id)) + '|' + chci.join(',');
   if (plochaCache.has(klic)) return plochaCache.get(klic);
 
   const [x, y] = mercXY(m.lat, m.lng);
   const neles  = jeNeles(m);
-  const chci   = druhyProMisto(m);
   let bajtu = 0;
 
   const dotazy = neles
@@ -6418,8 +6425,8 @@ async function ukazPlochu(m, jmeno){
     v.kusy.forEach(k => k.body.forEach(p => b.extend(p)));
     b.extend([m.lat, m.lng]);
     map.fitBounds(b.pad(0.15));
-    banner('<b>' + jmeno + ':</b> ' + v.ha.toFixed(1) + ' ha k prohledání ve ' +
-           sklonuj(v.kusy.length, 'kusu', 'kusech', 'kusech') + '. ' +
+    banner('<b>' + jmeno + ':</b> ' + v.ha.toFixed(1).replace('.', ',') + ' ha k prohledání ' +
+           (v.kusy.length === 1 ? 'v jednom kusu' : 've ' + sklonuj(v.kusy.length, 'kusu', 'kusech', 'kusech')) + '. ' +
            (v.neles ? 'Louky, sady a remízky' : 'Porost') +
            ' do ' + OKRUH_M + ' m od auta, napojený na cestu. ' +
            '<small>Staženo ' + Math.round(v.bajtu / 1024) + ' kB z ČÚZK.</small>', false, 12000);
