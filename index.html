@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v109';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v110';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -5777,14 +5777,17 @@ async function pocasiMrizka(sw, ne){
   let d = await r.json();
   if (!Array.isArray(d)) d = [d];
   if (d.length !== kroky.length) throw new Error('počasí přišlo pro ' + d.length + ' z ' + kroky.length + ' bodů');
-  /* Audit 35: výšku bereme pro stejné body, pro které máme počasí –
-     jeden dotaz navíc na celý výřez, terén se pak drží v cache. */
-  await nactiVysky(kroky.map(k => [k.lat, k.lng]));
+  /* v110: sezóna se tu dřív posouvala o 4 dny na 100 m výšky – jen
+     v mapě růstu, ne v „Kam dnes" ani v kruzích krajů. Stejné místo tak
+     mělo na dvou obrazovkách různé číslo (15. 12. ve 1 300 m: 0,52 proti
+     0,03) a na horách sezóna sahala do zimy. Sken proti 1 463 datovaným
+     nálezům (audit-blok-b-model.md, 5.2) má optimum přesně 0 dní/100 m,
+     takže posun se vypíná všude a dotaz na výšky odpadá. */
   const hodnoty = kroky.map((k, idx) => {
     const p = rozborPocasi(d[idx].daily);
     const vlhkost = indexVlhkosti(p.vazene);
     const teplo = (p.horko >= 4 ? 0.75 : 1) * (p.zima >= 3 ? 0.6 : 1);
-    const sez = faktorSezonyFiltru(vyskaBodu(k.lat, k.lng));
+    const sez = faktorSezonyFiltru();
     return Math.max(0, Math.min(1, vlhkost * teplo * sez));
   });
   const vysl = {nx, ny, hodnoty, x0: o.x0, y0: o.y0, x1: o.x1, y1: o.y1};
