@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v108';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v109';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -4654,6 +4654,7 @@ async function oznacChranena(mista){
 }
 
 /* ---------- výběr míst podle filtrů ---------- */
+let dojezdyOdkud = null;   // z jakého bodu jsou spočítané m.minuty (v109)
 async function najdiMista(limit){   // limit = kolik míst pošleme na router
   const vse = await nactiMista();
   /* Audit 3: tipy se stavěly znovu při každém spuštění, takže se ztratilo
@@ -4669,6 +4670,17 @@ async function najdiMista(limit){   // limit = kolik míst pošleme na router
     });
   }
   const tipy = TIPY;
+
+  /* v109: dojezdy z routeru se pamatovaly napořád. Po přejezdu o 100 km
+     appka doporučovala lesy u domova s „dojezdem 3 min" – spočítaným
+     z domova. Když se výchozí bod posune o víc než kilometr (nebo se
+     změní domov), všechno spočítané se zahodí a počítá znovu. */
+  const bod = odkud().bod, klicOdkud = bod[0].toFixed(2) + ',' + bod[1].toFixed(2);
+  if (klicOdkud !== dojezdyOdkud){
+    vse.forEach(m => { m.minuty = undefined; m.km = undefined; m.presnyDojezd = false; });
+    tipy.forEach(m => { if (!odkud().doma){ m.minuty = undefined; m.km = undefined; } });
+    dojezdyOdkud = klicOdkud;
+  }
 
   /* Audit 5: filtry se řetězily jedním výrazem, takže když nezbylo nic,
      appka uměla říct jen „zkus něco povolit" a nabídla tři možnosti.
