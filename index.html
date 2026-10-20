@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v116';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v117';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -4973,7 +4973,13 @@ function duvodMista(x){
 /* Co o vybrané houbě víme a co ne – ať je vidět, kde model končí. */
 function popisHouby(){
   const d = FILTR.druh;
-  if (d === 'vse')   return 'Bereš cokoli – platí lepší hodnocení z celé nabídky.';
+  /* v117: změřeno na 1 105 nálezech z GBIF proti náhodným lesním místům
+     do 1,5 km (stejné okolí): s vybraným druhem trefí tabulka porostů
+     správný porost s AUC 0,561, s „Vše" jen 0,514 – skoro náhoda. Lepší
+     hodnocení přes všechny druhy dá dobrou známku skoro každému lesu. */
+  if (d === 'vse')   return 'Bereš cokoli – platí lepší hodnocení z celé nabídky. ' +
+                            '<b>Mapa porostů pak lesy skoro nerozliší</b> – každý je dobrý pro nějakou houbu. ' +
+                            'Když vybereš konkrétní houbu, porosty rozliší líp (změřeno na 1 105 nálezech).';
   if (d === 'hriby') return 'Všechny hřibovité dohromady – platí ta nejlepší z nich pro daný porost.';
   const h = HOUBY[d];
   if (!h) return '';
@@ -5266,7 +5272,7 @@ const HOUBY = {
   kozak: {
     jm:'Kozáky', kratkyChip:'Kozáky', kratce:'kozáky', skupina:'hriby',
     strom:'bříza, habr · i v remízcích a příměstské zeleni',
-    nevime:'Břízu od dubu neodlišíme. Mířit na listnaté střední výšky a lemy.',
+    nevime:'Břízu od dubu neodlišíme. Mířit na listnaté střední výšky a lemy. Přes polovinu nahlášených kozáků (57 %) je navíc mimo les, jak ho znají mapy – u bříz v remízcích, alejích a u vesnic. Ty appka neukáže.',
     latence:[10,16], n:57,
     sezona:{1:0,2:0,3:0,4:0,5:0,6:0.15,7:0.19,8:0.30,9:1.00,10:0.44,11:0.11,12:0},
     v:{'listnaté':  {'do 2,5 m':0.35,'od 2,5 m do 8 m':0.90,'od 8 m do 20 m':1.00,'nad 20 m':0.60},
@@ -5304,7 +5310,7 @@ const HOUBY = {
     jm:'Bedly', kratkyChip:'Bedly', kratce:'bedly', skupina:'bedly', mimoLes:true,
     strom:'žádný – bedla je saprofyt, roste na živné půdě, ne u stromu',
     nevime:'Pastviny a meze v naší lesní vrstvě nejsou. Proto se u bedel počítá hlavně OKRAJ porostu – ' +
-           'v zapojeném lese nerostou a appka je tam schválně sráží.',
+           'v zapojeném lese nerostou a appka je tam schválně sráží. Podle nálezů ale barva porostu bedly od okolí skoro nerozliší – ber ji u bedel jen orientačně. Nálezy mimo les bývají kousek od jeho kraje (polovina do 50 m).',
     latence:[7,12], n:286,
     sezona:{1:0,2:0,3:0,4:0,5:0.03,6:0.14,7:0.27,8:0.51,9:0.96,10:1.00,11:0.22,12:0},
     v:{'listnaté':  {'do 2,5 m':0.35,'od 2,5 m do 8 m':0.30,'od 8 m do 20 m':0.20,'nad 20 m':0.15},
