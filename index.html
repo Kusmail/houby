@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v103';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v104';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -4273,7 +4273,11 @@ function skoreMista(m, den){
      listnatých a místo s 85 % vyšlo stejně. Teď se bere celý rozsah
      a rozdíly jsou vidět. Nula neznamená „nic tam neroste", ale
      „tenhle porost pro tuhle houbu nesedí". */
-  const podil = bedlove ? m.list : m.jehl;
+  /* v104: podíl porostu, který danému druhu sedí (dřív vždycky jehličnany).
+     U „vše" platí lepší z obou – jako všude jinde, kde se bere lepší člen. */
+  const podil = bedlove ? m.list
+              : FILTR.druh === 'vse' ? Math.max(m.jehl, m.list)
+              : (preferujeListnate(FILTR.druh) ? m.list : m.jehl);
   const porost = 0.25 + 0.75 * Math.min(1, podil / 85);
 
   /* Kolik lesních cest je v okolí: čím víc, tím víc půdy se dá za dopoledne
@@ -4520,10 +4524,14 @@ function porostSedi(druhP){
   return true;
 }
 
+/* v104: dřív každý druh kromě bedel chtěl ≥ 40 % jehličnanů – i hřib
+   dubový, křemenáč, kozák a babka, které mají ve vlastní tabulce
+   nejlíp listnáče. Místo s 95 % listnáčů tak pro hřib dubový vypadlo
+   a smrčina prošla. Teď rozhoduje tabulka druhu (preferujeListnate). */
 function sedíDruh(m){
   if (FILTR.druh === 'vse') return true;
   if (FILTR.druh === 'bedly') return m.list >= 45;      // listnaté a louky
-  return m.jehl >= 40;                                   // hřiby, klouzky
+  return (preferujeListnate(FILTR.druh) ? m.list : m.jehl) >= 40;
 }
 
 /* Vzdušná čára je jen předfiltr, ať neposíláme na router tisíce bodů.
@@ -6445,6 +6453,27 @@ const LES_OKOLI_M = 15000;     // okolí, ve kterém hledáme
    Teď se ptáme rovnou na to, co hledáme: server vybere jen porosty
    správného druhu a stáří, seřadí je od největšího a pošle čtyřicet.
    Naměřeno: hřiby 58 kB, bedly 2,9 kB na oblasti 15 × 16 km. */
+/* v104: předvýběr porostů pro „Najdi les kolem mě". Ručně psaný byl jen
+   pro bedly, hřiby a „vše" – jednotlivé druhy padaly na „vše", které
+   vynechávalo listnáče nad 8 m a jehličnany pod 8 m. Tím mizela nejlepší
+   třída pro hřib dubový, kozáka, babku i klouzky. Teď se dotaz skládá
+   z tabulky vhodnosti: berou se kombinace druh × výška, které mají
+   aspoň 70 % nejlepší hodnoty daného druhu. Pořadí pak dál určuje
+   vhodnostPorostu(), tohle je jen síto. */
+const PATRA = ['do 2,5 m', 'od 2,5 m do 8 m', 'od 8 m do 20 m', 'nad 20 m'];
+function vyberSql(){
+  const podminky = new Set();
+  for (const k of clenoveFiltru(FILTR.druh)){
+    const h = HOUBY[k]; if (!h) continue;
+    const typy = Object.keys(h.v).filter(t => t !== 'bez určení');
+    let max = 0;
+    typy.forEach(t => PATRA.forEach(p => { max = Math.max(max, h.v[t][p] || 0); }));
+    typy.forEach(t => PATRA.forEach(p => {
+      if ((h.v[t][p] || 0) >= 0.7 * max) podminky.add("(druh_p = '" + t + "' AND vyska_p = '" + p + "')");
+    }));
+  }
+  return podminky.size ? [...podminky].join(' OR ') : VYBER_SQL.vse;
+}
 const VYBER_SQL = {
   bedly: "druh_p IN ('listnaté','smíšené') AND vyska_p IN ('do 2,5 m','od 2,5 m do 8 m')",
   hriby: "druh_p IN ('jehličnaté','smíšené') AND vyska_p IN ('od 8 m do 20 m','nad 20 m')",
@@ -6580,7 +6609,7 @@ async function najdiLesTady(){
     const q = new URLSearchParams({
       geometry: [sw.x, sw.y, ne.x, ne.y].join(','), geometryType: 'esriGeometryEnvelope',
       inSR: '3857', outSR: '4326', spatialRel: 'esriSpatialRelIntersects',
-      where: (VYBER_SQL[FILTR.druh] || VYBER_SQL.vse) + ' AND Shape_Area > 20000',
+      where: '(' + vyberSql() + ') AND Shape_Area > 20000',
       outFields: 'druh_p,vyska_p,Shape_Area,Shape_Length', returnGeometry: 'true',
       maxAllowableOffset: String(30 / 111320), orderByFields: 'Shape_Area DESC',
       resultRecordCount: '40', f: 'geojson'
