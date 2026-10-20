@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v105';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v106';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1225,6 +1225,17 @@ const LS = {
    nepouštějí – appka na klepnutí spadla s „LS is not defined".
    Proměnná HOME nahoře zůstat může (let v klasickém skriptu modul
    vidí), ale kód, který sahá na LS, musí být tady. */
+/* v106: text od ostatních (jména, popisy oblíbených, druh a fotka
+   u nálezu, data z ČÚZK/ÚHÚL/AOPK) jde do HTML přes esc(). Dřív šel
+   napřímo: jméno se znakem „<" rozbilo panel a kdo měl rodinný odkaz,
+   mohl ostatním v telefonu spustit vlastní kód. */
+function esc(v){
+  return String(v == null ? '' : v).replace(/[&<>"']/g,
+    c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'})[c]);
+}
+/* Fotka nálezu smí být jen obrázek uložený přímo v záznamu (data:image/…). */
+function bezpecnaFotka(f){ return typeof f === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(f) ? f : ''; }
+
 function domovJeVlastni(){ const v = LS.get('domov', null); return !!(v && typeof v.lat === 'number'); }
 
 /* ---------- bannery ---------- */
@@ -1924,7 +1935,7 @@ function renderCar(){
   const accTxt = (c.acc && c.acc > 20) ? ` · přesnost jen ±${Math.round(c.acc)} m` : '';
   carMarker.bindPopup(`<div class="pop"><h3>🚗 Zaparkované auto</h3>
     <div class="sub">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</div>
-    <table><tr><td>Označil</td><td>${c.byName||'–'}</td></tr>
+    <table><tr><td>Označil</td><td>${esc(c.byName||'–')}</td></tr>
     <tr><td>Kdy</td><td>${fmtTime(c.ts)} (${fmtAge(c.ts)})</td></tr>
     <tr><td>Přesnost</td><td>±${c.acc?Math.round(c.acc):'?'} m</td></tr></table>
     <div class="nav"><a class="alt" target="_blank" rel="noopener"
@@ -1942,13 +1953,13 @@ function updateCarNav(){
   if (!c) return;
   if (!m){
     $('carDist').textContent = '–';
-    $('carMeta').innerHTML = 'Zapni sdílení polohy, ať víme, jak daleko jsi.<br>Označil ' + (c.byName||'?') + ' ' + fmtAge(c.ts) + '.';
+    $('carMeta').innerHTML = 'Zapni sdílení polohy, ať víme, jak daleko jsi.<br>Označil ' + esc(c.byName||'?') + ' ' + fmtAge(c.ts) + '.';
     return;
   }
   const d = distM([m.lat, m.lng], [c.lat, c.lng]);
   const brg = bearingDeg([m.lat, m.lng], [c.lat, c.lng]);
   $('carDist').textContent = fmtDist(d);
-  let meta = 'k autu · označil ' + (c.byName||'?') + ' ' + fmtAge(c.ts);
+  let meta = 'k autu · označil ' + esc(c.byName||'?') + ' ' + fmtAge(c.ts);
   if (state.heading == null) meta += '<br>Azimut ' + Math.round(brg) + '° – klepni na šipku a povol kompas';
   else meta += '<br>Šipka ukazuje směr k autu';
   if (m.acc && m.acc > 20) meta += '<br>⚠ Tvoje GPS je nepřesná (±' + Math.round(m.acc) + ' m)';
@@ -1991,7 +2002,7 @@ function renderPeople(){
     om.m.setLatLng(ll); om.c.setLatLng(ll).setRadius(o.acc||20);
     om.m.setIcon(pinIcon('other' + (stale?' stale':''), '', 20));
     om.c.setStyle({color: stale ? '#9a948d' : '#8e44ad'});
-    om.m.bindTooltip((o.name||'Druhý') + ' · ' + fmtAge(o.ts), {permanent:true, direction:'top', className:'plabel', offset:[0,-12]});
+    om.m.bindTooltip(esc(o.name||'Druhý') + ' · ' + fmtAge(o.ts), {permanent:true, direction:'top', className:'plabel', offset:[0,-12]});
   });
   renderPeopleList();
 }
@@ -2038,14 +2049,14 @@ function renderPeopleList(){
       const stale = (Date.now() - (o.ts||0)) > STALE_MS;
       const txt = stale ? 'naposledy ' + fmtAge(o.ts) : 'poloha ' + fmtAge(o.ts);
       items.push(`<div class="person"><span class="pd" style="background:${stale?'var(--stale)':'var(--other)'}"></span>
-        <span><b>${o.name||'Bez jména'}</b><em>${txt}</em></span></div>`);
+        <span><b>${esc(o.name||'Bez jména')}</b><em>${txt}</em></span></div>`);
     });
   }
 
   /* Auto patří do stejné lišty – je to třetí věc, kterou na mapě hledáš
      vedle sebe a druhého. Klepnutím se na něj mapa posune. */
   if (state.car){
-    const kdo = state.car.by === state.uid ? 'označil jsi ho ty' : 'označil ' + (state.car.byName || 'někdo z vás');
+    const kdo = state.car.by === state.uid ? 'označil jsi ho ty' : 'označil ' + esc(state.car.byName || 'někdo z vás');
     items.push(`<div class="person auto" id="osobaAuto" role="button" tabindex="0">
       <span class="pd" style="background:var(--car)"></span>
       <span><b>🚗 Auto</b><em>${kdo} ${fmtAge(state.car.ts)}</em></span></div>`);
@@ -3193,7 +3204,7 @@ function kresliNejlepsi(){
       fillColor: barvaSkore(podil), fillOpacity: .25 + .45 * podil
     });
     const seznam = Object.keys(c.druhy).sort((x,y) => c.druhy[y] - c.druhy[x])
-                     .map(d => d + ' ×' + c.druhy[d]).join(', ');
+                     .map(d => esc(d) + ' ×' + c.druhy[d]).join(', ');
     obd.bindPopup('<div class="pop"><h3>Nálezové místo</h3>' +
       '<div class="sub">čtverec 500 × 500 m</div><table>' +
       '<tr><td>Nálezů</td><td>' + c.pocet +
@@ -3244,8 +3255,9 @@ function renderFinds(){
    jako text a při každém přepočtu ho přepíše. */
 function popupNalezu(n, foto){
   const z = n.z;
-  return '<div class="pop"><h3>🍄 ' + (z.druh || 'Nález') + '</h3>' +
-    '<div class="sub">' + (z.kdo || '') + ' · ' + fmtTime(z.ts) + '</div>' +
+  foto = bezpecnaFotka(foto);
+  return '<div class="pop"><h3>🍄 ' + esc(z.druh || 'Nález') + '</h3>' +
+    '<div class="sub">' + esc(z.kdo || '') + ' · ' + fmtTime(z.ts) + '</div>' +
     (foto ? '<img class="nalezfoto" src="' + foto + '" alt="fotka nálezu">'
           : ((z.foto || z.mafoto) ? '<div class="fotocek">načítám fotku…</div>' : '')) +
     '<table><tr><td>GPS</td><td>' + z.lat.toFixed(5) + ', ' + z.lng.toFixed(5) + '</td></tr>' +
@@ -3649,7 +3661,7 @@ function kresliHistorii(){
       if (!t || !Array.isArray(t.body) || t.body.length < 2) return;
       const g = kresliUseky(trasaDoBodu(t.body), {color:'#7a5ea8', weight:3, opacity:.5});
       const popis = '<div class="pop"><h3>Trasa</h3><div class="sub">' +
-        (t.name || 'Někdo z rodiny') + ' · ' + fmtTime(t.ts) + '</div>' +
+        esc(t.name || 'Někdo z rodiny') + ' · ' + fmtTime(t.ts) + '</div>' +
         '<table><tr><td>Délka</td><td>' + fmtDist(t.delka || 0) + '</td></tr>' +
         (t.trvani ? '<tr><td>Trvání</td><td>' + fmtTrvani(t.trvani) + '</td></tr>' : '') + '</table></div>';
       g.eachLayer(l => { if (l.bindPopup) l.bindPopup(popis, POPOPT); });
@@ -3904,7 +3916,7 @@ async function nactiTypyLesaHned(){
       },
       onEachFeature: (f, l) => {
         const d = (f.properties && f.properties.druh_p) || 'bez určení';
-        l.bindPopup('<div class="pop"><h3>Les</h3><div class="sub">' + d + ' porost</div>' +
+        l.bindPopup('<div class="pop"><h3>Les</h3><div class="sub">' + esc(d) + ' porost</div>' +
           '<table><tr><td>Zdroj</td><td>ČÚZK ZABAGED</td></tr></table></div>', POPOPT);
       }
     }).addTo(map);
@@ -4747,9 +4759,9 @@ function kresliOblibena(){
       const b = o[k];
       if (typeof b.lat !== 'number') return;
       L.marker([b.lat, b.lng], {icon: pinIcon('oblibene','★',24), zIndexOffset:700})
-        .bindPopup('<div class="pop"><h3>★ ' + (b.popis || 'Oblíbené místo') + '</h3>' +
+        .bindPopup('<div class="pop"><h3>★ ' + esc(b.popis || 'Oblíbené místo') + '</h3>' +
           '<div class="sub">Vlastní bod · ' + b.lat.toFixed(5) + ', ' + b.lng.toFixed(5) +
-          (b.cizi ? ' · přidal ' + b.kdo : '') + '</div>' +
+          (b.cizi ? ' · přidal ' + esc(b.kdo) : '') + '</div>' +
           '<div class="nav"><a class="alt" target="_blank" rel="noopener" ' +
           'href="https://www.google.com/maps/dir/?api=1&destination=' + b.lat + ',' + b.lng + '">Navigovat sem</a></div>' +
           '<button class="oblTlac" data-plocha-xy="' + b.lat + ',' + b.lng + '">🌲 &nbsp;Ukázat, kde hledat</button>' +
@@ -4863,7 +4875,7 @@ function duvodMista(x){
   k.push('<tr><td>Podmínky teď</td><td><b>' + proc(x.sPocasi) + '</b> ' +
     '<small>déšť, sezóna, teplota – mění se ve dnech</small></td></tr>');
   k.push('<tr class="oblRadek"' + (x.obl ? '' : ' style="display:none"') + '><td>Oblíbené</td><td>★ ano</td></tr>');
-  if (m.chranene) k.push('<tr><td>Pozor</td><td>' + m.chranene + '</td></tr>');
+  if (m.chranene) k.push('<tr><td>Pozor</td><td>' + esc(m.chranene) + '</td></tr>');
   return '<table>' + k.join('') + '</table>';
 }
 
@@ -5233,7 +5245,7 @@ function jmenoFiltru(druh){
    V jednotném čísle to musí být „listnatý porost", ne „listnaté porost". */
 const DRUH_1P = {'jehličnaté':'jehličnatý', 'listnaté':'listnatý',
                  'smíšené':'smíšený', 'bez určení':'neurčený'};
-function druhSlovy(d){ return DRUH_1P[d] || d; }
+function druhSlovy(d){ return esc(DRUH_1P[d] || d); }   // v106: d jde z ČÚZK, výsledek do HTML
 
 const CO_TAM_ROSTE = {
   'jehličnaté': {'do 2,5 m':'zatím nic, moc mladé', 'od 2,5 m do 8 m':'klouzci a masáci v mladém boru',
@@ -5550,7 +5562,7 @@ async function kresliSber(b){
       zIndexOffset: 950
     }).bindPopup('<div class="pop"><h3>' + (i+1) + '. nejlepší tady</h3>' +
       '<div class="sub">' + druhSlovy(k.druh) +
-        (k.vyska === 'bez určení' ? ' porost, výška neurčená' : ' porost, ' + k.vyska) + '</div>' +
+        (k.vyska === 'bez určení' ? ' porost, výška neurčená' : ' porost, ' + esc(k.vyska)) + '</div>' +
       '<table>' +
       '<tr><td>Podmínky tady</td><td><b>' + sance + ' %</b></td></tr>' +
       '<tr><td>Vhodnost porostu</td><td>' + vhodnost + ' % pro ' +
@@ -5582,7 +5594,7 @@ async function kresliSber(b){
         vrstva.bindPopup(
           '<div class="pop"><h3>' + (a._st >= 3 ? 'Tady stojí za to hledat' : 'Spíš ne') + '</h3>' +
           '<div class="sub">' + druhSlovy(druh) +
-            (vyska === 'bez určení' ? ' porost, výška neurčená' : ' porost, ' + vyska) + '</div>' +
+            (vyska === 'bez určení' ? ' porost, výška neurčená' : ' porost, ' + esc(vyska)) + '</div>' +
           '<table>' +
           '<tr><td>Co tu bývá</td><td>' + ((CO_TAM_ROSTE[druh] || {})[vyska] || 'podle porostu') + '</td></tr>' +
           /* Audit 22: pod „vše" platí lepší z obou hodnot – tak ať je vidět,
@@ -6303,8 +6315,8 @@ async function ukazPlochu(m, jmeno){
        .bindPopup('<div class="pop"><h3>Kde hledat</h3>' +
          '<div class="sub"><span class="znacka mapa">odvozeno z map ČÚZK</span></div>' +
          '<table><tr><td>Plocha</td><td><b>' + k.ha.toFixed(1) + ' ha</b></td></tr>' +
-         (k.druh  ? '<tr><td>Porost</td><td>' + k.druh + '</td></tr>' : '') +
-         (k.vyska ? '<tr><td>Výška stromů</td><td>' + k.vyska + '</td></tr>' : '') +
+         (k.druh  ? '<tr><td>Porost</td><td>' + esc(k.druh) + '</td></tr>' : '') +
+         (k.vyska ? '<tr><td>Výška stromů</td><td>' + esc(k.vyska) + '</td></tr>' : '') +
          '<tr><td>K nejbližší cestě</td><td>' + k.kCeste + ' m</td></tr></table></div>', POPOPT)
        .addTo(plochaVrstva);
     });
@@ -6321,8 +6333,8 @@ async function ukazPlochu(m, jmeno){
     /* lesní typ dorazí, když dorazí – hláška se doplní za běhu */
     lesniTyp(m.lat, m.lng).then(t => {
       if (!t || !$('banner').classList.contains('show')) return;
-      $('bannerTxt').innerHTML += '<br><b>Lesní typ ' + t.kod + ':</b> ' +
-        (t.nazev || '').toLowerCase() + ' <small>(ÚHÚL)</small>';
+      $('bannerTxt').innerHTML += '<br><b>Lesní typ ' + esc(t.kod) + ':</b> ' +
+        esc((t.nazev || '').toLowerCase()) + ' <small>(ÚHÚL)</small>';
       bannerOffset();
     });
   } catch(e){
@@ -6666,7 +6678,7 @@ async function najdiLesTady(){
 
     map.setView([nej.lat, nej.lng], 15);
     const houba = jmenoFiltru(FILTR.druh) + (FILTR.druh === 'vse' ? ' (filtr máš na „vše")' : '');
-    banner('<b>' + druhSlovy(nej.druh) + ' porost, ' + nej.vyska + '</b> · ' +
+    banner('<b>' + druhSlovy(nej.druh) + ' porost, ' + esc(nej.vyska) + '</b> · ' +
            (nej.ha < 10 ? nej.ha.toFixed(1).replace('.', ',') : Math.round(nej.ha)) + ' ha · ' +
            fmtDist(nej.km*1000) + ' odsud. Na ' + houba + ' <b>' + Math.round(nej.skore*100) + ' %</b>. ' +
            'Choď po kraji porostu – tam je silný obrys.', false, 12000);
@@ -6998,8 +7010,8 @@ function refreshPeopleModal(){
     html += '<div class="plist">' + allw.map(u => {
       const a = state.allowed[u] || {};
       const own = OWNER_UIDS.indexOf(u) >= 0;
-      return '<div class="r"><b>' + (a.name || 'Bez jména') + (own ? ' · správce' : '') + '</b>' +
-             (own ? '' : '<button class="no" data-remove="' + u + '">Odebrat</button>') + '</div>';
+      return '<div class="r"><b>' + esc(a.name || 'Bez jména') + (own ? ' · správce' : '') + '</b>' +
+             (own ? '' : '<button class="no" data-remove="' + esc(u) + '">Odebrat</button>') + '</div>';
     }).join('') + '</div>';
   }
   html += '<p style="font-size:11.5px;color:var(--muted);margin:6px 0 12px">Připojí se každý, komu pošleš rodinný odkaz s kódem. Kdo přijde na holou adresu, uvidí jen mapu lokalit.</p>';
@@ -7422,16 +7434,16 @@ function refreshOblibene(){
   }).sort((x, y) => x.d - y.d);
   el.innerHTML = '<div class="oblist">' + rady.map(r =>
     '<div class="oblpol">' +
-      '<div class="obljm"><b>' + (r.b.popis || 'Oblíbené místo') + (r.b.cizi ? ' ·&nbsp;' + r.b.kdo : '') + '</b>' +
+      '<div class="obljm"><b>' + esc(r.b.popis || 'Oblíbené místo') + (r.b.cizi ? ' ·&nbsp;' + esc(r.b.kdo) : '') + '</b>' +
         '<em>' + fmtDist(r.d) + ' · ' + r.b.lat.toFixed(4) + ', ' + r.b.lng.toFixed(4) + '</em></div>' +
       '<div class="oblakce">' +
-        '<button class="oblmini" data-obl-skok="' + r.k + '">Na mapu</button>' +
-        '<button class="oblmini" data-obl-plocha="' + r.k + '">Kde hledat</button>' +
+        '<button class="oblmini" data-obl-skok="' + esc(r.k) + '">Na mapu</button>' +
+        '<button class="oblmini" data-obl-plocha="' + esc(r.k) + '">Kde hledat</button>' +
         /* Cizí hvězdičku smí zrušit jen ten, kdo ji dal – tak to mají
            i pravidla databáze. Sobě si ji ale přidat můžu. */
         (r.b.cizi
-          ? '<button class="oblmini" data-obl-prid="' + r.k + '">☆ I moje</button>'
-          : '<button class="oblmini smaz" data-obl-smaz="' + r.k + '">Smazat</button>') +
+          ? '<button class="oblmini" data-obl-prid="' + esc(r.k) + '">☆ I moje</button>'
+          : '<button class="oblmini smaz" data-obl-smaz="' + esc(r.k) + '">Smazat</button>') +
       '</div></div>').join('') + '</div>';
 
   el.querySelectorAll('[data-obl-skok]').forEach(b => b.onclick = () => {
@@ -7789,7 +7801,7 @@ function subscribeShared(db, onValue){
     const p = predchoziAuto, n = state.car;
     const jinaPozice = p && n && (Math.abs(p.lat - n.lat) > 1e-6 || Math.abs(p.lng - n.lng) > 1e-6);
     if (n && n.by !== state.uid && (!p || jinaPozice)){
-      banner('<b>Auto označil ' + (n.byName || 'někdo z vás') + '</b>' +
+      banner('<b>Auto označil ' + esc(n.byName || 'někdo z vás') + '</b>' +
              (jinaPozice ? ' na jiném místě než předtím.' : '.') +
              ' Panel dole ukazuje cestu k němu.', false, 9000);
     } else if (p && !n && p.by !== state.uid){
