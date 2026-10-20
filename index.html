@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v102';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v103';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1525,9 +1525,13 @@ async function nactiGbif(){
 const MES_CZ = ['','leden','únor','březen','duben','květen','červen',
                 'červenec','srpen','září','říjen','listopad','prosinec'];
 
-function gbifSedi(skupina){
+/* v103: dřív se porovnávala skupina bodu ('hriby'/'bedly') s druhem ve
+   filtru. Jenže filtr „Hřibovité" zmizel (audit 38) a od té doby měl
+   každý hřib na mapě 0 bodů – sedělo to jen u bedel. Teď stejný převod
+   jako „Kde je nejblíž": druh z filtru → jména ve zdroji. */
+function gbifSedi(nazev){
   if (FILTR.druh === 'vse') return true;
-  return skupina === FILTR.druh;
+  return (ZDROJ_DRUHY[FILTR.druh] || []).indexOf(nazev) !== -1;
 }
 
 /* ============================================================
@@ -1571,7 +1575,7 @@ async function kresliGbif(){
   d.body.forEach(b => {
     const [di, la, ln, rok, mes, presnost] = b;
     const druh = d.druhy[di];
-    if (!gbifSedi(druh[1])){ skryto++; return; }
+    if (!gbifSedi(druh[0])){ skryto++; return; }
     if (!meze.contains([la, ln])) return;
     const bedla = druh[1] === 'bedly';
     const barva = bedla ? '#b8860b' : '#8b4513';
