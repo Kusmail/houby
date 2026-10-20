@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v101';
+const VER        = 'houby-v102';
 const SHELL      = VER + '-shell';
 
 /* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
@@ -58,7 +58,10 @@ const SHELL_FILES = [
 const PRECACHE_TIMEOUT = 8000;
 function pridejSCasovymLimitem(c, url){
   return Promise.race([
-    c.add(url),
+    /* v102: cache:'reload' – jinak si nová verze může vzít stránku
+       z HTTP cache prohlížeče (GitHub posílá max-age=600) a skončit
+       s novým SW a starou stránkou. */
+    c.add(new Request(url, {cache: 'reload'})),
     new Promise(res => setTimeout(res, PRECACHE_TIMEOUT))
   ]).catch(() => {});
 }
@@ -77,9 +80,28 @@ self.addEventListener('message', e => {
   if (e.data === 'prevzit-rizeni') self.skipWaiting();
 });
 
+/* v102: instalace se kvůli slabému signálu smí dokončit i bez některých
+   souborů (viz výš). Jenže aktivace pak smazala starou ÚPLNOU skořápku
+   a když chyběla zrovna stránka, appka se bez signálu vůbec neotevřela
+   („Offline a stránka není uložená"). Než se stará skořápka smaže,
+   doplní se z ní všechno, co nové chybí. Starší soubor je lepší než
+   žádný – při příštím startu se signálem se stránka stejně vezme ze sítě. */
+async function doplnZeStare(){
+  const nova = await caches.open(SHELL);
+  const stare = (await caches.keys()).filter(k => k !== SHELL && /^houby-v\d+-shell$/.test(k));
+  for (const u of SHELL_FILES){
+    if (await nova.match(u)) continue;
+    for (const k of stare){
+      const r = await (await caches.open(k)).match(u);
+      if (r){ await nova.put(u, r); break; }
+    }
+  }
+}
+
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys()
+    doplnZeStare().catch(() => {})
+      .then(() => caches.keys())
       .then(keys => Promise.all(keys
         .filter(k => k !== TILES && !k.startsWith(VER))
         .map(k => caches.delete(k))))
