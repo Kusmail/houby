@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v113';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v114';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2310,11 +2310,18 @@ function ukazWake(zapnuto, popis){
   $('wakeSub').textContent = popis;
 }
 
-async function setWake(on){
+/* v114: tři drobnosti kolem „Displej svítí":
+   – vypnutí během čekání na zámek nechalo zámek zapnutý (a přepínač „zapnuto"),
+   – po každém návratu do appky znovu vyskočila hláška „Bere to baterku",
+   – jedno selhání při obnově po návratu přepnulo přání natrvalo na „nepodporováno".
+   obnova = true znamená tiché obnovení po návratu z pozadí. */
+async function setWake(on, obnova){
   chceWake = !!on;
   if (on){
     try {
-      state.wake = await navigator.wakeLock.request('screen');
+      const zamek = await navigator.wakeLock.request('screen');
+      if (!chceWake){ try { await zamek.release(); } catch(e){} return; }   // mezitím vypnuto
+      state.wake = zamek;
       ukazWake(true, 'displej nezhasne');
       state.wake.addEventListener('release', () => {
         state.wake = null;
@@ -2322,8 +2329,9 @@ async function setWake(on){
            nekonci - jen se prepinac srovna s tim, co doopravdy plati. */
         ukazWake(false, chceWake ? 'obnovi se po navratu' : 'vypnuto');
       });
-      banner('Displej nezhasne, dokud je appka vepředu. <b>Bere to baterku</b> – vypni to, až nebudeš potřebovat.', false, 8000);
+      if (!obnova) banner('Displej nezhasne, dokud je appka vepředu. <b>Bere to baterku</b> – vypni to, až nebudeš potřebovat.', false, 8000);
     } catch(e){
+      if (obnova){ ukazWake(false, 'obnoví se po návratu'); return; }   // přání trvá, zkusí se příště
       chceWake = false;
       ukazWake(false, 'nepodporováno');
       banner('Tenhle telefon neumí držet displej rozsvícený z webu. Nastav si delší automatické zamykání v Nastavení → Displej a jas.', false, 8000);
@@ -2347,7 +2355,7 @@ document.addEventListener('visibilitychange', async () => {
     return;
   }
   // vrátili jsme se do appky
-  if (chceWake && !state.wake) setWake(true);
+  if (chceWake && !state.wake) setWake(true, true);
 
   if (odchodNaPozadi && state.sharing){
     const pryc = Date.now() - odchodNaPozadi;
@@ -3618,6 +3626,7 @@ $('trackSave').onclick = () => {
   if (!historieZap){ historieZap = true; LS.set('historie', true); }
   kresliHistorii();
 
+  trasaUlozena = vysledek.ok;
   if (!vysledek.ok){
     banner('<b>Trasu se nepodařilo uložit – v telefonu není místo.</b> ' +
            (sdiletTrasu ? 'Ostatním jsem ji poslal, ale u tebe ji nenajdeš. ' : '') +
@@ -3631,11 +3640,16 @@ $('trackSave').onclick = () => {
          false, vysledek.zahozeno ? 12000 : 8000);
 };
 
+/* v114: hláška „uložil jsem to jako vycházku bez nálezu" se dřív ukázala
+   vždycky – i když uložení selhalo, a přepsala tím chybu „v telefonu
+   není místo", která měla zůstat svítit. */
+let trasaUlozena = false;
 $('trackNic').onclick = () => {
   uplnaVychazka = true;
   $('tgUplna').classList.add('on');
+  trasaUlozena = false;
   $('trackSave').click();
-  banner('Uložil jsem to jako <b>vycházku bez nálezu</b>. ' +
+  if (trasaUlozena) banner('Uložil jsem to jako <b>vycházku bez nálezu</b>. ' +
          'Je to stejně cenná informace jako plný košík – appka teď ví, ' +
          'že tam někdo byl a nic nenašel.', false, 9000);
 };
@@ -4922,7 +4936,8 @@ async function nactiPocasiPro(mista){
 function duvodMista(x){
   const p = x.p, m = x.m;
   const k = [];
-  k.push('<tr><td>Déšť za 21 dní</td><td><b>' + Math.round(p.celkem21) + ' mm</b></td></tr>');
+  // v114: součet zahrnuje 21 dní zpět I dnešek (22 hodnot) – popisek to teď říká
+  k.push('<tr><td>Déšť za 3 týdny a dnešek</td><td><b>' + Math.round(p.celkem21) + ' mm</b></td></tr>');
   k.push('<tr><td>Poslední vydatný déšť</td><td>' +
     (p.poslednivetsi === null ? '<b>žádný</b> za 21 dní' :
      (p.poslednivetsi === 0 ? '<b>dnes</b>' : '<b>před ' + sklonuj(p.poslednivetsi,'dnem','dny','dny') + '</b>')) + '</td></tr>');
@@ -7898,7 +7913,12 @@ async function initFirebase(opakovani){
   } catch(e){
     fbStav = 'chyba';
     // při opakovaných pokusech bez signálu lištu znovu neukazujeme
-    if (!opakovani) localOnly('Nepodařilo se připojit k Firebase (' + (e && e.message ? e.message : 'neznámá chyba') + ').');
+    /* v114: místo „Failed to fetch dynamically imported module: https://…"
+       srozumitelná věta; technický text zůstává v Diagnostice konzole. */
+    const zprava = String(e && e.message || '');
+    const bezSite = /fetch|network|offline|import/i.test(zprava) || navigator.onLine === false;
+    if (!opakovani) localOnly(bezSite ? 'Teď nemám signál, připojím se sám, až bude.'
+                                      : 'Nepodařilo se připojit k Firebase (' + esc(zprava || 'neznámá chyba') + ').');
   }
 }
 
