@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v111';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v112';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -4603,17 +4603,30 @@ function odhadMinut(m){
 const OSRM_DAVKA = 400;
 const OSRM_DAVEK = 2;
 
+const NEDOSTUPNE = 9999;   // minut – router k místu cestu nenašel
+/* v112: router, počasí ani AOPK neměly časový limit. Na slabém signálu
+   viselo „Hledám v celé ČR…" klidně minuty. */
+async function fetchDoLimitu(u, ms){
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  try { return await fetch(u, {signal: c.signal}); }
+  catch(e){ if (e.name === 'AbortError') throw new Error('server neodpověděl do ' + Math.round(ms/1000) + ' s'); throw e; }
+  finally { clearTimeout(t); }
+}
 async function davkaMinut(cast){
   const z = odkud().bod;
   const sou = [z[1].toFixed(5) + ',' + z[0].toFixed(5)]
     .concat(cast.map(m => m.lng.toFixed(5) + ',' + m.lat.toFixed(5))).join(';');
   const u = 'https://router.project-osrm.org/table/v1/driving/' + sou +
             '?sources=0&annotations=duration,distance';
-  const r = await fetch(u);
+  const r = await fetchDoLimitu(u, 15000);
   const d = await r.json();
   if (d.code !== 'Ok') throw new Error(d.code);
   const du = d.durations[0], di = d.distances[0];
   cast.forEach((m, i) => {
+    /* v112: kam router cestu nenajde, vrací null – a z Math.round(null/60)
+       bylo „0 min · 0 km", tedy nejbližší místo na světě. */
+    if (du[i+1] == null){ m.minuty = NEDOSTUPNE; m.km = null; m.presnyDojezd = true; return; }
     m.minuty = Math.round(du[i+1] / 60);
     m.km = Math.round(di[i+1] / 1000);
     m.presnyDojezd = true;
@@ -4649,7 +4662,7 @@ async function oznacChranena(mista){
         mapExtent: (m.lng-0.01)+','+(m.lat-0.01)+','+(m.lng+0.01)+','+(m.lat+0.01),
         imageDisplay: '400,400,96', f: 'json'
       });
-      const r = await fetch(AOPK_ID + '?' + q.toString());
+      const r = await fetchDoLimitu(AOPK_ID + '?' + q.toString(), 8000);
       const d = await r.json();
       const nal = (d.results || []);
       m.chranene = nal.length ? (nal[0].value || nal[0].layerName || 'chráněné území') : null;
@@ -4711,7 +4724,7 @@ async function najdiMista(limit){   // limit = kolik míst pošleme na router
           orezano: kandidati.length > strop, strop, poDojezdu,
           kroky: {naCeste: naCeste.length, poPorostu: poPorostu.length,
                   poDruhu: poDruhu.length, poHrubemDojezdu: kandidati.length,
-                  poRezervacich: vysl.length}};
+                  poDojezdu: vysl.length}};
 }
 
 /* ---------- oblíbená místa ----------
@@ -4881,7 +4894,7 @@ async function nactiPocasiPro(mista){
   const u = METEO + '?latitude=' + lat + '&longitude=' + lon +
     '&daily=precipitation_sum,temperature_2m_max,temperature_2m_min' +
     '&past_days=21&forecast_days=7&timezone=Europe%2FPrague';
-  const r = await fetch(u);
+  const r = await fetchDoLimitu(u, 15000);
   if (!r.ok) throw new Error('HTTP ' + r.status);
   let d = await r.json();
   if (!Array.isArray(d)) d = [d];
@@ -6747,7 +6760,11 @@ async function najdiLesTady(){
 /* Když nezbylo nic, je rozdíl mezi „je to daleko" a „ten porost tu není".
    Vypíše se, kde přesně místa zmizela, a nabídne se jedním klepnutím
    povolit ten filtr, který ubral nejvíc. */
+const CIPY_MINUT = [20, 45, 60, 90, 150];
 function procNic(k){
+  /* v112: dřív „Zkusit 2× minut" – 40 nebo 120 minut, které nemá žádný
+     čip (filtr pak nesvítil), a u 150 nabízelo znovu 150 donekonečna. */
+  const dalsiMinuty = CIPY_MINUT.find(v => v > FILTR.minuty);
   if (!k) return '<b>Filtry nepustily nic.</b> Zkus povolit delší dojezd nebo jiný porost.';
   const nazvyPorostu = {jehlicnate:'jehličnatý', listnate:'listnatý', smisene:'smíšený'};
   const kroky = [
@@ -6756,12 +6773,16 @@ function procNic(k){
      f:'porost', v:'vse', tlac:'Pustit všechny porosty'},
     {kdo:'houba', zbylo:k.poDruhu, ubralo:k.poPorostu - k.poDruhu,
      text:'Filtr houby', f:'druh', v:'vse', tlac:'Pustit všechny houby'},
-    {kdo:'dojezd', zbylo:k.poHrubemDojezdu, ubralo:k.poDruhu - k.poHrubemDojezdu,
+    /* v112: tady byl ještě krok „rezervace" s počtem k.poRezervacich –
+       jenže to číslo bylo ve skutečnosti „po přesném dojezdu z routeru"
+       (rezervace se od auditu 6 kontrolují až v kamDnes). Když všechno
+       vyřadil dojezd, appka obvinila rezervace a nabídla je pustit, i když
+       filtr rezervací vůbec nebyl zapnutý. Dojezd je teď jeden krok
+       s přesným číslem. */
+    {kdo:'dojezd', zbylo:k.poDojezdu, ubralo:k.poDruhu - k.poDojezdu,
      text:'Dojezd do <b>' + FILTR.minuty + ' minut</b>',
-     f:'minuty', v:String(Math.min(150, FILTR.minuty * 2)),
-     tlac:'Zkusit ' + Math.min(150, FILTR.minuty * 2) + ' minut'},
-    {kdo:'rezervace', zbylo:k.poRezervacich, ubralo:k.poHrubemDojezdu - k.poRezervacich,
-     text:'Vynechání rezervací', f:'chranena', v:'false', tlac:'Pustit i rezervace'}
+     f:'minuty', v:String(dalsiMinuty || FILTR.minuty),
+     tlac: dalsiMinuty ? 'Zkusit ' + dalsiMinuty + ' minut' : null}
   ];
   /* Viník není ten, kdo ubral nejvíc, ale ten, po kterém nezbylo nic:
      porost může ubrat sedm tisíc míst a pořád jich pět set nechat –
@@ -6771,15 +6792,23 @@ function procNic(k){
   let h = '<b>Tímhle nastavením nezbylo nic.</b><br>' +
     'Míst u lesní cesty: <b>' + k.naCeste + '</b> · po filtru porostu <b>' + k.poPorostu +
     '</b> · po filtru houby <b>' + k.poDruhu + '</b> · do ' + FILTR.minuty + ' min <b>' +
-    k.poHrubemDojezdu + '</b>' + (FILTR.chranena ? ' · mimo rezervace <b>' + k.poRezervacich + '</b>' : '') + '.';
+    k.poDojezdu + '</b>.';
   if (viník) h += '<br>' + viník.text +
     (viník.zbylo === 0 ? ' vzal poslední (<b>−' + viník.ubralo + '</b>) a nezbylo nic. '
                        : ' ubral nejvíc (<b>−' + viník.ubralo + '</b>). ') +
-    '<button id="uvolniFiltr" data-f="' + viník.f + '" data-v="' + viník.v + '">' + viník.tlac + '</button>';
+    (viník.tlac ? '<button id="uvolniFiltr" data-f="' + viník.f + '" data-v="' + viník.v + '">' + viník.tlac + '</button>'
+                : 'Delší dojezd než ' + FILTR.minuty + ' minut appka nenabízí – zkus jiný porost nebo houbu.');
   return h;
 }
 
+/* v112: filtry v okně spouštějí kamDnes() přímo, takže dvě rychlá
+   klepnutí pustila dva běhy naráz – a vyhrál ten, který doběhl
+   POSLEDNÍ, klidně ten se starým filtrem. Každý běh má teď pořadové
+   číslo a starší se po každém čekání potichu ukončí. */
+let kamBehu = 0;
 async function kamDnes(){
+  const muj = ++kamBehu;
+  const zastaraly = () => muj !== kamBehu;
   const b = $('btnKam');
   b.disabled = true; b.innerHTML = '⏳ &nbsp;Hledám v celé ČR…';
   try {
@@ -6787,6 +6816,7 @@ async function kamDnes(){
        načíst srážky" – člověk hledal chybu v počasí. */
     const {vysl, celkem, vsech, orezano, strop, poDojezdu, kroky} = await najdiMista(OSRM_DAVKA * OSRM_DAVEK)
       .catch(e => { e.coSelhalo = 'mista'; throw e; });
+    if (zastaraly()) return;
     if (!vysl.length){
       $('kamObsah').innerHTML = '<div class="kamsucho">' + procNic(kroky) + '</div>' + filtryHTML();
       $('kamModal').classList.add('show');
@@ -6816,6 +6846,7 @@ async function kamDnes(){
     let rezervaciSkryto = 0;
     if (FILTR.chranena){
       await oznacChranena(top);
+      if (zastaraly()) return;
       doZobrazeni = top.filter(m => !m.chranene);
       rezervaciSkryto = top.length - doZobrazeni.length;
     }
@@ -6828,6 +6859,7 @@ async function kamDnes(){
       return;
     }
     const pocasi = await nactiPocasiPro(doZobrazeni);
+    if (zastaraly()) return;
     const sPocasim = doZobrazeni.map((m, i) => ({m, den: pocasi[i] && pocasi[i].daily})).filter(z => z.den);
     if (!sPocasim.length) throw new Error('počasí se nevrátilo ani pro jedno místo');
     const poradi = sPocasim.map(z => skoreMista(z.m, z.den)).sort((a,b) => b.sance - a.sance);
@@ -6905,11 +6937,12 @@ async function kamDnes(){
       if (radek) radek.style.display = je ? '' : 'none';
     });
   } catch(e){
+    if (zastaraly()) return;
     banner((e.coSelhalo === 'mista' ? '<b>Nepodařilo se načíst seznam míst.</b> Bez něj'
                                     : '<b>Nepodařilo se načíst srážky.</b> Bez nich') + ' doporučit nic neumím – ' +
            'zkus to, až budeš mít signál. (' + esc(e.message) + ')', true, 10000);
   } finally {
-    b.disabled = false; b.innerHTML = '🍄 &nbsp;Kam dnes na houby?';
+    if (!zastaraly()){ b.disabled = false; b.innerHTML = '🍄 &nbsp;Kam dnes na houby?'; }
   }
 }
 
