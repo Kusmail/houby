@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v114';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v115';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -7356,9 +7356,9 @@ function refreshNastroje(){
       el.innerHTML = 'Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.<br>' +
         'Mapa má u prohlížeče naúčtováno <b>' + fmtMB(u.pouzito) + '</b> z ' + fmtMB(u.kvota) +
         (u.podil > 0.8 ? ' – <b style="color:#b4451f">začíná být plno</b>.' : '.') +
-        '<br><small>Dlaždice jsou z cizích serverů, takže si je prohlížeč účtuje paušálem ' +
-        'zhruba 7 MB za kus, i když má každá jen pár desítek kilobajtů. ' +
-        'Teď se sem vejde ještě <b>' + sklonuj(lim, 'dlaždice', 'dlaždice', 'dlaždic') + '</b>.</small>';
+        '<br><small>Jedna dlaždice má pár desítek kilobajtů. ' +
+        'Teď se sem vejde ještě <b>' + sklonuj(lim, 'dlaždice', 'dlaždice', 'dlaždic') + '</b>' +
+        (lim >= TILE_LIMIT_ABS ? ' na jedno stažení (víc najednou OSM nechce) – větší oblast stáhni po částech' : '') + '.</small>';
     });
   });
   $('tgHistorie').onclick = () => {
@@ -7688,7 +7688,7 @@ function askName(){
    protože nezná jejich velikost. Odhad se pletl 223× a kontrola „vešlo by se
    to?" proto nikdy nevyskočila. Limit počtu dlaždic se teď navíc odvozuje
    z toho, kolik místa prohlížeč opravdu nabízí. */
-const ODHAD_NA_DLAZDICI = 7 * 1024 * 1024;
+const ODHAD_NA_DLAZDICI = 60 * 1024;   // v115: SW ukládá dlaždice přes cors – účtují se skutečnou velikostí, ne 7 MB
 const TILE_LIMIT_ABS = 400;            // strop kvůli slušnosti k OSM, ne kvůli místu
 
 async function limitDlazdic(){

@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v114';
+const VER        = 'houby-v115';
 const SHELL      = VER + '-shell';
 
 /* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
@@ -24,10 +24,16 @@ const SDK        = 'houby-sdk';      // knihovna Firebase, verze je v adrese (v1
    tak znamenal 27 GB kvóty, zatímco prohlížeč jich dává 13 – a na
    telefonu mnohem míň. Teď se strop odvozuje z kvóty, kterou prohlížeč
    opravdu nabízí, a dlaždicím se z ní dá nejvýš polovina. */
-const TILE_UCTOVANO = 7 * 1024 * 1024;   // co si prohlížeč naúčtuje za jednu opaque dlaždici
+/* v115: OSM i ČÚZK i AOPK posílají CORS hlavičky. Dlaždice se proto
+   stahují v režimu cors a ukládají se jako běžné odpovědi – prohlížeč je
+   účtuje skutečnou velikostí (pár desítek kB), ne paušálem 7 MB.
+   Strop se hlídá podle toho, co prohlížeč opravdu hlásí (estimate),
+   a pro jistotu i počtem kusů. Starší neprůhledné dlaždice se při
+   prohlížení se signálem tiše vymění za lehké. */
+const TILE_UCTOVANO = 60 * 1024;       // v115: průměr na jednu cors dlaždici s rezervou (dřív 7 MB za opaque)
 const TILE_PODIL    = 0.5;               // kolik z kvóty smí zabrat mapa
 const TILE_MIN      = 150;               // ať appka funguje i na skoro plném telefonu
-const TILE_MAX_ABS  = 1500;              // ~10 GB kvóty, přes to nejdeme ani na počítači
+const TILE_MAX_ABS  = 20000;           // v115: horní mez počtem kusů (cors dlaždice jsou lehké)
 
 /* Audit 32: v tomhle seznamu byly dvě adresy na cdnjs – CSS a JS
    Leafletu. Předukládání má osmivteřinový limit a chybu tiše spolkne,
@@ -136,6 +142,14 @@ async function najdiDlazdici(c, req){
   return undefined;
 }
 
+/* v115: dlaždice v režimu cors; null, když server neodpověděl dobře. */
+async function stahniDlazdici(url){
+  try {
+    const r = await fetch(new Request(url, {mode: 'cors', credentials: 'omit'}));
+    return r && r.ok ? r : null;
+  } catch(err){ return null; }
+}
+
 function isTile(url){
   /* Maska lesa pro mapu růstu (hb=rust) se neukládá. Je pokaždé jiná –
      jiný výřez, jiná adresa – a jako opaque odpověď by si každá ukousla
@@ -164,10 +178,19 @@ async function trimTiles(){
   trimBezi = true;
   try {
     const c = await caches.open(TILES);
-    const keys = await c.keys();
+    let keys = await c.keys();
     const strop = await stropDlazdic();
     if (keys.length > strop){
       for (let i = 0; i < keys.length - strop; i++) await c.delete(keys[i]);
+      keys = keys.slice(keys.length - strop);
+    }
+    /* v115: a podle skutečně účtovaného místa – po dávkách, dokud mapa
+       nezabírá víc, než jí patří (staré neprůhledné dlaždice stojí 7 MB). */
+    let e = await navigator.storage.estimate();
+    while (e && e.quota && e.usage > e.quota * TILE_PODIL && keys.length > TILE_MIN){
+      const davka = keys.splice(0, Math.max(10, Math.ceil(keys.length * 0.05)));
+      for (const k of davka) await c.delete(k);
+      e = await navigator.storage.estimate();
     }
   } catch(err){} finally { trimBezi = false; }
 }
@@ -179,7 +202,8 @@ self.addEventListener('message', async e => {
   try {
     const c = await caches.open(TILES);
     const n = (await c.keys()).length;
-    e.source.postMessage({typ:'kolik-map', dlazdic:n, uctovano:n * TILE_UCTOVANO,
+    const odhad = await navigator.storage.estimate().catch(() => null);
+    e.source.postMessage({typ:'kolik-map', dlazdic:n, uctovano: odhad ? odhad.usage : n * TILE_UCTOVANO,
                           strop: await stropDlazdic(), naDlazdici: TILE_UCTOVANO});
   } catch(err){}
 });
@@ -248,11 +272,17 @@ self.addEventListener('fetch', e => {
     e.respondWith((async () => {
       const c = await caches.open(TILES);
       const hit = await najdiDlazdici(c, req);
-      if (hit) return hit;
+      if (hit){
+        // stará neprůhledná dlaždice: vrátit hned, na pozadí vyměnit za lehkou
+        if (hit.type === 'opaque') e.waitUntil(stahniDlazdici(req.url).then(r => { if (r) return c.put(req, r).then(trimTiles); }).catch(() => {}));
+        return hit;
+      }
       try {
-        const res = await fetch(req);
-        if (res && (res.ok || res.type === 'opaque')){ c.put(req, res.clone()); trimTiles(); }
-        return res;
+        const res = await stahniDlazdici(req.url);
+        if (res){ e.waitUntil(c.put(req, res.clone()).then(trimTiles).catch(() => {})); return res; }
+        /* v115: chybová odpověď (např. 429 od OSM) se dřív uložila jako
+           dlaždice natrvalo. Teď se neukládá nic, co není v pořádku. */
+        return await fetch(req);
       } catch(err){
         return hit || new Response('', {status: 504, statusText: 'Dlaždice není uložená offline'});
       }
