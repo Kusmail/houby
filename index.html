@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v107';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v108';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1660,7 +1660,7 @@ map.on('overlayadd', async (e) => {
     (tady === 0 ? 'nemám ani jedno' :
      tady === 1 ? 'je 1 bod' :
      tady < 5   ? 'jsou ' + tady + ' body' : 'je ' + tady + ' bodů') +
-    ' z celkem 1 535 v ČR. Je to mapa toho, <b>kde chodí lidi s foťákem</b> – ' +
+    ' z celkem ' + d.body.length.toLocaleString('cs-CZ') + ' v ČR. Je to mapa toho, <b>kde chodí lidi s foťákem</b> – ' +
     'kde nikdo nefotí, není bod, a to o houbách neříká nic.', false, 11000);
 });
 map.on('moveend zoomend', () => { if (map.hasLayer(gbifVrstva)) kresliGbif(); });
@@ -1786,7 +1786,7 @@ L.control.layers({
   'Letecká (ČÚZK)': ortofoto
 }, {
   '<b>Kde sbírat</b> – porosty podle tvojí houby': rustVrstva,
-  '<b>Ověřené nálezy</b> – 1 535 pozorování (GBIF)': gbifVrstva,
+  '<b>Ověřené nálezy</b> – 1 802 pozorování (GBIF)': gbifVrstva,   // v108: doplněn podzim 2026
   '<b>Parkoviště</b> – 7 656 míst u lesa v celé ČR': mistaVrstva
 }, {collapsed:true}).addTo(map);
 
@@ -7317,8 +7317,8 @@ function refreshPomoc(){
     'a do výřezu 40 km. <b>Není to jistota</b>, je to počasí nad lesem: ' +
     'kdo tam byl a zapsal nález, ví víc.<br><br>' +
     '<b>Ověřené nálezy</b> (vlastní vrstva) jsou místa, kde někdo houbu opravdu ' +
-    'našel, vyfotil a určení mu potvrdili další lidé. 1 535 bodů v ČR z databáze ' +
-    'GBIF, většinou z iNaturalistu; polovina z nich má souřadnici přesnou na deset ' +
+    'našel, vyfotil a určení mu potvrdili další lidé. 1 802 bodů v ČR z databáze ' +
+    'GBIF (stav k 20. 10. 2026), většinou z iNaturalistu; polovina z nich má souřadnici přesnou na deset ' +
     'metrů. Hnědá tečka = hřibovité, okrová = bedly, kroužek kolem = nepřesnost ' +
     'té souřadnice. <b>Pozor, co to není:</b> mapa výskytu hub. Je to mapa toho, ' +
     'kde chodí lidi s foťákem – kde nikdo nefotí, není bod, a to o houbách ' +
