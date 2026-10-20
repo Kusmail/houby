@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v112';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v113';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1516,21 +1516,27 @@ const ortofoto = new ArcDlazdice('', {
    Proto se tahle vrstva nezapočítává do skóre ani do doporučení;
    je čistě na koukání a porovnání. */
 const gbifVrstva = L.layerGroup();
-let gbifData = null, gbifNacitam = false;
+let gbifData = null, gbifSlib = null;
 
 async function nactiGbif(){
-  if (gbifData || gbifNacitam) return gbifData;
-  gbifNacitam = true;
-  try {
-    const r = await fetch('nalezy-gbif.json', {cache:'force-cache'});
-    if (!r.ok) throw new Error('stav ' + r.status);
-    gbifData = await r.json();
-  } catch(e){
-    banner('<b>Komunitní pozorování se nepodařilo načíst.</b> Ostatní vrstvy fungují dál.', false, 8000);
-    gbifData = null;
-  }
-  gbifNacitam = false;
-  return gbifData;
+  /* v113: kdo se zeptal, zatímco se soubor ještě stahoval, dostal dřív
+     hned null – „Kde je nejblíž" pak tvrdilo, že pro hřib „nemám ve zdroji
+     ani jeden bod". Teď počká na stejné stahování. */
+  if (gbifData) return gbifData;
+  if (gbifSlib) return gbifSlib;
+  gbifSlib = (async () => {
+    try {
+      const r = await fetch('nalezy-gbif.json', {cache:'force-cache'});
+      if (!r.ok) throw new Error('stav ' + r.status);
+      gbifData = await r.json();
+    } catch(e){
+      banner('<b>Komunitní pozorování se nepodařilo načíst.</b> Ostatní vrstvy fungují dál.', false, 8000);
+      gbifData = null;
+    }
+    gbifSlib = null;
+    return gbifData;
+  })();
+  return gbifSlib;
 }
 
 const MES_CZ = ['','leden','únor','březen','duben','květen','červen',
@@ -4445,10 +4451,11 @@ async function kdeJeNejbliz(klic){
   const jm = (HOUBY[klic] || {}).jm || 'houba';
 
   /* 1) nahlasene nalezy ze zdroje */
-  let nalezy = [];
+  let nalezy = [], chybaZdroje = false, chybaMist = false;   // v113: „nenačetlo se" ≠ „nic tam není"
   try {
     const d = await nactiGbif();
     const chci = ZDROJ_DRUHY[klic] || [];
+    if (!d) chybaZdroje = true;
     if (d && d.body){
       d.body.forEach(b => {
         const nazev = (d.druhy[b[0]] || [''])[0];
@@ -4458,7 +4465,7 @@ async function kdeJeNejbliz(klic){
       });
       nalezy.sort((x, y) => x.d - y.d);
     }
-  } catch(e){}
+  } catch(e){ chybaZdroje = true; }
 
   /* 2) vhodna mista z map */
   let mista = [];
@@ -4471,9 +4478,9 @@ async function kdeJeNejbliz(klic){
       mista.push({lat: m.lat, lng: m.lng, podil, cest: m.cest, d: distM(o.bod, [m.lat, m.lng])});
     });
     mista.sort((x, y) => x.d - y.d);
-  } catch(e){}
+  } catch(e){ chybaMist = true; }
 
-  return {jm, list: preferujeListnate(klic), odkud: o.popis, nalezy, mista};
+  return {jm, list: preferujeListnate(klic), odkud: o.popis, nalezy, mista, chybaZdroje, chybaMist};
 }
 
 function kdeHTML(klic, v){
@@ -4489,7 +4496,9 @@ function kdeHTML(klic, v){
     '</div></div>';
 
   h += '<h3>Nahlášené nálezy</h3>';
-  if (!v.nalezy.length){
+  if (v.chybaZdroje){
+    h += '<p class="pozn"><b>Seznam nahlášených nálezů se nepodařilo načíst</b> – asi nemáš signál. Zkus to znovu, až bude.</p>';
+  } else if (!v.nalezy.length){
     h += '<p class="pozn">Pro <b>' + v.jm + '</b> nemám ve zdroji ani jeden bod. ' +
          'Neznamená to, že u nás neroste – znamená to, že ji nikdo nenahlásil se souřadnicí.</p>';
   } else {
@@ -4503,7 +4512,9 @@ function kdeHTML(klic, v){
   }
 
   h += '<h3>Vhodná místa podle map</h3>';
-  if (!v.mista.length){
+  if (v.chybaMist){
+    h += '<p class="pozn"><b>Seznam míst se nepodařilo načíst</b> – asi nemáš signál. Zkus to znovu, až bude.</p>';
+  } else if (!v.mista.length){
     h += '<p class="pozn">Nic v dosahu dat.</p>';
   } else {
     h += '<p class="pozn"><b>' + v.jm + '</b> chce spíš <b>' + (v.list ? 'listnatý' : 'jehličnatý') +
