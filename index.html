@@ -900,9 +900,10 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
 
  <div class="sheet-body">
   <button class="bigbtn sber" id="btnSber">🌲 &nbsp;Najdi les kolem mě</button>
-  <button class="bigbtn kam" id="btnKam">🚗 &nbsp;Kam vyrazit autem?</button>
+  <!-- v119: tlačítko se jmenovalo „Kam vyrazit autem?" a po prvním použití „Kam dnes na houby?"; okno i ostatní texty „Kam dnes na houby" – teď všude stejně -->
+  <button class="bigbtn kam" id="btnKam">🍄 &nbsp;Kam dnes na houby?</button>
   <p class="podtitulek"><b>Les kolem mě</b> – nejbližší vhodný porost do 15 km od místa,
-  kde právě stojíš. Hned, bez počasí. <b>Kam vyrazit autem</b> – projde 7 656 míst v celé ČR,
+  kde právě stojíš. Hned, bez počasí. <b>Kam dnes na houby</b> – projde 7 656 míst v celé ČR,
   spočítá dojezd od domova a přidá srážky za tři týdny.</p>
   <div class="row">
     <div class="toggle" id="tgShare" role="switch" tabindex="0" aria-checked="false" aria-label="Sdílím polohu">
@@ -1070,7 +1071,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
     <p class="pozn"><b>Houba</b> mění obarvení lesa, jeho hodnocení v procentech
     i to, která parkoviště se ukážou. <b>Porost</b> mění, které porosty se obarví a
     která parkoviště projdou. Obojí platí pro mapu i pro doporučení.<br>
-    <b>Dojezd a chráněná území mění jen „Kam vyrazit autem"</b> – na mapě nepoznáš
+    <b>Dojezd a chráněná území mění jen „Kam dnes na houby"</b> – na mapě nepoznáš
     nic. U dojezdu se musí ptát navigace a u rezervací server AOPK, a to bod po bodu;
     při posouvání mapy by to znamenalo tisíce dotazů.</p></details>
     <div class="dole"><button id="filtrClose">Hotovo</button></div>
@@ -1176,7 +1177,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v118';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v119';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -7342,7 +7343,7 @@ function refreshNastroje(){
     '<button class="ghost" id="btnOblibeneSem" style="margin-bottom:6px">★ &nbsp;Přidat střed mapy</button>' +
     '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">' +
     'Oblíbené místo přidáš i <b>podržením prstu na mapě</b> – hvězdička sedne přesně tam. ' +
-    'Do doporučování „Kam vyrazit autem" se počítají (+0,15 ke skóre).</p>' +
+    'Do doporučování „Kam dnes na houby" se počítají (+0,15 ke skóre).</p>' +
     lesHTML() +
     '<div class="toggle' + (historieZap ? ' on' : '') + '" id="tgHistorie" role="switch" tabindex="0" aria-checked="' +
       historieZap + '" aria-label="Kde jsme už hledali" style="margin-bottom:12px">' +
@@ -7486,7 +7487,7 @@ function refreshPomoc(){
     'Houba a porost platí pro mapu i pro doporučení; <b>dojezd a rezervace jen pro ' +
     'doporučení</b> – na dojezd se musí ptát navigace a na rezervace server AOPK, ' +
     'bod po bodu, a při posouvání mapy by to znamenalo tisíce dotazů.<br><br>' +
-    '<b>Kam vyrazit autem</b> projede celou republiku, přidá k tomu srážky posledních tří týdnů ' +
+    '<b>Kam dnes na houby</b> projede celou republiku, přidá k tomu srážky posledních tří týdnů ' +
     'i předpověď a vybere pár nejlepších míst. Odtud se dá skočit na mapu.</p></details>' +
     '<details class="napoveda"><summary>Co která barva na mapě znamená</summary>' +
     '<p><b>Obarvený les</b> = mapa růstu. Pět stupňů od cihlové (mizerně) ' +
