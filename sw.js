@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v120';
+const VER        = 'houby-v121';
 const SHELL      = VER + '-shell';
 
 /* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
@@ -157,7 +157,9 @@ function isTile(url){
   if (/[?&]hb=rust/.test(url)) return false;
   return /tile\.openstreetmap\.org/.test(url)
       || /\/\d+\/\d+\/\d+\.png($|\?)/.test(url)
-      || /ags\.cuzk\.gov\.cz\/arcgis\/rest\/services\/.*\/export\?/.test(url)
+      /* v121: ortofoto běží na serveru arcgis1 – dřív sem nepatřilo, takže se
+         letecké snímky bez signálu nikdy nezobrazily. */
+      || /ags\.cuzk\.gov\.cz\/arcgis1?\/rest\/services\/.*\/export\?/.test(url)
       || /gis\.nature\.cz\/arcgis\/rest\/services\/.*\/export\?/.test(url);
 }
 
