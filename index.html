@@ -857,7 +857,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
   <button class="bigbtn sber" id="btnSber">🌲 &nbsp;Najdi les kolem mě</button>
   <button class="bigbtn kam" id="btnKam">🚗 &nbsp;Kam vyrazit autem?</button>
   <p class="podtitulek"><b>Les kolem mě</b> – nejbližší vhodný porost do 15 km od místa,
-  kde právě stojíš. Hned, bez počasí. <b>Kam vyrazit autem</b> – projde 7 672 míst v celé ČR,
+  kde právě stojíš. Hned, bez počasí. <b>Kam vyrazit autem</b> – projde 7 656 míst v celé ČR,
   spočítá dojezd od domova a přidá srážky za tři týdny.</p>
   <div class="row">
     <div class="toggle" id="tgShare" role="switch" tabindex="0" aria-checked="false" aria-label="Sdílím polohu">
@@ -1131,7 +1131,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v104';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v105';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -4483,6 +4483,12 @@ function kdeHTML(klic, v){
 async function otevriKde(klic){
   const k = HOUBY[klic] ? klic : 'hrib_smrkovy';
   $('kdeObsah').innerHTML = '<p class="pozn">Hledám…</p>';
+  /* v105: okna mají stejnou vrstvu (z-index 2000), takže nahoře je to,
+     které je v HTML později. Filtry jsou až za tímhle oknem – „Kde je
+     nejblíž?" z filtrů se otevřelo POD nimi a klepnutí vypadalo, že nic
+     neudělalo. Přesunem na konec stránky je vždycky navrchu; filtry pod
+     ním zůstanou otevřené a po „Zavřít" se k nim člověk vrátí. */
+  document.body.appendChild($('kdeModal'));
   $('kdeModal').classList.add('show');
   const v = await kdeJeNejbliz(k);
   $('kdeObsah').innerHTML = kdeHTML(k, v);
@@ -6967,7 +6973,7 @@ function diagnostika(){
       ' · uloženo ' + (LS.get('sheetPeek', true) ? 'složeno' : 'vytaženo') +
       ' · strop ' + (sh.style.maxHeight || 'žádný') +
       '<br>plocha stránky končí ' + dnoPx + ' px nad spodkem displeje' +
-      ' (z displeje ' + dnoZDispleje() + ')' + +
+      ' (z displeje ' + dnoZDispleje() + ')' +
       ' · spodek panelu ' + Math.round(r.bottom) + ' z ' + window.innerHeight +
       '<br><b>stopa po startu</b> (okno/plocha/displej): ' + (dnoStopa.join(' · ') || 'zatím nic') +
       '</div>';
