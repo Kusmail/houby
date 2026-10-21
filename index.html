@@ -1187,6 +1187,15 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
   .pop .warn, .pop .ok{background:var(--papir2); color:var(--ink)}
 }
 .mbox i.bod{display:inline-block; width:11px; height:11px; border-radius:50%; margin:0 6px 0 0; vertical-align:0; box-shadow:0 0 0 1.5px #fff, 0 0 0 2.5px rgba(0,0,0,.2)}
+
+/* ============================================================
+   v132: VYSUNUTÉ MENU KONČÍ POD LIŠTOU
+   Strop z naměřené polohy lišt (stropMenu). A v128 přepsal stín
+   panelu, kterým se od v95 zakrývá spodní pruh u starších instalací
+   z ikonky (--dno) – pod vysunutým menu pak prosvítala mapa.
+   ============================================================ */
+.sheet:not(.peek){max-height:min(calc(100dvh - var(--safe-t, 0px) - var(--bannerH, 0px) - 56px), var(--menuStrop, 100dvh));
+  box-shadow:0 -6px 22px rgba(40,34,20,.16), 0 var(--dno, 0px) 0 0 var(--card)}
 </style>
 </head>
 <body>
@@ -1613,7 +1622,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v131';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v132';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1740,6 +1749,35 @@ function bannerOffset(){
   st.setProperty('--mistaH', hm + 'px');
   st.setProperty('--bannerH', (hu + hb + hr + hm) + 'px');
   if (typeof odsazeniBublin === 'function') odsazeniBublin();
+  stropMenu();
+  /* lišty nahoře se posouvají s animací 0,2 s – změřit i po ní */
+  clearTimeout(stropMenuTimer);
+  stropMenuTimer = setTimeout(stropMenu, 260);
+}
+
+/* v132: STROP VYSUNUTÉHO MENU PODLE SKUTEČNÉ POLOHY LIŠT
+   Snímek z iPhonu (ikona přidaná před v126, průhledný stavový řádek):
+   vysunuté menu s autem vjelo pod lištu podmínek a schovalo „Určit
+   houbu". Strop se dosud počítal z odhadu – 100dvh minus bezpečná zóna
+   minus výška lišt minus 56 px – a na téhle instalaci iOS hlásí okno
+   i horní zónu jinak, než kde lišta doopravdy sedí. V prohlížeči ani
+   v simulaci se to zopakovat nedalo. Proto se teď neodhaduje: změří
+   se spodní hrana nejnižší lišty nahoře a spodní hrana menu a strop
+   je rozdíl mezi nimi. Starý výpočet zůstává jako horní mez. */
+var stropMenuTimer = null;
+function stropMenu(){
+  const sh = document.querySelector('.sheet');
+  if (!sh) return;
+  let strecha = 0;
+  ['updBar', 'banner', 'recBar', 'mistaBar'].forEach(id => {
+    const e = document.getElementById(id);
+    if (e && e.classList.contains('show')) strecha = Math.max(strecha, e.getBoundingClientRect().bottom);
+  });
+  const tr = getComputedStyle(sh).transform;
+  const posun = (tr && tr !== 'none') ? new DOMMatrixReadOnly(tr).m42 : 0;
+  const spodek = sh.getBoundingClientRect().bottom - posun;
+  const strop = Math.round(spodek - strecha - 12);
+  if (strop > 160) document.documentElement.style.setProperty('--menuStrop', strop + 'px');
 }
 function hideBanner(){ $('banner').classList.remove('show'); bannerOffset(); }
 function banner(html, isErr, autoHide){
