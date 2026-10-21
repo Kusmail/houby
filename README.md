@@ -1,7 +1,10 @@
-# Houby – naše mapa
+# Houbař – naše mapa
 
-Sdílená aplikace pro dva: houbařské lokality kolem Mratína, **zaparkované auto** a **poloha obou** na mapě.
-Otevírá se v prohlížeči, přidá se na plochu telefonu jako ikona. Žádný App Store, žádné poplatky.
+Rodinná mapa na houby po celé ČR: **kde hledat, kudy jít, kde zaparkovat**, zaparkované **auto** a **poloha** rodiny. Otevírá se v prohlížeči a přidá se na plochu telefonu jako ikona. Žádný App Store, žádné poplatky.
+
+> **Dvě verze vedle sebe (říjen 2026).**
+> **Nová appka** běží na zkušební adrese **`…/houby/nova/`** (na ploše jako **„Houbař N"**). Tenhle návod popisuje ji.
+> **Stará appka** na **`…/houby/`** zůstává beze změny, dokud novou neodsouhlasíme. Obě sdílejí stejná data (jméno, rodinný kód, auto, nálezy, oblíbená, stažené mapy).
 
 ---
 
@@ -9,34 +12,123 @@ Otevírá se v prohlížeči, přidá se na plochu telefonu jako ikona. Žádný
 
 | Funkce | Jak to funguje |
 |---|---|
-| **Doporučení „Kam dnes na houby"** | ✅ Podle srážek posledních 21 dní, se signálem |
-| **Oblíbená místa** | ✅ Sdílená v rodině, vstupují do doporučování |
-| **Místa pro celou ČR** | ✅ 7 656 míst z map, filtry na druh, porost, dojezd a chráněná území |
-| 16 ověřených tipů s poznámkami | ✅ Vždy, i bez signálu (pokud sis oblast stáhla) |
-| **Lesy celé ČR podle typu porostu** | ✅ Oficiální data ČÚZK, se signálem |
-| **Chráněná území** | ✅ Oficiální data AOPK, se signálem |
-| **Označení zaparkovaného auta** | ✅ Spolehlivě. Jeden zápis, druhý to vidí do sekundy |
-| Navigace zpět k autu (vzdálenost + šipka) | ✅ Funguje i bez signálu, GPS signál stačí |
+| **Mapa: vhodný les a cesty v něm** | ✅ Porosty a cesty z map ČÚZK, se signálem. Bez signálu jen zelený podklad |
+| **Kde začít** (tři tabulky na mapě) | ✅ Podle cest ve vhodném lese u silnice a podle vašich nálezů |
+| **Kde zaparkovat** | ✅ Nejbližší silnice k okraji lesa, se signálem |
+| **Kam dnes na houby** | ✅ Místa po celé ČR podle cest, dojezdu a nálezů; počasí řekne, jestli jet vůbec |
+| **Označení auta a navigace zpět** | ✅ Spolehlivě, i bez signálu (stačí GPS) |
+| **Zápis nálezu s fotkou** | ✅ I bez signálu, odešle se, až signál bude |
+| **Záznam trasy** | ✅ Jen dokud máš appku na displeji — díry se kreslí tečkovaně |
 | Poloha ostatních na mapě | ⚠️ **Jen dokud mají appku otevřenou na displeji** |
-| **Záznam nachozené trasy** | ✅ Jen dokud máš appku na displeji — díry v trase se kreslí tečkovaně |
-| **Zápis nálezu s fotkou** | ✅ Funguje i bez signálu, odešle se, až signál bude |
-| **Mazání vlastních nálezů a tras** | ✅ Klepnutím na pin, nebo v seznamu v ℹ️ |
-| Kolik lidí | Libovolně z rodiny — připojí se každý, kdo dostane rodinný odkaz |
+| **Kolik lidí** | Libovolně z rodiny — připojí se každý, kdo dostane rodinný odkaz |
 
-### Proč to poslední omezení
+**Co appka neumí:** říct, ve kterém porostu v okolí houby jsou. Mapy znají jen tři druhy lesa a čtyři výšky; smrk od borovice ani dub od buku nerozliší. Proto appka ukazuje **kudy jít** (cesty ve vhodném lese, vaše nálezy), ne „tady rostou". Podrobně v části [Co je ověřené a co ne](#co-je-ověřené-a-co-ne).
 
-**Safari na iPhonu zastaví sledování polohy ve chvíli, kdy zamkneš telefon nebo přepneš do jiné aplikace.** Apple to webovým aplikacím nedovolí, žádná webová appka to neobejde a nejde to zaplatit ani obejít trikem.
+### Proč to omezení s polohou
 
-Prakticky: když má manželka telefon v kapse, její poloha se v appce **neaktualizuje**. Proto je u cizí polohy vždy napsané, jak je stará, a po pěti minutách bod zešedne a napíše „naposledy před 23 min". Nikdy nevěř šedému bodu jako aktuální pozici.
+**Safari na iPhonu zastaví sledování polohy ve chvíli, kdy zamkneš telefon nebo přepneš do jiné aplikace.** Apple to webovým aplikacím nedovolí a nejde to obejít.
 
-**Rozdělení rolí, se kterým to funguje:**
+Prakticky: když má manželka telefon v kapse, její poloha se v appce **neaktualizuje**. U cizí polohy je proto vždy napsané, jak je stará, a po pěti minutách bod zešedne. **Šedému bodu nevěř jako aktuální pozici.**
 
 | | Na co |
 |---|---|
-| **Tahle appka** | Lokality, zaparkované auto, poloha když ji máte otevřenou v ruce |
+| **Tahle appka** | Kde hledat, auto, nálezy, poloha když ji máte otevřenou v ruce |
 | **Najít (Find My)** | Průběžné sledování na pozadí — kde je ten druhý, když má telefon v kapse |
 
-Sdílení polohy v Najít si zapněte jednou: **Najít → Lidé → Sdílet moji polohu → vybrat druhého → Sdílet neomezeně**. Je to zdarma, běží na pozadí a je optimalizované na baterii — přesně to, co web na iOS neumí. V appce je na to tlačítko **Najít** vpravo dole.
+Sdílení v Najít si zapněte jednou: **Najít → Lidé → Sdílet moji polohu → vybrat druhého → Sdílet neomezeně**.
+
+---
+
+# Jak to vypadá a jak se to ovládá
+
+**Nahoře** je lišta **podmínek**: slovo (dobré / průměrné / slabé / mizivé) a číslo zakroužkované červeně. Pod ním je, pro jakou houbu to platí a kolik kilometrů cest ve vhodném lese je ve výřezu. Klepnutím se otevře karta **Co hledáme** (filtry). Vedle lišty je dlaždice **Vrstvy**.
+
+**Dole** jsou tři tlačítka, podle důležitosti:
+
+- **Menu** (velké tmavé) — Kam dnes na houby, Najdi les kolem mě, sdílení polohy, displej svítí, kdo z rodiny je na mapě, a dlaždice **Na mě · Nález · Trasa · Nastavení**;
+- **Auto** — označit zaparkované auto. Když je auto označené, je tu **žlutá tabulka se vzdáleností a šipkou**;
+- **lupa** (malé kulaté) — Určit houbu: vyfotit nebo vybrat fotku a poslat ji do Google Lens.
+
+Všechna okna vyjíždějí zespodu a zavřou se klepnutím vedle. **Co hledáme** a **Vrstvy** jsou karty pod horní lištou.
+
+---
+
+# Co mapa ukazuje
+
+Od přiblížení zhruba na obec (zoom 13) se kreslí porosty a cesty. Na oddálené mapě jsou místo nich **kolečka krajů s procentem** — to je jen počasí a sezóna, kam v republice vůbec má cenu jet.
+
+| na mapě | co to je |
+|---|---|
+| **světle zelený les** | porost, kde vybraná houba **může růst** — podle druhu (listnatý / smíšený / jehličnatý) a výšky lesa z map ČÚZK. Les bez barvy jí nesedí |
+| **červená čára** | cesta, pěšina nebo neevidovaná silnice (ZABAGED) **uvnitř nebo na okraji vhodného porostu**. **Tudy jít.** |
+| **žlutý okraj červené čáry** | do 300 m od nálezu někoho z rodiny |
+| **šedá čárkovaná** | tudy někdo z vás v posledních 3 týdnech prošel celou vycházku a nic nenašel |
+| **tabulky 1, 2, 3** (č. 1 žlutá a zakroužkovaná) | **kde začít** — vstup do lesa u silnice (viz níž) |
+| fialové tečky | evidovaná parkoviště u lesa |
+| hnědé / okrové tečky | ověřené nálezy z veřejné databáze GBIF (hřibovité / bedly) |
+| hnědé kolečko s houbou | váš nález |
+| žluté kolečko s autem | zaparkované auto |
+| tmavé kolečko s domem | domov |
+
+Klepnutím na zelený porost se ukáže, kolik metrů cest v něm vede, jak je velký a tlačítko **Kde zaparkovat**.
+
+---
+
+# Jak appka vybírá místa
+
+### Kde začít (tabulky 1, 2, 3 na mapě)
+
+U každého vhodného porostu s cestami se najde **vstup do lesa** — místo na okraji nejblíž veřejné silnici nebo ulici. Tam stojí tabulka. Pořadí rozhoduje:
+
+1. **kolik červených cest je do 750 m od vstupu** (na jednu vycházku; počítá se nejvýš 3 km, víc stejně neujdeš) — na tabulce je ta délka („3+ km");
+2. **jak blízko je silnice**: do 150 m plná váha, do 1 km klesá na 40 %, dál se místo nenabízí;
+3. **vaše nálezy u vstupu** zvednou místo až 2,5×, **nedávno prošlé cesty bez nálezu** ho sníží až na polovinu.
+
+**Velikost lesa nerozhoduje.** Tabulky jsou jen na viditelné části mapy.
+
+### Kde zaparkovat
+
+Tlačítko v bublině porostu nebo tabulky. Appka vezme obrys porostu a najde **nejbližší bod veřejné silnice nebo ulice k jeho okraji**. Evidované parkoviště vybere jen tehdy, když je nejvýš o 300 m dál než ta silnice. Oranžová čárkovaná vede od auta k **zelené tečce**, kde do lesa vejdeš. Zákazy vjezdu a závory appka nezná — to uvidíš na místě.
+
+### Kam dnes na houby
+
+Menu → žlutá tabulka **Kam dnes na houby**. Appka projde **7 656 parkovišť u lesa** po celé ČR, prožene je filtry, spočítá **skutečný dojezd autem** (router OSRM) a stáhne počasí.
+
+- **Pořadí míst** dělá totéž měřítko jako mapa: **cesty ve vhodném lese do 750 m od parkoviště**, k tomu dojezd, porost kolem, vaše nálezy, oblíbená místa a prázdné vycházky.
+- **Počasí a sezóna** rozhodují, **jestli jet vůbec**. Když jsou mizerné, appka napíše „Dnes nikam." a poradí, kdy to zkusit. Jednotlivé místo počasí jen sesadí, když tam vyloženě nepršelo.
+- Na kartě: dojezd, **počasí a sezóna**, déšť za 3 týdny, **cesty ve vhodném lese**, vaše nálezy. Nejlepší místo je zakroužkované, prohledané naprázdno přeškrtnuté. Pod „Víc o místě" je zbytek.
+
+### Najdi les kolem mě
+
+Menu → **Najdi les kolem mě**. Vezme tvou polohu (nebo střed mapy) a ze **40 největších vhodných porostů do 15 km** vybere ten nejvhodnější, s mírnou předností bližších. **Tahle funkce zatím nebyla přestavěná** — pořád vybírá podle druhu, výšky a velikosti porostu, ne podle cest. Lepší je dívat se na tabulky „kde začít".
+
+### Lišta nahoře (podmínky)
+
+Číslo je **počasí a sezóna ve výřezu** (déšť vážený podle toho, kdy po něm houby lezou, teplota, sezónní křivka houby z filtru), vynásobené vhodností nejlepšího porostu ve výřezu — ta je skoro vždy 100 %. Říká tedy hlavně **kdy**, ne kde.
+
+---
+
+# Co je ověřené a co ne
+
+Ověřeno na skutečných nálezech z veřejné databáze GBIF (houby z ČR s přesnými souřadnicemi). **AUC** = pravděpodobnost, že místo nebo den nálezu dostane od appky vyšší hodnocení než náhodné srovnání; 0,5 je náhoda, 1 dokonalost. Podrobnosti, skripty a data: `audit-model-2026-10-21.md` a složka `audit-model/` (mimo tenhle repozitář, u Matěje).
+
+| otázka | výsledek | co z toho appka dělá |
+|---|---|---|
+| Pozná druh a výška porostu, **který les v okolí** (do 1,5 km) je ten pravý? | **ne** — AUC 0,57 (1 012 nálezů) | porost jen jako „může tu růst", ne jako hodnocení |
+| Pozná to **lesní typ** ÚHÚL/NLI (živnost a vlhkost půdy)? | **ne** — AUC 0,53 | nepoužívá se k výběru |
+| Pomáhá **blízkost cesty**? | **ano** — do 15 m od cesty 2,4× víc nálezů než v okolním lese (AUC 0,60) | červené cesty, kde začít |
+| Leží nové nálezy **u starých**? | **ano** — do 100 m od dřívějšího nálezu 14× víc, do 300 m 3× víc (AUC 0,64, 758 párů) | žlutý okraj, kde začít, Kam dnes |
+| Záleží na stáří nálezu? | trochu — 1–2 roky AUC 0,62, 3–5 let 0,60, 6+ let 0,53 | váha 1 / 0,7 / 0,3 |
+| Pozná počasí a sezóna, **kdy jet**? | **ano** — AUC 0,75 (399 nálezů, srovnání s jinými dny sezóny na stejném místě) | lišta nahoře, „dnes nikam" |
+| Pozná počasí, **kam jet** (místa do hodiny jízdy, týž den)? | **skoro ne** — AUC 0,53 | počasí místa neřadí, jen sesadí suchá |
+
+**Neověřeno:**
+
+- že místa vybraná podle cest dají **víc nálezů** (opora je nepřímá — cesty 2,4×);
+- **prázdné vycházky** (šedé čárkované) — na ně žádná veřejná data nejsou;
+- **pěšiny a neevidované silnice** — ověřovala se jen vrstva „Cesta", ty další jsou v mapě navíc;
+- že **vaše rodinné nálezy** fungují stejně jako GBIF (ty jsou od různých lidí, často opakovaně na stejných místech — rodině podobné, ale ne stejné);
+- zkreslení GBIF: lidé fotí tam, kde chodí, takže část vlivu cest je umělá. Pro houbaře je to ale ta užitečná pravda.
 
 ---
 
@@ -46,7 +138,7 @@ Postupuj shora dolů. Po každém kroku je napsané, co máš vidět.
 
 ## Krok 1 — Firebase projekt (10 min)
 
-Firebase je databáze od Googlu, přes kterou si vaše dva telefony předávají pozici auta a polohy. Bezplatný tarif nám bohatě stačí.
+Firebase je databáze od Googlu, přes kterou si telefony předávají auto, polohy a nálezy. Bezplatný tarif bohatě stačí.
 
 1. Jdi na **https://console.firebase.google.com** a přihlas se Google účtem.
 2. Klikni **Vytvořit projekt** (Create a project).
@@ -58,8 +150,8 @@ Firebase je databáze od Googlu, přes kterou si vaše dva telefony předávají
 
 6. V levém menu **Sestavení (Build) → Realtime Database**.
 7. Klikni **Vytvořit databázi**.
-8. Umístění: vyber **europe-west1 (Belgie)** — je nejblíž, bude to nejrychlejší.
-9. Bezpečnostní pravidla: vyber **Spustit v uzamčeném režimu (locked mode)**. Pravidla nastavíme správně v kroku 4.
+8. Umístění: vyber **europe-west1 (Belgie)**.
+9. Bezpečnostní pravidla: vyber **Spustit v uzamčeném režimu (locked mode)**. Pravidla nastavíme v kroku 4.
 10. **Povolit / Enable.**
 
 > ✅ Máš vidět prázdnou databázi a nahoře adresu ve tvaru
@@ -68,18 +160,15 @@ Firebase je databáze od Googlu, přes kterou si vaše dva telefony předávají
 **Zapni anonymní přihlašování:**
 
 11. V levém menu **Sestavení → Authentication → Začít (Get started)**.
-12. Karta **Sign-in method** → v seznamu najdi **Anonymní (Anonymous)** → klikni na něj.
+12. Karta **Sign-in method** → **Anonymní (Anonymous)** → klikni na něj.
 13. Přepni na **Povoleno (Enable)** → **Uložit**.
-
-> ✅ V seznamu má být u „Anonymní" stav **Povoleno**.
 
 ## Krok 2 — Zkopírovat údaje do `config.js` (5 min)
 
-1. V levém horním rohu klikni na **⚙ (ozubené kolo) → Nastavení projektu**.
-2. Sjeď dolů na **Vaše aplikace**. Klikni na ikonu **`</>`** (Web).
-3. Přezdívka aplikace: `houby`. **Zaregistrovat aplikaci.**
-4. Zobrazí se blok kódu `const firebaseConfig = { ... }`.
-5. Otevři soubor **`config.js`** v textovém editoru a přepiš hodnoty. Přepisuješ **jen text mezi uvozovkami**, uvozovky a čárky nech být:
+1. Vlevo nahoře **⚙ → Nastavení projektu**.
+2. Sjeď na **Vaše aplikace**, klikni na **`</>`** (Web).
+3. Přezdívka: `houby`. **Zaregistrovat aplikaci.**
+4. Otevři **`config.js`** a přepiš hodnoty — **jen text mezi uvozovkami**:
 
 ```js
 const FIREBASE_CONFIG = {
@@ -93,96 +182,51 @@ const FIREBASE_CONFIG = {
 };
 ```
 
-> ⚠️ **`databaseURL` ve Firebase konzoli u webové aplikace často chybí.** Vezmi ji z **Realtime Database** (krok 1, bod 9) a doplň ji ručně. Bez ní appka nesdílí nic.
+> ⚠️ **`databaseURL` u webové aplikace často chybí.** Vezmi ji z **Realtime Database** a doplň ručně. Bez ní appka nesdílí nic.
 
-> ✅ V `config.js` už nesmí zůstat žádné `SEM_VLOZ_`.
-
-> **Je bezpečné mít tyhle údaje veřejně?** Ano. Firebase klíče nejsou heslo — jsou to jen adresy. Přístup hlídají pravidla databáze, která nastavíme v kroku 4.
+> **Je bezpečné mít tyhle údaje veřejně?** Ano. Firebase klíče nejsou heslo — přístup hlídají pravidla databáze (krok 4).
 
 ## Krok 3 — Nahrát na web (10 min)
 
-1. Založ si účet na **https://github.com** (pokud ho nemáš).
-2. Vpravo nahoře **+ → New repository**.
-3. Název: `houby`. Zvol **Public**. **Create repository.**
+1. Účet na **https://github.com**, vpravo nahoře **+ → New repository**, název `houby`, **Public**.
+2. Nahraj **všechny soubory z repozitáře** včetně složky `nova/` (nová appka), `mista.json` (parkoviště) a `nalezy-gbif.json` (ověřené nálezy).
+3. **Settings → Pages → Deploy from a branch → main → / (root) → Save.**
 
-> Public znamená, že kód je viditelný. Vaše polohy ale v kódu nejsou — ty jsou v databázi, kterou zamkneme v kroku 4.
-
-4. Na stránce nového repozitáře klikni **uploading an existing file**.
-5. Přetáhni **všech 7 souborů**: `index.html`, `config.js`, `manifest.json`, `sw.js`, `icon-192.png`, `icon-512.png`, `README.md`.
-6. Dole klikni **Commit changes**.
-7. Nahoře **Settings → Pages** (levé menu).
-8. V sekci **Build and deployment → Source** vyber **Deploy from a branch**, Branch **main**, složka **/ (root)**, **Save**.
-9. Počkej 1–2 minuty a stránku obnov.
-
-> ✅ Nahoře uvidíš zelený rámeček s adresou ve tvaru
-> **`https://tvojejmeno.github.io/houby/`**
-> To je odkaz, který pošleš manželce. Otevři ho a měl bys vidět mapu.
+> ✅ Za 1–2 minuty je appka na `https://tvojejmeno.github.io/houby/` (stará) a `https://tvojejmeno.github.io/houby/nova/` (nová).
 
 ## Krok 4 — Pravidla databáze (5 min)
 
-Databáze je po vytvoření v uzamčeném režimu a nikdo do ní nesmí. Pravidla rozhodují, kdo dovnitř smí.
+1. Firebase konzole → **Realtime Database → Pravidla (Rules)**.
+2. Označ všechno a vlož obsah souboru **`pravidla-databaze.json`** (ten je jen u Matěje — obsahuje rodinný kód, do repozitáře nepatří).
+3. **Publikovat** (modrý pruh nahoře).
 
-1. Ve Firebase konzoli jdi na **Realtime Database → karta Pravidla (Rules)**.
-2. Označ všechno (⌘A) a vlož obsah souboru **`pravidla-databaze.json`**.
-3. Klikni **Publikovat**. Tlačítko je v **modrém pruhu nahoře**, vlevo vedle „unpublished changes" — ne v panelu Rules Playground vpravo, tam je jen **Run** na simulace.
-
-> ✅ V appce se má tečka vlevo nahoře (vedle jména) rozsvítit **zeleně**.
-
-### Jak pravidla fungují
+> ✅ V appce: Menu → Nastavení → „Kdo jsi na mapě" — tečka u jména svítí **zeleně**.
 
 | Uzel | Kdo čte | Kdo zapisuje |
 |---|---|---|
 | `owners` | každý jen svůj řádek | jen správce |
 | `allowed` | celý seznam správce, ostatní jen svůj řádek | **sám sebe jen s platným kódem** z rodinného odkazu; správce kohokoliv |
-| `users` | jen člen | každý jen svůj vlastní záznam; správce smí cizí záznam **smazat** (ne přepsat) |
+| `users` | jen člen | každý jen svůj záznam; správce smí cizí záznam **smazat** |
 | `car` | jen člen | kdokoli z členů, včetně mazání |
 | `finds` | jen člen | každý jen svoje nálezy; správce smí smazat záznamy odebraného |
-| `finds_foto` | jen člen | každý jen svoje fotky, nejvýš 60 kB na fotku |
+| `finds_foto` | jen člen | každý jen svoje fotky, nejvýš 60 kB |
 | `tracks` | jen člen | každý jen svoje trasy; správce smí smazat záznamy odebraného |
 
-**Správci jsou natvrdo v pravidlech** — dvě UID Matějových zařízení. Je to schválně: do `/owners` smí zapisovat jen existující správce, takže úplně prvního by neměl kdo vytvořit. Uzel `/owners` funguje navíc, pro přidání dalšího správce z appky.
+**Správci jsou natvrdo v pravidlech** (UID Matějových zařízení). **Kód z rodinného odkazu** je součástí zápisu, který pravidla porovnají — odkaz je klíč: koho v rodině nechceš, tomu ho neposílej.
 
-**Ověřeno proti ostré databázi** (28. 8. 2026, přes REST API s reálnými anonymními účty, 16 pokusů z 16 dopadlo, jak mělo):
+## Krok 4b — Přidat člověka do rodiny (10 sekund)
 
-| Pokus | Výsledek |
-|---|---|
-| Připojit se **bez kódu** | 401 zamítnuto |
-| Přečíst cizí polohy, auto, nálezy nebo trasy bez členství | 401 zamítnuto |
-| Zapsat trasu na cizí jméno | 401 zamítnuto |
-| Smazat cizí trasu | 401 zamítnuto |
-| Přepsat cizí polohu | 401 zamítnuto |
-| Odhlásit někoho jiného | 401 zamítnuto |
-| Číst cokoliv **po odchodu** z rodiny | 401 zamítnuto |
-| Fotka větší než 60 kB | 401 zamítnuto |
-| Připojit se **s kódem** | 200 povoleno |
-| Uložit a smazat svoji trasu | 200 povoleno |
-| Zapsat svoji polohu | 200 povoleno |
-| **Sám odejít** z rodinné mapy | 200 povoleno |
+1. Pošli mu **rodinný odkaz** (končí `#k=…`). Najdeš ho v **Menu → Nastavení → Rodinný odkaz**.
+2. Otevře ho, zadá jméno. Hotovo.
+3. Ať si appku hned **přidá na plochu** (krok 5).
 
-**Kód z rodinného odkazu se nikdy neposílá na server jako heslo** — je součástí zápisu, který pravidla porovnají. Je ale v odkazu, takže odkaz je klíč: koho v rodině nechceš, tomu ho neposílej.
-
-## Krok 4b — Přidat člověka do rodiny (kdykoliv, 10 sekund)
-
-Tohle už je běžný provoz, ne nastavení. **Zvládneš to z telefonu v lese.** Žádné schvalování — kdo dostane odkaz, ten se připojí sám.
-
-1. Pošli člověku **rodinný odkaz** — ten, který má na konci `#k=…`. Najdeš ho v ℹ️.
-2. Otevře ho, zadá jméno. Hotovo, od té chvíle vás vidí a vy jeho.
-3. Ať si ho hned **přidá na plochu** (Krok 5) — kód si appka pamatuje, takže z plochy se otevře už přihlášená.
-
-**Kdo přijde na holou adresu bez `#k=…`, uvidí jen mapu lokalit** a nic víc. To je záměr: appka je veřejná webová stránka, klíčem je odkaz.
-
-Odebrat člověka jde v ℹ️ tlačítkem **Odebrat** u jeho jména. Sám může odejít v ℹ️ → **Odejít z rodinné mapy**.
-
-> ⚠️ **Co po odebraném zůstane:** jeho poslední polohu appka smaže. Trasy a nálezy, které nasdílel, ne — mazat je smí podle pravidel jen on sám. Když odchází dobrovolně tlačítkem **Odejít**, appka mu je smaže po jedné ještě před odhlášením, a **když se to nepovede, odchod neprovede** a řekne proč. Appka ti to při odebrání napíše.
+Kdo přijde na holou adresu bez `#k=…`, uvidí jen mapu a nic víc. Odebrat člověka jde v Nastavení tlačítkem **Odebrat** u jeho jména; sám může odejít tlačítkem **Odejít z rodinné mapy**.
 
 ## Krok 5 — Přidat na plochu iPhonu (2 min, každý zvlášť)
 
-1. Otevři odkaz **v Safari** (ne v Chrome — na iOS to musí být Safari).
-2. Klepni na ikonu **Sdílet** (čtvereček se šipkou nahoru, dole uprostřed).
-3. Sjeď dolů → **Přidat na plochu**.
-4. Název nech `Houby` → **Přidat**.
-
-> ✅ Na ploše máš ikonu s houbou. Po klepnutí se appka otevře na celou obrazovku bez adresního řádku.
+1. Otevři odkaz **v Safari**.
+2. **Sdílet** (čtvereček se šipkou) → **Přidat na plochu** → **Přidat**.
+3. Appka z ikonky má vlastní paměť: pokud nahoře uvidíš **„Nemáš přístupový odkaz"**, klepni **Vložit odkaz** a vlož rodinný odkaz ještě jednou. Jen poprvé.
 
 ---
 
@@ -190,183 +234,103 @@ Odebrat člověka jde v ℹ️ tlačítkem **Odebrat** u jeho jména. Sám můž
 
 | Povolení | Kdy se zeptá | Co to dělá | Když odmítneš |
 |---|---|---|---|
-| **Poloha** | Při zapnutí přepínače *Sdílím polohu* nebo při označení auta | GPS pro tvoji pozici a pro pozici auta | Nefunguje označení auta ani navigace zpátky |
-| **Kompas / pohyb** | Při klepnutí na kolečko se šipkou | Otáčení šipky podle toho, kam se díváš | Šipka se netočí, ale ukáže se azimut ve stupních a vzdálenost |
+| **Poloha** | Při zapnutí *Sdílím polohu*, označení auta, „Najdi les kolem mě" nebo zápisu nálezu | GPS pro tebe, auto a nález | Nefunguje auto ani navigace zpátky |
+| **Kompas** | Při klepnutí na šipku v žlutém listu auta | Šipka se otáčí podle toho, kam se díváš | Šipka se netočí, appka napíše azimut ve stupních |
 
-Poloha se sdílí **jen když je přepínač *Sdílím polohu* zapnutý**. Po zavření appky se přepínač vždycky vrátí na vypnuto — nikdo tě nesleduje na pozadí, ani omylem.
+Poloha se sdílí **jen když je *Sdílím polohu* zapnuté**. Po zavření appky se vždycky vypne.
 
 ---
 
 ## Jak se to používá v lese
 
-1. **Doma na Wi-Fi**: přibliž mapu na oblast, kam jedete, a klepni **Offline**. Stáhnou se dlaždice mapy pro ten výřez, takže mapa pojede i bez signálu.
-2. **U auta**: klepni na velké oranžové **🚗 Zaparkoval jsem tady**. Objeví se oranžový pin a manželka ho hned vidí.
-3. **V lese**: zapni **Sdílím polohu**. Panel nahoře ukazuje vzdálenost k autu a šipku k němu. Chceš-li, aby displej nezhasínal, zapni **Displej svítí** (bere to baterku).
-4. **Když něco najdeš**: klepni **🍄 Nález**, vyfoť houbu a ulož. Fotka se zmenší a zůstane u nálezu v mapě. Chceš-li vědět, co to je, klepni **🔍 Určit v jiné appce** — telefon nabídne Google Lens nebo cokoliv, co máš nainstalované.
-5. **Chceš vidět, kudy jsi už chodil**: na začátku vycházky klepni **⏺ Trasa**, na konci **⏹ Ukončit** a **Uložit**. Trasa se nakreslí šedě do mapy pod přepínačem „Kde jsme už hledali" (ℹ️ → Mapa).
-6. **Zpátky u auta**: klepni na koš 🗑 v panelu, aby se pozice smazala a příště tě nemátla.
+1. **Doma na Wi-Fi**: přibliž mapu na oblast, kam jedete → **Menu → Nastavení → Stáhnout výřez**. Mapa pak pojede i bez signálu (bez barevných porostů a cest — ty se neukládají).
+2. **Plánování**: **Menu → Kam dnes na houby**, nebo přímo na mapě tabulky **1, 2, 3** → bublina → **Kde zaparkovat**.
+3. **U auta**: **Auto → Označit auto**. Rodina ho hned vidí. Dole se objeví **žlutá tabulka se vzdáleností**.
+4. **V lese**: jdi po **červených cestách**. Zapni **Menu → Sdílím polohu**, ať tě rodina vidí; **Displej svítí** drží displej rozsvícený (bere baterku).
+5. **Když něco najdeš**: **Menu → Nález** — druh, kolik, případně fotka. Cesty kolem hned zežloutnou.
+6. **Trasa**: **Menu → Trasa** na začátku a na konci. Když jsi nic nenašla, dej **„Nic jsem nenašel"** (s „Zapsal jsem všechno") — prošlé cesty na 3 týdny zešednou a appka je nebude tlačit.
+7. **Zpátky k autu**: klepni na žlutou tabulku → velká šipka a vzdálenost, **Navigovat v Mapách**. U auta **Auto mám** (zeptá se, ať to nesmažeš omylem).
 
 ---
 
 ## Trasy a nálezy — co je čí
 
-**Nález** se ukládá rovnou do databáze a vidí ho celá rodina. Fotka je zmenšená na 320 px a **leží ve zvláštním uzlu** — stáhne se, teprve když na nález klepneš. Bez toho by si každé otevření appky stahovalo úplně všechny fotky; při pěti stech nálezech přes deset megabajtů, klidně v lese na datech.
+**Nález** se ukládá do databáze a vidí ho celá rodina. Fotka (zmenšená na 320 px) se stáhne, až na nález klepneš. **Bez signálu** se nález uloží do telefonu, hned se ukáže v mapě a odešle se, až bude signál. **Smazat** jde v bublině nálezu (dvě klepnutí). Mazat smíš jen svoje.
 
-**Bez signálu to funguje taky** — nález se uloží do telefonu, hned se objeví v mapě a odešle se ostatním, jakmile budeš mít signál. Appka ti u něj napíše, že zatím čeká.
+> 🍄 **Appka neurčuje, co je jedlé.** Pošle fotku do Google Lens, ale rozhodnutí je jenom tvoje.
 
-**Smazat nález** jde klepnutím na jeho pin v mapě → **Smazat nález** (dvě klepnutí, ať se to nestane omylem). Mazat můžeš jen svoje nálezy — cizí ne, stejně jako nikdo nesmaže tvoje.
+**Trasa** se ukládá **do telefonu**; ostatním ji ukážeš přepínačem **„Ukázat trasu ostatním"** po ukončení. Appka si pamatuje posledních 30 vycházek. Díry (appka byla na pozadí) se kreslí tečkovaně. **Kde jsme už hledali** (Nastavení) kreslí staré trasy do mapy.
 
-> 🍄 **Appka neurčuje, co je jedlé.** Nabídne ti Google Lens nebo jinou určovačku, ale rozhodnutí, jestli tu houbu sníš, je jenom tvoje. Žádný obrázkový hledač na světě nemá spolehlivost, na kterou se dá vsadit večeře.
-
-**Trasa** se ukládá **do telefonu**. Ostatním ji ukážeš jen tehdy, když v dialogu po ukončení zapneš **„Ukázat trasu ostatním"**. Volbu si appka pamatuje na příště.
-
-- Cizí trasy se stahují **jen když máš zapnuté „Kde jsme už hledali"**. Kdo si to nezapne, nestáhne ani bajt navíc — trasy jsou z celé databáze zdaleka největší.
-- V mapě jsou **tvoje trasy šedé, cizí fialové**. Na cizí se dá klepnout a ukáže, kdo a kdy.
-- Sdílení se dá vzít zpět: ℹ️ → **Přestat sdílet moje trasy**. Z databáze zmizí, v telefonu ti zůstanou.
-- Trasa nahraná v telefonu má **díry, kdykoliv byla appka na pozadí**. Kreslí se tečkovaně a u trasy je napsané, kolik procent času se opravdu zaznamenalo. Rovnou čarou se to schválně nespojuje — netvrdíme, že jsi tudy šel.
-- Appka si pamatuje **posledních 30 vycházek**, starší zahazuje. Když v telefonu dojde místo, zahodí nejstarší **nesdílené** vycházky a napíše ti to. Když se trasa neuloží vůbec, řekne to rovnou — nikdy netvrdí, že uložila, když neuložila.
-- **Smazat jednu trasu** jde v ℹ️ v seznamu pod přepínačem „Kde jsme už hledali", křížkem u řádku. Sdílená trasa se smaže i ostatním.
+**Jak nálezy a vycházky mění mapu:**
+- nález kohokoli z rodiny → cesty do 300 m od něj **žlutě**, místo „kde začít" i v „Kam dnes" výš. Váha podle vzdálenosti (do 100 m plně, do 300 m 0,6, do 750 m 0,1) a stáří (do 2,5 roku plně, do 5,5 roku 0,7, starší 0,3);
+- celá vycházka bez nálezu → cesty do 30 m od trasy **šedě čárkovaně** na 21 dní (prvních 7 dní plně, pak slábne). Novější nález u té cesty to přebije.
 
 ---
 
-## Místa pro celou ČR
+## Filtry (karta Co hledáme)
 
-Appka už není šestnáct míst kolem Mratína. **Varianta 1 a Varianta 2 jsou zrušené** — nahradil je filtr na dojezd, který umí totéž a pro celou republiku.
+Klepnutím na horní lištu:
 
-Celostátní vrstva vychází z **evidovaných parkovišť ZABAGED**: otázka „kam můžu přijet a vejít do lesa" má stejnou odpověď jako „kde je parkoviště u lesa". Ze 16 545 parkovišť v ČR zbylo po vyřazení těch bez lesa a bez lesní cesty v okolí **7 656 míst**, u každého je předpočítané složení porostu do 400 m a počet lesních cest.
+- **Houba** — Vše, nebo jeden z osmi druhů (bedly, hřib smrkový, hřib dubový, hřib žlutomasý, křemenáč, kozák, klouzky, masák). „Vše" hodnotí les podle hub, které teď rostou.
+- **Porost** — vše / listnatý / smíšený / jehličnatý.
+- **Dojezd z domova** — 20, 45, 60, 90 nebo 150 minut, **skutečné minuty za volantem** (jen pro Kam dnes).
+- **Rezervace** — Vynechat / Nevadí (jen pro Kam dnes; ověřuje se u AOPK).
+- **Kde je nejblíž?** — konkrétní houba: nejbližší nahlášené nálezy a vhodná místa podle vzdálenosti.
 
-Soubor s místy váží 181 kB (komprimovaně 69 kB) a **stahuje se až ve chvíli, kdy si o místa řekneš**. Kdo appku používá jen na auto a polohu, nestáhne ani bajt navíc.
+## Vrstvy
 
-**Šestnáct původních míst zůstalo** jako **ověřené tipy** — mají ručně psané poznámky, kde přesně hledat a jaká je tam konkurence, což z map vyčíst nejde. V nabídce jsou označené zeleným štítkem; místa z map mají šedý štítek **„z map, nikdy jsme tam nebyli"**.
+Dlaždice **Vrstvy** vedle horní lišty: **Podklad** mapa / letecká (ČÚZK) a přepínače **Kde sbírat** (porosty a cesty), **Ověřené nálezy** (GBIF), **Parkoviště u lesa**. Další vrstvy jsou v **Nastavení**: **Lesy** (porosty podle druhu), **Chráněná území** (AOPK), **Kde jsme už hledali**, **Nejlepší místa** (čtverce 500 × 500 m podle vašich nálezů).
 
-## Filtry
-
-V dialogu „Kam dnes" dole. Jdou kombinovat a platí i pro doporučování, ne jen pro mapu:
-
-- **Houba** — vše / bedly / hřiby a klouzky
-- **Porost** — vše / listnatý / smíšený / jehličnatý
-- **Dojezd** — do 20, 45, 60, 90 nebo 150 minut. **Skutečné minuty za volantem**, ne vzdušná čára — počítá je router OSRM.
-- **Chráněná území** — vynechat rezervace a klidová území národních parků, nebo je nechat být
-
-## Kam dnes na houby
-
-Velké zelené tlačítko nahoře v panelu. Appka projde místa v celé ČR, prožene je filtry, na to co projde spočítá skutečný dojezd a pro třicet nejlepších stáhne srážky za 21 dní i předpověď na týden.
-
-**Jak to počítá.** Houby nerostou z mapy, ale z deště. Podhoubí potřebuje vodu a pak zhruba týden až dva, než vyleze plodnice. Proto se počítá hlavně s deštěm **z okna před 6 až 18 dny**, s vrcholem kolem 10–14 dnů. Déšť z posledních dnů má menší váhu — udrží, co roste, ale sám nic nevykouzlí. Do výsledku dál vstupuje roční doba, typ porostu podle ZABAGED (bedly jinam než hřiby), vaše vlastní nálezy v té ploše, dojezd z Mratína a to, jestli je místo mezi oblíbenými.
-
-U každého doporučení je napsané, **z čeho je spočítané**: kolik mm napršelo, kdy byl poslední vydatný déšť, jaký je porost, kolik tam máte nálezů.
-
-> ⚠️ **Není to jistota, je to počasí a statistika.** Do lesa appka nevidí. Když jsou podmínky mizerné, řekne rovnou „dnes nikam" a poradí, kdy to zkusit — místo aby vymýšlela doporučení, které nesedí.
+> ⚠️ **V rezervacích a v klidových územích národních parků se houby sbírat nesmí.** Vrstva chráněných území ukáže, kde si to ověřit — není to povolenka.
 
 ## Oblíbená místa
 
-Hvězdička je v bublině každé lokality a v kartách doporučení. Vlastní místo přidáš v ℹ️ tlačítkem **Přidat oblíbené místo doprostřed mapy**. Oblíbená místa se ukládají k tvému uživateli v databázi, takže je vidí celá rodina a máš je i na druhém telefonu. Do doporučování se počítají.
-
-## Lesy celé ČR
-
-ℹ️ → **Lesy**. Zelené plochy jsou lesní půda se stromy ze ZABAGED, tedy z oficiální databáze ČÚZK. Pokrývá to celou republiku, ne jen našich 16 lokalit.
-
-- Kreslí se **od přiblížení asi na okres**. Nad tím ti server nic nepošle a stejně by z toho nic nepoznal.
-- **Od přiblížení asi na obec** se les rozliší podle porostu: žlutozelená listnaté, zelená smíšené, tmavě modrozelená jehličnaté, šedá neurčeno. Objeví se čtyři tlačítka, kterými si necháš jen jeden druh.
-- **Bedly** hledej v listnatém a na okrajích luk, **hřiby a klouzky** v jehličnatém a smíšeném.
-- Klepnutím do plochy zjistíš, co je to za porost.
-- Když je porostů v jednom výřezu moc, server pošle jen část a appka to napíše — pak přibliž víc. Mlčky useknutá mapa lesa je horší než žádná, protože vypadá stejně důvěryhodně.
-
-Zelený podklad se ukládá do telefonu stejně jako mapa, takže funguje offline. **Stažené mapy přežijí aktualizaci appky** — mažou se jen tlačítkem „Smazat uložené mapy". **Rozlišení podle porostu se neukládá** — jedna odpověď má i sto kilobajtů a během jedné vycházky by to sežralo místo, které jinde hlídáme. Bez signálu tedy zůstane zelený podklad bez rozlišení.
-
-## Chráněná území
-
-ℹ️ → **Chráněná území**. Data AOPK ČR: národní parky, CHKO, rezervace a klidová území.
-
-> ⚠️ **V rezervacích a v klidových územích národních parků se houby sbírat nesmí**, někde se nesmí ani sejít z cesty. V CHKO sbírat lze. Tahle vrstva ti ukáže, kde si to ověřit — **není to povolenka** a nenahrazuje návštěvní řád.
-
----
-
-## Nejlepší místa — mapa z vašich vlastních nálezů
-
-ℹ️ → **Nejlepší místa**. Nálezy se sečtou do čtverců 500 × 500 m a čtverec se obarví od bledě žluté po sytě oranžovou.
-
-- **Čerstvost rozhoduje.** Nález starý rok váží polovinu, pětiletý tři procenta. Les se mění, paseka zarůstá.
-- **Filtr druhu** — chceš vidět jen kde rostou bedly? Klepni na Bedla.
-- Klepnutím na čtverec zjistíš, kolik nálezů v něm bylo, kdy naposledy a čeho.
-- Pod přepínačem je vždycky napsané, **z kolika nálezů je to počítané**. Dokud jich je pár, je to náhoda, ne znalost — a je poctivější to napsat než to schovat pod barvičky.
-
-**Proč to má cenu:** mřížka porostů je model, mých 16 lokalit je poučená domněnka. Tohle je jediná vrstva v appce, která nestojí na odhadu — vaše nálezy jsou fakt. Po dvou sezónách by měla ty ostatní přebít.
+Hvězdička v bublině místa nebo na kartě Kam dnes; vlastní místo **podržením prstu na mapě** nebo v **Nastavení → Přidat střed mapy**. Vidí je celá rodina a v Kam dnes mají přednost.
 
 ---
 
 ## Řešení problémů
 
-**Auto je jinde, než jsem ho nechal**
-Pozici auta má v ruce ten, kdo klepl naposledy. Když ji někdo přepíše nebo smaže, appka ti to napíše nahoře — nedělá se to potichu. Mazání i přepsání chce **dvě klepnutí**, aby se to nedalo udělat omylem v kapse.
+**Mapa je šrafovaná** — tuhle dlaždici telefon nemá: buď jsi bez signálu a oblast není stažená, nebo server s mapou neodpovídá. Doma: **Nastavení → Stáhnout výřez**.
 
-**Ovládání bez dotyku**
-Všechny přepínače a tlačítka jdou projít tabulátorem a zapnout mezerníkem nebo Enterem, mají popisky pro VoiceOver a Escape zavírá otevřené okno.
+**Nejsou vidět zelené porosty ani červené cesty** — kreslí se od přiblížení zhruba na obec a potřebují signál (ČÚZK). Bez signálu zůstane zelený podklad. Zkontroluj taky, že ve **Vrstvách** je zapnuté **Kde sbírat**.
 
-**Mapa je šrafovaná**
-Šrafovaná plocha znamená „tuhle dlaždici nemám" — buď jsi bez signálu a oblast není stažená, nebo server s mapou zrovna neodpovídá. Appka ti napíše, který z těch dvou případů to je. Doma na Wi-Fi otevři appku, najdi oblast a klepni **Offline**. Mimo stažený výřez mapa prostě nebude — hromadné stahování map pravidla OpenStreetMap nedovolují.
+**Červená čára vede mimo les** — jsou to cesty po okraji vhodného porostu (do 12 m). Mapa cest je z ČÚZK a nemusí znát každou novou svážnici; v terénu má přednost to, co vidíš.
 
-**Přišel jsem o stažené mapy**
-Do verze 12 je smazala každá aktualizace appky. Od verze 13 už ne — zůstávají, dokud je sám nesmažeš. Jednou naposledy zmizely při přechodu na verzi 13; stáhni si výřez znovu a už to nenastane.
+**Auto je jinde, než jsem ho nechal** — pozici má ten, kdo označil naposledy. Přepsání cizího auta a smazání chce potvrzení.
 
-**Došlo místo na uložené mapy**
-V ℹ️ je napsané, kolik uložená data zabírají a kolik ti prohlížeč dovolí. Když se blíží strop, appka to řekne — a je tam tlačítko **Smazat uložené mapy**. Samotná appka funguje offline dál, jen si výřez budeš muset stáhnout znovu. Neřešit to se nevyplácí: až bude plno, začne prohlížeč mazat sám a může vzít i mapu, kterou máš zítra potřebovat.
+**Ve spodní liště jsem dvakrát** — každý prohlížeč má vlastní UID, takže iPhone a MacBook jsou dva uživatelé.
 
-**Ve spodní liště jsem dvakrát**
-Každý prohlížeč má vlastní UID, takže iPhone a MacBook jsou dva různí uživatelé. Když zadáš jméno, které už někdo používá, appka navrhne rozlišení („Matěj – iPhone"). Můžeš ho přepsat nebo klepnout na Uložit znovu a nechat původní.
+**Nevidím svoji polohu** — (1) *Sdílím polohu* zapnuté, (2) Nastavení iPhonu → Soukromí → Polohové služby, (3) Safari → Poloha *Zeptat se* nebo *Povolit*. V hustém lese může první GPS fix trvat minutu.
 
-**Nevidím svoji polohu**
-Zkontroluj tři věci: (1) přepínač *Sdílím polohu* je zapnutý, (2) Nastavení → Ochrana soukromí → Polohové služby je zapnuté, (3) Nastavení → Safari → Poloha je *Zeptat se* nebo *Povolit*. V hustém lese může první GPS fix trvat i minutu — vyjdi na světlejší místo.
+**Nevidím ostatní** — vidíš jen ty, kdo mají zapnuté sdílení a appku otevřenou na displeji, a kdo se připojil rodinným odkazem s `#k=…`.
 
-**Nevidím ostatní** Ve spodní liště jsou **jen ti, kdo mají zapnuté sdílení polohy** — kdo nesdílí, tam schválně není. Když tam není nikdo, appka to napíše. Další důvody: druhý **nemá appku otevřenou na displeji** (viz vysvětlení na začátku), nebo se **nepřipojil rodinným odkazem** — pošli mu ten s `#k=…` na konci.
+**Tečka u jména (Nastavení) je červená** — appka se nepřipojila k Firebase: chyba v `config.js` (často chybí `databaseURL`) nebo v pravidlech.
 
-**UID: každé zařízení má vlastní.** Anonymní přihlášení vytvoří UID pro **konkrétní prohlížeč**, ne pro člověka. Když si appku otevřeš na iPhonu i na MacBooku, jsi pro databázi dva různí uživatelé a každý se připojuje zvlášť. Proto se ve spodní liště dřív objevoval dvakrát „Matěj".
-Nejčastěji proto, že **nemá appku otevřenou na displeji** — viz vysvětlení na začátku. Zkontroluj taky, že má zapnutý svůj přepínač *Sdílím polohu* a že je její UID v pravidlech databáze (krok 4). U jejího jména je vždycky napsané, co se děje.
+**Šipka k autu se netočí** — klepni na šipku v žlutém listu auta a povol kompas. Bez povolení appka píše azimut (0° sever, 90° východ…).
 
-**Tečka vlevo nahoře je červená**
-Appka se nepřipojila k Firebase. Buď je chyba v `config.js` (nejčastěji chybějící `databaseURL`), nebo nejsou obě UID v pravidlech. Klepni na ℹ️ a zkontroluj, že tam UID vůbec je — když tam není, přihlášení neproběhlo.
+**Appka se neaktualizovala** — nahoře se ukáže „Je připravená nová verze" → **Načíst**. Když ne, zavři appku úplně a otevři znovu.
 
-**Šipka k autu se netočí**
-Nedal jsi povolení ke kompasu. Klepni na kolečko se šipkou a povol to. Když povolení nedáš, appka místo toho píše azimut ve stupních — 0° je sever, 90° východ, 180° jih, 270° západ.
-
-**Vzdálenost k autu skáče**
-Normální. GPS má v lese pod korunami přesnost klidně ±30 m. Když je přesnost horší než 20 m, appka to napíše. Na posledních pár desítek metrů se řiď spíš terénem než šipkou.
-
-**Appka se neaktualizovala po nahrání změn na GitHub**
-Service worker drží starou verzi. Zavři appku úplně (vytáhni ji z přepínače aplikací) a otevři znovu. Případně Nastavení → Safari → Vymazat historii a data.
+**Diagnostika** — Menu → Nastavení → dole. Když něco nesedí se zobrazením, vyfoť ji Matějovi.
 
 ---
 
 ## Náklady
 
-| Položka | Tarif | Co spotřebujeme | Cena |
-|---|---|---|---|
-| GitHub Pages | Free | pár set kB, 1 GB limit | **0 Kč** |
-| Firebase Realtime Database | Spark (free) | viz níže | **0 Kč** |
-| Mapové podklady | OpenStreetMap | dlaždice, cache v telefonu | **0 Kč** |
+| Položka | Tarif | Cena |
+|---|---|---|
+| GitHub Pages | Free | **0 Kč** |
+| Firebase Realtime Database | Spark (free) | **0 Kč** |
+| Mapové podklady a data | OpenStreetMap, ČÚZK, AOPK, NLI, Open-Meteo, OSRM, GBIF | **0 Kč** |
 
-**Propočet Firebase pro pět lidí.** Bezplatný tarif Spark dává 1 GB uložených dat, 10 GB stažených dat měsíčně a 100 současných připojení.
-
-Poloha se zapisuje maximálně jednou za 10 sekund, jeden zápis má kolem 150 bajtů. Každý zápis se navíc rozešle ostatním, kdo mají appku otevřenou — to je ta část, co roste rychleji než počet lidí.
-
-Pět lidí, kteří appku aktivně používají 8 hodin denně osm dnů v měsíci:
-
-`5 osob × 6 zápisů/min × 60 min × 8 h × 8 dní ≈ 115 000 zápisů`
-`115 000 × 150 B × 4 příjemci ≈ 70 MB přenosu měsíčně`
-
-To je **0,7 % z 10GB limitu**. Uložených dat je trvale pár kilobajtů — jedna pozice auta a řádek na každého člověka.
-
-Souběžných připojení je pět proti limitu sta. I kdyby vás šlo na houby patnáct a appku měli otevřenou celý den, pořád jste hluboko pod hranicí. **Placený tarif nepotřebujete.**
-
-Jediný způsob, jak by se limit vyčerpal, je zveřejnit odkaz a nechat databázi otevřenou pro kohokoli. Proto krok 4 — s pravidly omezenými na dvě UID to nehrozí.
+Pět lidí, aktivně 8 hodin denně osm dní v měsíci: zhruba 115 000 zápisů polohy a 70 MB přenosu měsíčně, tedy **0,7 % z 10GB limitu** Firebase. Placený tarif nepotřebujete.
 
 ---
 
 ## Ochrana soukromí
 
-- V databázi je uložené: jméno, které si každý zvolil, poslední souřadnice, přesnost a čas — plus **nálezy** a **ty trasy, které někdo vědomě nasdílel**. Nesdílené trasy databáze nikdy nevidí, zůstávají v telefonu.
-- Data vidí jen členové rodiny, tedy ti, kdo dostali rodinný odkaz s kódem. Firebase konzole je pod tvým Google účtem.
-- Vrstvy lesů a chráněných území jsou veřejné mapové služby ČÚZK a AOPK. Appka jim posílá jen výřez mapy, na který se zrovna díváš — žádné jméno, žádnou polohu, žádný nález.
-- Přepínač **živého sdílení polohy** je po každém otevření appky **vypnutý**. To je schválně a nikdy se to nemá měnit: sdílení polohy musí být pokaždé vědomé rozhodnutí. (Sdílení hotové trasy je něco jiného — tam jde o jednu dokončenou vycházku, ne o to, kde jsi teď, a volba se pamatuje.)
-- Kdo chce z rodinné mapy pryč, klepne v ℹ️ na **Odejít z rodinné mapy**. Smažou se přitom i jeho sdílené trasy a nálezy.
-- Když chceš skončit: ve Firebase konzoli **Realtime Database → Data → smazat vše**, nebo rovnou celý projekt v Nastavení projektu.
+- V databázi je: jméno, poslední souřadnice a čas — plus **nálezy** a **trasy, které někdo vědomě nasdílel**. Nesdílené trasy zůstávají v telefonu.
+- Data vidí jen členové rodiny (rodinný odkaz s kódem).
+- Mapové služby (ČÚZK, AOPK, NLI) dostávají jen výřez mapy, na který se díváš, Open-Meteo jen souřadnice míst, pro která se počítá počasí, OSRM jen body pro výpočet dojezdu. Žádné jméno, žádný nález.
+- **Živé sdílení polohy** je po každém otevření appky **vypnuté** — pokaždé vědomé rozhodnutí.
+- Kdo chce pryč: **Nastavení → Odejít z rodinné mapy** (smažou se i jeho sdílené trasy a nálezy).

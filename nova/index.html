@@ -879,7 +879,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'nova-v7';   // mění se s každým vydáním
+const APP_VERZE = 'nova-v7a';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -5472,9 +5472,11 @@ function kresliMistaZacit(vybrana, jmenoHouby){
    (audit-model-2026-10-21.md, v7): nový nález leží do 100 m od
    dřívějšího nálezu téže skupiny hub ve 14 % případů, náhodný les
    v okolí jen v 1 %; do 300 m 24 % proti 8 %, do 750 m 39 % proti
-   27 % (AUC 0,636, 758 párů). Stáří nálezu vadí míň, než appka
-   dosud počítala (rok = polovina): 1–2 roky AUC 0,618, 3–5 let
-   0,603, 6 a víc let 0,525.
+   27 % (AUC 0,636, 758 párů). Podle stáří: 1–2 roky AUC 0,618,
+   3–5 let 0,603, 6 a víc let 0,525. (Pozor, oprava: dosavadní
+   vahaStari ubírá polovinu za ŠEST let, ne za rok, jak jsem napsal
+   nejdřív – změřenému úbytku zhruba odpovídá. Nové váhy jsou jiný,
+   podobně silný tvar, ne oprava příliš rychlého stárnutí.)
    Proto:
    – váha nálezu podle vzdálenosti: do 100 m 1, do 300 m 0,6,
      do 750 m 0,1; podle stáří: do 2,5 roku 1, do 5,5 roku 0,7,
