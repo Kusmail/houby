@@ -879,7 +879,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'nova-v6';   // mění se s každým vydáním
+const APP_VERZE = 'nova-v7';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2679,6 +2679,7 @@ async function ulozNalez(z){
   if (foto) fotoCache[id] = foto;
   renderFinds();
   kresliNejlepsi();
+  rustPokryti = null; prekresliRustBrzy();      // nova-v7: cesty u nového nálezu hned zežloutnou
 
   /* v101: nejdřív do fronty v telefonu, z ní ven až po potvrzení.
      Dřív se do fronty psalo jen při chybě – jenže Firebase bez signálu
@@ -3228,6 +3229,7 @@ $('trackSave').onclick = () => {
   REC.body = [];
   if (!historieZap){ historieZap = true; LS.set('historie', true); }
   kresliHistorii();
+  rustPokryti = null; prekresliRustBrzy();      // nova-v7: prošlé cesty bez nálezu hned zešednou
 
   trasaUlozena = vysledek.ok;
   if (!vysledek.ok){
@@ -3939,7 +3941,7 @@ function skoreMista(m, den){
      projít. U ověřených tipů to nevíme, tak jim dáme neutrální střed. */
   const cesty = m.overene ? 1.0 : (0.7 + 0.3 * Math.min(1, (m.cest || 0) / 8));
   const n = m.overene && m.loc ? nalezyVPlose(m.loc) : nalezyOkolo(m.lat, m.lng);
-  const nalezBonus = Math.min(0.6, n.skore * 0.2);
+  const nalezBonus = Math.min(0.6, 0.4 * bonusNalezu([m.lat, m.lng]).bonus);   // nova-v7: změřené váhy vzdálenosti a stáří
 
   /* Prošli jsme to a nic. Jedna prázdná vycházka nic neznamená – houby
      nerostou pořád. Tři a víc už něco říká, ale ani ty místo nezabijí:
@@ -5421,7 +5423,10 @@ function vyberMistaZacit(vhodne, silnice, lat0, cary, vidno){
       : 1 - 0.6 * (pristupM - ZACIT_PLNY_PRISTUP_M) / (ZACIT_MAX_PRISTUP_M - ZACIT_PLNY_PRISTUP_M);
     if (vidno && !vidno.contains(vstup)) continue;          // tabulka musí být na obrazovce
     const cestyM = cestyKolem(vstup, cary, ZACIT_OKOLI_M);
-    hodnocene.push({f, cestyM, pristupM, vstup, hodnota: Math.min(cestyM, ZACIT_CESTY_STROP_M) * vaha});
+    /* nova-v7: nálezy rodiny kolem vstupu (až 2,5×) a nedávno prošlé cesty bez nálezu (až o polovinu) */
+    const nalezy = bonusNalezu(vstup), prosle = podilProsleho(vstup);
+    hodnocene.push({f, cestyM, pristupM, vstup, nalezy, prosle,
+      hodnota: Math.min(cestyM, ZACIT_CESTY_STROP_M) * vaha * (1 + Math.min(1.5, nalezy.bonus)) * (1 - 0.5 * prosle)});
   }
   hodnocene.sort((p, q) => q.hodnota - p.hodnota || (p.pristupM || 0) - (q.pristupM || 0));
   const vybrana = [];
@@ -5449,13 +5454,127 @@ function kresliMistaZacit(vybrana, jmenoHouby){
       '<table>' +
       '<tr><td>Cesty ve vhodném lese</td><td><b>' + km(m.cestyM) + '</b> do 750 m od vstupu</td></tr>' +
       '<tr><td>Od silnice</td><td>' + (m.pristupM === null ? 'nezjištěno' : m.pristupM < 15 ? '<b>les začíná u silnice</b>' : '<b>' + km(m.pristupM) + '</b> k okraji lesa') + '</td></tr>' +
+      (m.nalezy && m.nalezy.blizko ? '<tr><td>Vaše nálezy</td><td><b>' + m.nalezy.blizko + '</b> do 300 m, naposledy ' + fmtTime(m.nalezy.posledni) + '</td></tr>' : '') +
+      (m.prosle >= 0.1 ? '<tr><td>Prošli jste</td><td>' + Math.round(m.prosle * 100) + ' % cest v posledních 3 týdnech, bez nálezu</td></tr>' : '') +
       '<tr><td>Plocha porostu</td><td>' + (a._ha < 10 ? a._ha.toFixed(1).replace('.', ',') : Math.round(a._ha)) + ' ha</td></tr>' +
       '</table>' +
       '<button class="popbtn" data-park="' + m.vstup[0] + ',' + m.vstup[1] + '" data-obj="' + (a.OBJECTID || '') + '"><svg class="ik"><use href="#i-auto"/></svg>Kde zaparkovat</button>' +
       '<p class="pozn" style="margin:10px 0 0">Pořadí: kolik cest ve vhodném lese je do 750 m od vstupu ' +
-      'a jak blízko je k lesu od silnice. Velikost lesa nerozhoduje.</p></div>', POPOPT)
+      'a jak blízko je k lesu od silnice; vaše nálezy u cest ho zvednou, nedávno prošlé cesty bez nálezu sníží. Velikost lesa nerozhoduje.</p></div>', POPOPT)
       .addTo(zacniTadyVrstva);
   });
+}
+
+/* ============================================================
+   nova-v7: VAŠE NÁLEZY A PRÁZDNÉ VYCHÁZKY POSOUVAJÍ CESTY
+
+   Ověřeno na nálezech z GBIF jako náhradě za rodinná data
+   (audit-model-2026-10-21.md, v7): nový nález leží do 100 m od
+   dřívějšího nálezu téže skupiny hub ve 14 % případů, náhodný les
+   v okolí jen v 1 %; do 300 m 24 % proti 8 %, do 750 m 39 % proti
+   27 % (AUC 0,636, 758 párů). Stáří nálezu vadí míň, než appka
+   dosud počítala (rok = polovina): 1–2 roky AUC 0,618, 3–5 let
+   0,603, 6 a víc let 0,525.
+   Proto:
+   – váha nálezu podle vzdálenosti: do 100 m 1, do 300 m 0,6,
+     do 750 m 0,1; podle stáří: do 2,5 roku 1, do 5,5 roku 0,7,
+     starší 0,3,
+   – cesty do 300 m od nálezu rodiny mají na mapě žlutý okraj,
+   – cesty, kudy někdo z rodiny v posledních 21 dnech prošel celou
+     vycházku bez nálezu („zapsal jsem všechno"), jsou šedé
+     a čárkované. Po 7 dnech jejich váha slábne, po 21 dnech zmizí:
+     po dalším dešti tam houby být můžou. (Tohle ověřit nejde – na
+     prázdné vycházky žádná veřejná data nejsou.)
+   ============================================================ */
+const NAL_VZD = [[100, 1], [300, 0.6], [750, 0.1]];
+const PRAZDNA_DNI = 21, PRAZDNA_PLNE_DNI = 7, PRAZDNA_DOSAH_M = 30;
+
+function vahaStariV7(ts){
+  const roky = (Date.now() - (ts || 0)) / (365.25 * 864e5);
+  return roky <= 2.5 ? 1 : roky <= 5.5 ? 0.7 : 0.3;
+}
+/* Součet vah nálezů rodiny kolem bodu [lat, lng]. */
+function bonusNalezu(bod, nalezy){
+  let bonus = 0, blizko = 0, posledni = 0;
+  for (const z of (nalezy || vsechnyNalezy())){
+    if (Math.abs(z.lat - bod[0]) > 0.008) continue;
+    const d = distM(bod, [z.lat, z.lng]);
+    const w = d <= NAL_VZD[0][0] ? NAL_VZD[0][1] : d <= NAL_VZD[1][0] ? NAL_VZD[1][1] : d <= NAL_VZD[2][0] ? NAL_VZD[2][1] : 0;
+    if (!w) continue;
+    bonus += w * vahaStariV7(z.ts);
+    if (d <= 300){ blizko++; posledni = Math.max(posledni, z.ts || 0); }
+  }
+  return {bonus, blizko, posledni};
+}
+/* Nedávné úplné vycházky bez nálezu (vlastní i sdílené) jako body [lat, lng] s vahou. */
+function prazdneVychazky(){
+  const out = [];
+  const zpracuj = (t) => {
+    if (!t || !Array.isArray(t.body) || !t.body.length) return;
+    if (!(t.uplna === true && (t.nalezu || 0) === 0)) return;
+    const dny = (Date.now() - (t.ts || 0)) / 864e5;
+    if (dny < 0 || dny > PRAZDNA_DNI) return;
+    const w = dny <= PRAZDNA_PLNE_DNI ? 1 : 1 - (dny - PRAZDNA_PLNE_DNI) / (PRAZDNA_DNI - PRAZDNA_PLNE_DNI);
+    const body = t.body.map(b => [typeof b.a === 'number' ? b.a : b.lat, typeof b.o === 'number' ? b.o : b.lng])
+                       .filter(b => typeof b[0] === 'number' && typeof b[1] === 'number');
+    if (body.length) out.push({w, dny, ts: t.ts || 0, body});
+  };
+  ulozeneTrasy().forEach(zpracuj);
+  const ciz = state.tracks || {};
+  Object.keys(ciz).forEach(uid => { if (uid !== state.uid) Object.keys(ciz[uid] || {}).forEach(id => zpracuj(ciz[uid][id])); });
+  return out;
+}
+/* Rozdělí zvýrazněné cesty (orezCesty) na úseky u nálezů, prošlé naprázdno a ostatní. */
+function rozdelCesty(cary, nalezy, prazdne){
+  const tridy = {bezne: [], nalez: [], prosle: []};
+  const kx = (lat) => 111320 * Math.cos(lat * Math.PI / 180);
+  /* nejsilnější prázdná vycházka u úseku – ale jen ta, po které tu nikdo nic nenašel:
+     novější nález do 300 m prázdnou vycházku přebije */
+  const prosleW = (s, posledniNalez) => {
+    let w = 0;
+    for (const v of prazdne){
+      if (posledniNalez > v.ts) continue;
+      for (const b of v.body){
+        if (Math.abs(b[0] - s[0]) > 0.0005) continue;
+        if (Math.hypot((b[0] - s[0]) * 110540, (b[1] - s[1]) * kx(s[0])) <= PRAZDNA_DOSAH_M){ w = Math.max(w, v.w); break; }
+      }
+    }
+    return w;
+  };
+  for (const c of cary){
+    let tr = null, kus = null;
+    for (let i = 1; i < c.length; i++){
+      const a = c[i - 1], b = c[i], s = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      const bn = nalezy.length ? bonusNalezu(s, nalezy) : {blizko: 0, posledni: 0};
+      const t = (prazdne.length && prosleW(s, bn.blizko ? bn.posledni : 0) >= 0.5) ? 'prosle'
+              : bn.blizko ? 'nalez' : 'bezne';
+      if (t !== tr || !kus){ kus = [a]; tridy[t].push(kus); tr = t; }
+      kus.push(b);
+    }
+  }
+  return tridy;
+}
+let cestyTridy = {bezne: [], nalez: [], prosle: []};
+
+function kresliCestyV7(cary){
+  const nalezy = vsechnyNalezy(), prazdne = prazdneVychazky();
+  cestyTridy = rozdelCesty(cary, nalezy, prazdne);
+  const t = cestyTridy, opt = {renderer: rustPlatno, interactive: false};
+  if (t.nalez.length) L.polyline(t.nalez, Object.assign({color: '#f2c200', weight: 11, opacity: .9}, opt)).addTo(rustVrstva);
+  const cervene = t.bezne.concat(t.nalez);
+  if (cervene.length){
+    L.polyline(cervene, Object.assign({color: '#fffdf6', weight: 7, opacity: .85}, opt)).addTo(rustVrstva);
+    L.polyline(cervene, Object.assign({color: '#b83a26', weight: 3.5, opacity: .95}, opt)).addTo(rustVrstva);
+  }
+  if (t.prosle.length){
+    L.polyline(t.prosle, Object.assign({color: '#fffdf6', weight: 6, opacity: .7}, opt)).addTo(rustVrstva);
+    L.polyline(t.prosle, Object.assign({color: '#6b665c', weight: 3, opacity: .9, dashArray: '3 7'}, opt)).addTo(rustVrstva);
+  }
+}
+/* Podíl cest kolem bodu, které byly nedávno prošlé naprázdno (0–1). */
+function podilProsleho(bod){
+  const vse = cestyKolem(bod, cestyTridy.bezne.concat(cestyTridy.nalez, cestyTridy.prosle), ZACIT_OKOLI_M);
+  return vse ? cestyKolem(bod, cestyTridy.prosle, ZACIT_OKOLI_M) / vse : 0;
 }
 
 async function kresliSber(b){
@@ -5572,10 +5691,7 @@ async function kresliSber(b){
     const o = orezCesty(cary, vhodne);
     kmCest = o.delkaM / 1000;
     cestyVhodne = o.cary;
-    if (o.cary.length && rustZapnuty()){
-      L.polyline(o.cary, {renderer: rustPlatno, color: '#fffdf6', weight: 7, opacity: .85, interactive: false}).addTo(rustVrstva);
-      L.polyline(o.cary, {renderer: rustPlatno, color: '#b83a26', weight: 3.5, opacity: .95, interactive: false}).addTo(rustVrstva);
-    }
+    if (o.cary.length && rustZapnuty()) kresliCestyV7(o.cary);   // nova-v7: žlutě u nálezů, šedě prošlé
   } catch(e){ kmCest = null; }   // bez cest (offline, server) zůstanou aspoň porosty
   /* nova-v5: místa, kde začít – podle cest ve vhodném lese a přístupu od silnice (blok KDE ZAČÍT výš) */
   zacniTadyVrstva.clearLayers();
@@ -7470,6 +7586,9 @@ function refreshPomoc(){
     'Les bez barvy jí nesedí.<br><br>' +
     '<b>Červená čára</b> = cesta nebo pěšina uvnitř vhodného porostu. Tudy jít – u cest se v 1 012 ověřených ' +
     'nálezech našlo 2,4× víc hub než v okolním lese. Který porost v okolí je lepší, mapy neřeknou.<br><br>' +
+    '<b>Žlutý okraj cesty</b> = do 300 m od vašeho nálezu. Nové nálezy leží u starých: do 100 m od dřívějšího nálezu jich je 14×, ' +
+    'do 300 m 3× víc než v okolním lese.<br><br>' +
+    '<b>Šedá čárkovaná</b> = tudy někdo z vás v posledních 3 týdnech prošel celou vycházku a nic nenašel. Po dalším dešti to může být jinak.<br><br>' +
     '<i class="bod" style="background:#262522"></i>domov · <i class="bod" style="background:#a98fd0"></i>parkoviště z map<br><br>' +
     '<i class="bod" style="background:#c2701a"></i>konec čáry „kde zaparkovat", ruší se křížkem vpravo nahoře<br><br>' +
     '<i class="bod" style="background:#8b4513"></i>ověřený nález hřibovité houby · <i class="bod" style="background:#b8860b"></i>bedla<br><br>' +
