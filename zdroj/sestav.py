@@ -454,10 +454,10 @@ def wrep(a, b, n=1):
     c = w.count(a); assert c == n, (c, a[:80]); w = w.replace(a, b)
 w = re.sub(r"const VER\s*=\s*'houby-v\d+';", "const VER        = '" + VERZE + "';", w0)
 assert ("'" + VERZE + "'") in w
-# úklid: staré skořápky hlavní adresy (houby-v*) a zrušené nova/ (nova-v*); záloha stara-v*,
+# úklid: jen staré skořápky hlavní adresy (houby-v*); kopie na nova/ (nova-v*), záloha stara-v*,
 # dlaždice, knihovna Firebase a záloha porostů zůstávají
 wrep(""".filter(k => k !== TILES && k !== SDK && k !== 'houby-zaloha' && !k.startsWith(VER))""",
-     """.filter(k => (/^houby-v\\d+[a-z]?-/.test(k) && !k.startsWith(VER + '-')) || /^nova-v[0-9a-z]+-/.test(k))   // záloha stara-v* a sdílené cache zůstávají""")
+     """.filter(k => /^houby-v\\d+[a-z]?-/.test(k) && !k.startsWith(VER + '-'))   // jen vlastní staré skořápky; nova-v*, stara-v* a sdílené cache zůstávají""")
 wrep("/^houby-v\\d+-shell$/", "/^houby-v\\d+[a-z]?-shell$/")
 open(os.path.join(REPO, 'sw.js'), 'w', encoding='utf-8').write(w)
 import json
@@ -507,8 +507,42 @@ for ic in mz.get('icons', []): ic['src'] = '../' + ic['src'].lstrip('./')
 json.dump(mz, open(os.path.join(REPO, 'stara', 'manifest.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
 print('stara/index.html, stara/sw.js, stara/manifest.json')
 
-# ---------- nova/: zkušební adresa skončila, přesměrovat na hlavní ----------
+# ---------- nova/: stejná appka i pro ikonu „Houbař N" ----------
+# Přesměrování na hlavní adresu vedlo mimo rozsah té ikony a iOS pak appku ukázal
+# s lištou prohlížeče. Proto tu běží stejná appka, jen se soubory o patro výš.
+NOVA = VERZE.replace('houby-', 'nova-')
+n = s
+def nrep(a, b, k=1):
+    global n
+    c = n.count(a); assert c == k, (c, a[:80]); n = n.replace(a, b)
+nrep('<meta name="apple-mobile-web-app-title" content="Houbař">', '<meta name="apple-mobile-web-app-title" content="Houbař N">')
+nrep('<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">', '<link rel="apple-touch-icon" sizes="180x180" href="../icon-180.png">')
+nrep('<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">', '<link rel="apple-touch-icon" sizes="192x192" href="../icon-192.png">')
+nrep('<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">', '<link rel="icon" type="image/png" sizes="192x192" href="../icon-192.png">')
+nrep('<script src="config.js"></script>', '<script src="../config.js"></script>')
+nrep("await fetch('nalezy-gbif.json'", "await fetch('../nalezy-gbif.json'")
+nrep("const MISTA_URL = 'mista.json';", "const MISTA_URL = '../mista.json';")
+nrep("location.href=\\'stara/\\'", "location.href=\\'../stara/\\'")
 os.makedirs(os.path.join(REPO, 'nova'), exist_ok=True)
-open(os.path.join(REPO, 'nova', 'index.html'), 'w', encoding='utf-8').write(open(os.path.join(TU, 'nova-presmerovani.html'), encoding='utf-8').read())
-open(os.path.join(REPO, 'nova', 'sw.js'), 'w', encoding='utf-8').write(open(os.path.join(TU, 'nova-sw-konec.js'), encoding='utf-8').read())
-print('nova/ -> přesměrování na hlavní adresu')
+open(os.path.join(REPO, 'nova', 'index.html'), 'w', encoding='utf-8').write(n)
+w = re.sub(r"const VER\s*=\s*'houby-v\d+';", "const VER        = '" + NOVA + "';", w0)
+wrep("""  './config.js',""", """  '../config.js',""")
+wrep("""  './icon-180.png',
+  './icon-192.png',
+  './icon-512.png',
+  './nalezy-gbif.json',""", """  '../icon-180.png',
+  '../icon-192.png',
+  '../icon-512.png',
+  '../nalezy-gbif.json',""")
+wrep("""  './mista.json'
+];""", """  '../mista.json'
+];""")
+wrep("/^houby-v\\d+-shell$/", "/^nova-v[0-9a-z]+-shell$/")
+wrep(""".filter(k => k !== TILES && k !== SDK && k !== 'houby-zaloha' && !k.startsWith(VER))""",
+     """.filter(k => /^nova-v[0-9a-z]+-/.test(k) && !k.startsWith(VER + '-'))   // jen vlastní staré skořápky nova-v*""")
+open(os.path.join(REPO, 'nova', 'sw.js'), 'w', encoding='utf-8').write(w)
+mn = json.loads(json.dumps(man))
+mn['name'] = 'Houbař (nová)'; mn['short_name'] = 'Houbař N'; mn['start_url'] = './'; mn['scope'] = './'
+for ic in mn.get('icons', []): ic['src'] = '../' + ic['src'].lstrip('./')
+json.dump(mn, open(os.path.join(REPO, 'nova', 'manifest.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+print('nova/index.html, nova/sw.js, nova/manifest.json (' + NOVA + ')')

@@ -5,7 +5,7 @@
      uživatel reálně projde (nebo si je stáhne tlačítkem Offline)
    - Firebase: nikdy necachujeme, musí jít vždy na síť
    ============================================================ */
-const VER        = 'houby-v135';
+const VER        = 'houby-v136';
 const SHELL      = VER + '-shell';
 
 /* Audit 3: tohle jméno dřív obsahovalo číslo verze, takže úklid při
@@ -110,7 +110,7 @@ self.addEventListener('activate', e => {
     doplnZeStare().catch(() => {})
       .then(() => caches.keys())
       .then(keys => Promise.all(keys
-        .filter(k => (/^houby-v\d+[a-z]?-/.test(k) && !k.startsWith(VER + '-')) || /^nova-v[0-9a-z]+-/.test(k))   // záloha stara-v* a sdílené cache zůstávají   // v120: záloha porostů a počasí
+        .filter(k => /^houby-v\d+[a-z]?-/.test(k) && !k.startsWith(VER + '-'))   // jen vlastní staré skořápky; nova-v*, stara-v* a sdílené cache zůstávají   // v120: záloha porostů a počasí
         .map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
