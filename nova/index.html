@@ -879,7 +879,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'nova-v5';   // mění se s každým vydáním
+const APP_VERZE = 'nova-v6';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -4546,13 +4546,14 @@ function duvodMista(x){
      a z čeho se skládá hodnocení – je sbalený pod „Víc o místě". */
   const p = x.p, m = x.m;
   const proc = (v) => Math.round(v * 100) + ' %';
-  const s = slovniSance(x.sance);
+  const s = slovniSance(x.sPocasi);
   const r = (a, b) => '<span>' + a + '</span><b>' + b + '</b>';
   const k = [];
-  k.push(r('Podmínky', '<i class="tecka" style="background:' + s.c + '"></i>' + s.t + ' · ' + proc(x.sance)));
+  k.push(r('Počasí a sezóna', '<i class="tecka" style="background:' + s.c + '"></i>' + s.t + ' · ' + proc(x.sPocasi)));
   // v114: součet zahrnuje 21 dní zpět I dnešek (22 hodnot)
   k.push(r('Déšť za 3 týdny', Math.round(p.celkem21) + ' mm'));
-  k.push(r('Porost', !m.jehl && !m.list ? 'neurčený' : (m.jehl >= m.list ? 'spíš jehličnatý' : 'spíš listnatý')));
+  k.push(r('Cesty ve vhodném lese', x.cestyM == null ? 'nezjištěno' : fmtDist(x.cestyM) + ' do 750 m'));
+  if (x.sucho) k.push(r('Pozor', 'tady málo pršelo'));
   k.push(r('Naše nálezy', x.n.pocet
     ? sklonuj(x.n.pocet,'nález','nálezy','nálezů') + ', naposledy ' + fmtTime(x.n.posledni)
     : 'zatím žádné'));
@@ -6804,6 +6805,67 @@ function procNic(k){
    POSLEDNÍ, klidně ten se starým filtrem. Každý běh má teď pořadové
    číslo a starší se po každém čekání potichu ukončí. */
 let kamBehu = 0;
+/* ============================================================
+   nova-v6: KAM DNES – MÍSTO PODLE CEST, POČASÍ ROZHODNE „JESTLI"
+
+   Ověřeno na nálezech s přesným dnem (audit-model-2026-10-21.md, v6):
+   – KDY: na 399 nálezech (2015–2025) mají „podmínky" (déšť × teplota ×
+     sezóna) v den nálezu vyšší hodnotu než jiné dny sezóny na stejném
+     místě s AUC 0,747 (95% CI 0,719–0,771); samotný déšť 0,644.
+   – KAM: týž den proti parkovištím u lesa 20–80 km od nálezu jen
+     0,527 (0,501–0,558) – skoro náhoda. Počasí neumí vybrat místo
+     v dosahu hodiny jízdy; umí říct, jestli vůbec jet.
+   Pořadí míst proto dělá totéž měřítko jako mapa a tabulky „kde
+   začít": kolik cest ve vhodném lese je do 750 m od parkoviště (nejvýš
+   3 km), k tomu dojezd, porost kolem, vaše nálezy, oblíbená a prázdné
+   vycházky (sMisto). Počasí a sezóna rozhodují, jestli jet vůbec,
+   a místo jen sesadí, když tam vyloženě nepršelo.
+   ============================================================ */
+const KAM_KANDIDATU = 12;            // u kolika nejlepších míst se dopočítají cesty (4 dotazy na ČÚZK za místo)
+const KAM_SUCHO = 0.3;               // index vlhkosti, pod kterým je místo „suché"
+const mistoCestyCache = new Map();
+
+async function cestyUMista(m){
+  const klic = (m.id || (m.lat.toFixed(4) + ',' + m.lng.toFixed(4))) + '|' + FILTR.druh + '|' + FILTR.porost;
+  if (mistoCestyCache.has(klic)) return mistoCestyCache.get(klic);
+  const p = L.CRS.EPSG3857.project(L.latLng(m.lat, m.lng));
+  const r = (ZACIT_OKOLI_M + 250) / Math.cos(m.lat * Math.PI / 180);
+  const por = await zabagedDotaz(144, {geometry: [p.x - r, p.y - r, p.x + r, p.y + r].join(','), geometryType: 'esriGeometryEnvelope',
+    where: 'Shape_Area > 2000', outFields: 'OBJECTID,druh_p,vyska_p,Shape_Area,Shape_Length', maxAllowableOffset: String(8 / 111320)});
+  const vhodne = por.filter(f => {
+    const a = f.properties || {}, druh = a.druh_p || 'bez určení', vyska = a.vyska_p || 'bez určení';
+    if (!porostSedi(druh) || !(a.Shape_Area > 0)) return false;
+    const okraj = Math.max(0, Math.min(1, (a.Shape_Length || 0) * 25 / a.Shape_Area));
+    return vhodnostPorostu(druh, vyska) * vahaOkraje(okraj) >= 0.7;
+  });
+  const meze = L.latLngBounds(L.CRS.EPSG3857.unproject(L.point(p.x - r, p.y - r)), L.CRS.EPSG3857.unproject(L.point(p.x + r, p.y + r)));
+  const o = orezCesty(await stahniCesty(meze), vhodne);
+  const v = cestyKolem([m.lat, m.lng], o.cary, ZACIT_OKOLI_M);
+  if (mistoCestyCache.size > 300) mistoCestyCache.clear();
+  mistoCestyCache.set(klic, v);
+  return v;
+}
+
+/* Pořadí: sMisto (porost, dojezd, nálezy…) × cesty; sucho místo sesadí na polovinu.
+   Bez cest (server neodpověděl) má místo neutrální váhu 0,5, ať nevypadne. */
+async function seradKamDnes(hodnocena){
+  const vyber = hodnocena.slice().sort((a, b) => b.sMisto - a.sMisto).slice(0, KAM_KANDIDATU);
+  let i = 0;
+  const prac = async () => { while (i < vyber.length){ const x = vyber[i++];
+    try { x.cestyM = await cestyUMista(x.m); } catch(e){ x.cestyM = null; } } };
+  await Promise.all([prac(), prac(), prac()]);
+  for (const x of vyber){
+    const c = x.cestyM == null ? 0.5 : 0.15 + 0.85 * Math.min(x.cestyM, ZACIT_CESTY_STROP_M) / ZACIT_CESTY_STROP_M;
+    x.sucho = x.vlhkost < KAM_SUCHO;
+    x.poradiSkore = x.sMisto * c * (x.sucho ? 0.5 : 1);
+  }
+  return vyber.sort((a, b) => b.poradiSkore - a.poradiSkore);
+}
+function medianPocasi(hodnocena){
+  const v = hodnocena.map(x => x.sPocasi).sort((a, b) => a - b);
+  return v.length ? v[Math.floor(v.length / 2)] : 0;
+}
+
 async function kamDnes(){
   const muj = ++kamBehu;
   const zastaraly = () => muj !== kamBehu;
@@ -6860,17 +6922,20 @@ async function kamDnes(){
     if (zastaraly()) return;
     const sPocasim = doZobrazeni.map((m, i) => ({m, den: pocasi[i] && pocasi[i].daily})).filter(z => z.den);
     if (!sPocasim.length) throw new Error('počasí se nevrátilo ani pro jedno místo');
-    const poradi = sPocasim.map(z => skoreMista(z.m, z.den)).sort((a,b) => b.sance - a.sance);
+    /* nova-v6: pořadí podle cest ve vhodném lese a místa, počasí jen „jestli" (blok KAM DNES výš) */
+    const hodnocena = sPocasim.map(z => skoreMista(z.m, z.den));
+    const poradi = await seradKamDnes(hodnocena);
+    if (zastaraly()) return;
     const nej = poradi[0];
-    const sl = slovniSance(nej.sance);
-    const sucho = nej.sance < 0.15;
+    const sl = slovniSance(nej.sPocasi);
+    const sucho = medianPocasi(hodnocena) < 0.15;
 
     /* Čísla musí říkat pravdu i ve chvíli, kdy narazíme na strop. Dřív tu
        stálo „filtry prošlo 200", což byl jen počet míst, kterým jsem stihl
        spočítat dojezd – ne kolik jich filtrům vyhovuje. */
     const zOdkud = odkud();
     let html = '<p class="kampod">' + (zOdkud.doma ? 'Z domova' : 'Od tvojí polohy') +
-      ' · do ' + FILTR.minuty + ' min · ' + Math.min(4, poradi.length) + ' nejlepší z ' + celkem.toLocaleString('cs-CZ') + '</p>';
+      ' · do ' + FILTR.minuty + ' min · ' + Math.min(4, poradi.length) + ' nejlepší z ' + celkem.toLocaleString('cs-CZ') + ' · pořadí podle cest a dojezdu</p>';
     let jakPocitam = (zOdkud.doma ? 'Dojezd počítám <b>z domova</b>. '
                    : 'Dojezd počítám <b>od tvojí polohy</b> (' + fmtDist(zOdkud.km*1000) + ' od domova). ') +
       'Z <b>' + vsech + '</b> míst v ČR vyhovuje filtrům <b>' + celkem + '</b>. ' +
@@ -6885,7 +6950,7 @@ async function kamDnes(){
               kdyMaCenu(nej) + '</div>';
     }
     poradi.slice(0, 4).forEach((x, poradi_i) => {
-      const s = slovniSance(x.sance);
+      const s = slovniSance(x.sPocasi);
       const m = x.m;
       /* „Místo u parkoviště 50.196, 14.508" člověku nic neřekne. Směr
          a vzdálenost od místa, odkud počítáme dojezd, řekne všechno. */
@@ -6910,6 +6975,9 @@ async function kamDnes(){
     });
 
     html += '<details class="napoveda"><summary>Jak jsem počítal</summary><p>' + jakPocitam + '<br><br>' +
+            '<b>Pořadí</b> dělají cesty ve vhodném lese do 750 m od parkoviště, dojezd, porost kolem a vaše nálezy. ' +
+            '<b>Počasí a sezóna</b> říkají, jestli jet vůbec; místo jen sesadí, když tam vyloženě nepršelo. ' +
+            'Ověřeno na 399 nálezech: počasí trefí <b>kdy</b> jet (AUC 0,75), ale místa do hodiny jízdy od sebe skoro neodliší (0,53).<br><br>' +
             '<b>Tohle není jistota, je to počasí a statistika.</b> ' +
             'Počítá se hlavně déšť z okna před 6 až 18 dny – tou dobou po dešti plodnice vylézají. ' +
             'Místa <b>„z map"</b> vznikla strojově z evidovaných parkovišť a porostních dat – ' +
