@@ -833,9 +833,128 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
 .sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) .carnav-top{gap:10px; width:100%}
 .sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) .arrowwrap{width:40px; height:40px; flex-basis:40px}
 .sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) .carinfo .d{font-size:19px}
+
+/* ============================================================
+   v127: NOVÝ VZHLED – „ZÁPISNÍK A ROZCESTNÍK" (1. část: základ a mapa)
+
+   Vybráno 21. 10. 2026 (spojení směrů A a B, skica smer-a-plus-b.png).
+   Zápisník: teplý papír, tuha, tři velikosti písma, červená tužka jen
+   pro „tady / nejlepší". Rozcestník KČT: žlutá tabulka jen pro cíle
+   a cesty (kam jet, k autu), barvy značek pro trasy a porosty.
+   Naměřeno ve v126: 10 velikostí písma (10–22 px), na mapě 7 textů
+   pod 15 px, 4 emoji jako ikony. Cíl: 15 / 19 / 28 px, žádné emoji.
+   Pravidla stojí na konci stylu, aby je nepřebilo nic dřívějšího.
+   ============================================================ */
+:root{
+  --ink:#262522; --muted:#5c574e; --line:#d9d1c0; --card:#f6f2e9; --bg:#ece6d8;
+  --papir2:#ece6d8; --cervena:#b83a26; --zluta:#f2c200; --zluta-ink:#1c1a14;
+  --t1:15px; --t2:19px; --t3:28px;
+  --stin:0 2px 8px rgba(40,34,20,.16); --stin2:0 6px 20px rgba(40,34,20,.18);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --ink:#ede8de; --muted:#b8b1a4; --line:#3d3931; --card:#1f1d19; --bg:#161512;
+    --papir2:#2a2722; --cervena:#e26a52; --zluta:#e3b400; --zluta-ink:#17150f;
+    --stin:0 2px 8px rgba(0,0,0,.45); --stin2:0 6px 20px rgba(0,0,0,.5);
+  }
+}
+html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
+.ik{width:22px; height:22px; flex:0 0 22px; stroke:currentColor; stroke-width:2; fill:none;
+  stroke-linecap:round; stroke-linejoin:round; display:block}
+::selection{background:var(--zluta); color:var(--zluta-ink)}
+:focus-visible{outline:2.5px solid var(--cervena); outline-offset:2px}
+
+/* lišta podmínek nahoře */
+.mistabar{background:var(--card); border:0; border-radius:14px; padding:10px 12px 10px 14px;
+  box-shadow:var(--stin); gap:10px; align-items:center; color:var(--ink)}
+.mistabar .t{font:700 var(--t2)/1.25 -apple-system, system-ui, sans-serif; letter-spacing:-.01em}
+.mistabar .t b{font-weight:700}
+/* s číslem: název vlevo, zakroužkované číslo vpravo; jinak obyčejný řádek se „…" */
+.mistabar .t:has(.cislo){display:flex; align-items:center; gap:10px}
+.mistabar .t b{font-weight:700}
+.mistabar .t2{font:500 var(--t1)/1.3 -apple-system, system-ui, sans-serif; color:var(--muted); margin-top:2px}
+.mistabar .sipka{font-size:var(--t2); color:var(--muted)}
+.mistabar .cislo{position:relative; margin-left:auto; padding:0 6px; font:700 var(--t3)/1 -apple-system, system-ui, sans-serif;
+  letter-spacing:-.02em; white-space:nowrap}
+/* podpis: číslo zakroužkované červenou tužkou */
+.mistabar .cislo::after{content:''; position:absolute; inset:-7px -6px; border:2.5px solid var(--cervena);
+  border-radius:50% 46% 52% 48% / 56% 48% 52% 44%; transform:rotate(-5deg); pointer-events:none}
+.mistabar .cislo{color:var(--c, var(--ink))}
+@media (prefers-color-scheme: dark){ .mistabar .cislo{color:color-mix(in srgb, var(--c, #fff), #fff 48%)} }
+.mistabar:has(.cislo) .sanceTecka{display:none}
+.mistabar:not(.rozbaleno) .t:has(.cislo){overflow:visible}
+.mistabar:not(.rozbaleno) .t .nazev{min-width:0; overflow:hidden; text-overflow:ellipsis}
+.mistabar small{font-size:var(--t1)}
+
+/* tlačítka na mapě vpravo nahoře */
+.mapbtn, .leaflet-control-layers{border:0 !important; border-radius:12px !important; background:var(--card) !important;
+  box-shadow:var(--stin) !important; color:var(--ink)}
+.mapbtn{width:48px; height:48px}
+.leaflet-touch .leaflet-control-layers-toggle, .leaflet-control-layers-toggle{width:48px; height:48px; border-radius:12px;
+  background-size:24px 24px !important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23262522' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z'/%3E%3Cpath d='m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65'/%3E%3Cpath d='m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65'/%3E%3C/svg%3E") !important}
+@media (prefers-color-scheme: dark){
+  .leaflet-touch .leaflet-control-layers-toggle, .leaflet-control-layers-toggle{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ede8de' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z'/%3E%3Cpath d='m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65'/%3E%3Cpath d='m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65'/%3E%3C/svg%3E") !important}
+}
+
+/* hlášky: papír a stín, bez barevného proužku vlevo */
+.banner, .banner.err{background:var(--card); color:var(--ink); border:0; border-radius:14px;
+  padding:12px 14px; font:500 var(--t1)/1.4 -apple-system, system-ui, sans-serif; box-shadow:var(--stin2)}
+.banner b{font-weight:700; margin-bottom:3px}
+.banner.err b{color:var(--cervena)}
+.banner .close{font-size:var(--t2); color:var(--muted)}
+.updbar{background:var(--ink); color:var(--card); border-radius:14px; font:600 var(--t1)/1.35 -apple-system, system-ui, sans-serif; box-shadow:var(--stin2)}
+.recbar{background:var(--card); color:var(--ink); border:0; border-radius:14px; font:700 var(--t1)/1.3 -apple-system, system-ui, sans-serif; box-shadow:var(--stin2)}
+.recbar .tecka{background:var(--cervena)}
+
+/* dok (složené menu): Menu · Určit houbu · Auto */
+.sheet.peek .grab{top:4px; width:58px; height:58px; border-radius:50%; background:var(--card); color:var(--ink);
+  border:0; box-shadow:var(--stin); -webkit-backdrop-filter:none; backdrop-filter:none; gap:2px}
+.sheet.peek .grab .menuikona{color:var(--ink); gap:2px; font:600 13px/1 -apple-system, system-ui, sans-serif; letter-spacing:0}
+.sheet.peek .grab .menuikona i{display:none}
+.sheet.peek .grab .menuikona .ik{display:block}
+.grab .menuikona .ik{display:none}
+.sheet.peek .hlavniradek{margin-left:68px; gap:10px; justify-content:flex-start}
+.sheet.peek .hlavniradek .lens{flex:1 1 auto; width:auto; height:58px; min-height:58px; border-radius:29px; padding:0 18px;
+  background:var(--ink); color:var(--card); flex-direction:row; gap:10px; font:700 var(--t2)/1 -apple-system, system-ui, sans-serif; box-shadow:var(--stin)}
+.sheet.peek .lensDlouhy{display:inline}
+.sheet.peek .lensKratky{display:none}
+.sheet.peek .hlavniradek .auto{flex:0 0 58px; width:58px; height:58px; min-height:58px; border-radius:50%;
+  background:var(--card); color:var(--ink); box-shadow:var(--stin); gap:2px}
+.bigbtn.auto .pop2, .bigbtn.lens .pop2{font:600 13px/1 -apple-system, system-ui, sans-serif}
+.autoDlouhy{display:none}
+.sheet:not(.peek) .autoDlouhy{display:inline}
+.sheet:not(.peek) .autoKratky{display:none}
+/* s autem: Určit se zmenší na kolečko a mezi tlačítky je žlutá tabulka k autu */
+.sheet.peek:has(#carNav:not([style*="none"])) .hlavniradek{justify-content:flex-end}
+.sheet.peek:has(#carNav:not([style*="none"])) .hlavniradek .lens{flex:0 0 58px; width:58px; padding:0; border-radius:50%;
+  flex-direction:column; gap:2px; background:var(--card); color:var(--ink)}
+.sheet.peek:has(#carNav:not([style*="none"])) .lensDlouhy{display:none}
+.sheet.peek:has(#carNav:not([style*="none"])) .lensKratky{display:block}
+.sheet.peek .carnav:not(:has(#carPtam:not([hidden]))){left:78px; right:78px; top:4px; height:58px; padding:6px 12px;
+  background:var(--zluta); color:var(--zluta-ink); border:0; border-radius:12px; box-shadow:var(--stin)}
+.sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) .arrowwrap{width:40px; height:40px; flex-basis:40px; background:var(--zluta-ink); border:0}
+.sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) #arrow{color:var(--zluta); font-size:22px}
+.sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) .carinfo .d{font:700 var(--t2)/1.1 -apple-system, system-ui, sans-serif; color:var(--zluta-ink)}
+.sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) .carinfo .d::after{content:' k autu'; font-weight:500}
 </style>
 </head>
 <body>
+<!-- v127: sada ikon – jeden tah 2 px, tvary podle knihovny Lucide (licence ISC) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+ <symbol id="i-hledej" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+ <symbol id="i-auto" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></symbol>
+ <symbol id="i-nastaveni" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+ <symbol id="i-zamer" viewBox="0 0 24 24"><path d="M2 12h3M19 12h3M12 2v3M12 19v3"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/></symbol>
+ <symbol id="i-sipka" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+ <symbol id="i-les" viewBox="0 0 24 24"><path d="m17 14 3 3.3a1 1 0 0 1-.7 1.7H4.7a1 1 0 0 1-.7-1.7L7 14h-.3a1 1 0 0 1-.7-1.7L9 9h-.2A1 1 0 0 1 8 7.3L12 3l4 4.3a1 1 0 0 1-.8 1.7H15l3 3.3a1 1 0 0 1-.7 1.7H17Z"/><path d="M12 22v-3"/></symbol>
+ <symbol id="i-spendlik" viewBox="0 0 24 24"><path d="M20 10c0 5-5.5 10.2-7.4 11.8a1 1 0 0 1-1.2 0C9.5 20.2 4 15 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
+ <symbol id="i-trasa" viewBox="0 0 24 24"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></symbol>
+ <symbol id="i-hvezda" viewBox="0 0 24 24"><path d="M11.5 2.3a.5.5 0 0 1 1 0l2.3 4.7a2.1 2.1 0 0 0 1.6 1.1l5.2.8a.5.5 0 0 1 .3.9l-3.7 3.6a2.1 2.1 0 0 0-.6 1.9l.9 5.1a.5.5 0 0 1-.8.6l-4.6-2.4a2.1 2.1 0 0 0-2 0l-4.6 2.4a.5.5 0 0 1-.8-.6l.9-5.1a2.1 2.1 0 0 0-.6-1.9L2.2 9.8a.5.5 0 0 1 .3-.9l5.2-.8a2.1 2.1 0 0 0 1.6-1.1z"/></symbol>
+ <symbol id="i-zavrit" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+</svg>
 
 <div id="map"></div>
 
@@ -850,7 +969,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
      samostatné panely a spolu s hláškou ukrajovaly na iPhonu skoro
      polovinu displeje. Je z toho jeden panel o dvou řádcích; každý
      řádek je useknutý na jednu řádku a klepnutím se rozbalí celý. -->
-<button class="mapbtn leaflet-control" id="btnLegend" aria-label="Nastavení a nápověda" title="Nastavení">⚙</button>
+<button class="mapbtn leaflet-control" id="btnLegend" aria-label="Nastavení a nápověda" title="Nastavení"><svg class="ik"><use href="#i-nastaveni"/></svg></button>
 <!-- Audit 17: oranžová čára k parkovišti se dala nakreslit, ale ne
      zrušit – zůstávala na mapě, dokud jsi nenakreslil jinou. Tlačítko
      je vidět jen tehdy, když nějaká čára je. -->
@@ -883,7 +1002,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
 
 <div class="sheet">
  <div class="sheet-head">
-  <div class="grab" id="grab" role="button" tabindex="0" aria-label="Menu – vytáhnout nebo zatáhnout spodní panel"><span class="menuikona" aria-hidden="true"><i></i>Menu</span></div>
+  <div class="grab" id="grab" role="button" tabindex="0" aria-label="Menu – vytáhnout nebo zatáhnout spodní panel"><span class="menuikona" aria-hidden="true"><i></i><svg class="ik"><use href="#i-menu"/></svg>Menu</span></div>
 
   <!-- Audit 7: ve složeném stavu byla v hlavě panelu tři velká tlačítka
        přes sebe. Na iPhonu 390x844 pak z mapy zbýval pruh dvou set pixelů.
@@ -893,8 +1012,8 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
        v jedné ruce a houbou v druhé: auto a určení houby. Hledání lesa
        a plánování výjezdu se dělá vsedě, s vytaženým panelem. -->
   <div class="hlavniradek">
-    <button class="bigbtn lens" id="btnLupa" aria-label="Vyfotit houbu nebo vybrat fotku z galerie a poslat ji do Google Lens">🔍<span class="lensDlouhy">&nbsp;Určit houbu</span><span class="pop2 lensKratky">Určit</span></button>
-    <button class="bigbtn auto" id="btnPark" aria-label="Označit, kde stojí auto">🚗<span class="pop2">Označit<br>auto</span></button>
+    <button class="bigbtn lens" id="btnLupa" aria-label="Vyfotit houbu nebo vybrat fotku z galerie a poslat ji do Google Lens"><svg class="ik"><use href="#i-hledej"/></svg><span class="lensDlouhy">Určit houbu</span><span class="pop2 lensKratky">Určit</span></button>
+    <button class="bigbtn auto" id="btnPark" aria-label="Označit, kde stojí auto"><svg class="ik"><use href="#i-auto"/></svg><span class="pop2 autoKratky">Auto</span><span class="autoDlouhy">Označit auto</span></button>
   </div>
 
   <!-- Audit 8: koš se při potvrzování měnil na otazník. Ikona, která
@@ -1242,7 +1361,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v126';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v127';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2282,7 +2401,7 @@ function obnovPark(){
   const b = $('btnPark');
   b.dataset.prepsat = '';
   b.classList.remove('prepsat');
-  b.innerHTML = '🚗<span class="pop2">Označit<br>auto</span>';
+  b.innerHTML = '<svg class="ik"><use href="#i-auto"/></svg><span class="pop2 autoKratky">Auto</span><span class="autoDlouhy">Označit auto</span>';
 }
 
 $('btnKam').onclick = () => kamDnes();
@@ -2298,7 +2417,7 @@ async function oznacAuto(){
   b.dataset.prepsat = '';
   b.classList.remove('prepsat');
   const puvodni = b.innerHTML;
-  b.disabled = true; b.innerHTML = '📡<span class="pop2">Zaměřuju…</span>';
+  b.disabled = true; b.innerHTML = '<svg class="ik"><use href="#i-zamer"/></svg><span class="pop2">Zaměřuju</span>';
   skryjPtani();
   initCompass();
   try {
@@ -6346,11 +6465,13 @@ function ukazLegenduSberu(v){
   const s = slovniSance(sance);
   const t = $('sanceTecka');
   if (t) t.style.background = s.c;
+  /* v127: nahoře jen stupeň a číslo (zakroužkované), pod tím jeden krátký
+     řádek. Rozpis „nejlepší porost × počasí a sezóna" byl drobným písmem
+     a nikdo ho nečetl – číslo je pořád totéž. */
   zpravaRustu(
-    '<b>' + s.t.charAt(0).toUpperCase() + s.t.slice(1) + ' podmínky</b> pro ' + houba +
-    ' · <b>' + Math.round(sance*100) + ' %</b>',
-    'nejlepší porost ' + Math.round((v.nejlepsi||0)*100) + ' % × počasí a sezóna ' +
-    Math.round((v.pocasi||0)*100) + ' % · ' +
+    '<span class="nazev">' + s.t.charAt(0).toUpperCase() + s.t.slice(1) + ' podmínky</span>' +
+    '<span class="cislo" style="--c:' + s.c + '">' + Math.round(sance*100) + ' %</span>',
+    'pro ' + houba + ' · ' +
     (v.haNej >= 0.5 ? ha(v.haNej) + ' ha vhodného lesa' : 'nic vhodného v dohledu') +
     (FILTR.druh === 'vse' && (v.haBedly || v.haHriby)
       ? ' · víc na ' + (v.haHriby >= v.haBedly ? 'hřiby' : 'bedly') : '') +
