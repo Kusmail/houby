@@ -879,7 +879,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'nova-v4';   // mění se s každým vydáním
+const APP_VERZE = 'nova-v4a';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -5324,8 +5324,9 @@ function popisVhodnehoPorostu(ft, jmenoHouby){
   const a = ft.properties || {};
   const druh = a.druh_p || 'bez určení', vyska = a.vyska_p || 'bez určení';
   const cesty = a._cestyM || 0;
-  return '<div class="pop"><h3>Tady může růst ' + esc(jeSkupina(FILTR.druh)
-      ? ((HOUBY[houbaZaSkore(druh, vyska)] || {}).kratce || jmenoHouby) : jmenoHouby) + '</h3>' +
+  return '<div class="pop"><h3>Vhodný porost</h3>' +
+    '<div class="sub">pro ' + esc(jeSkupina(FILTR.druh)
+      ? ((HOUBY[houbaZaSkore(druh, vyska)] || {}).kratce || jmenoHouby) : jmenoHouby) + '</div>' +
     '<div class="sub">' + druhSlovy(druh) +
       (vyska === 'bez určení' ? ' porost, výška neurčená' : ' porost, ' + esc(vyska)) + '</div>' +
     '<table>' +
