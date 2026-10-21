@@ -938,6 +938,67 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
 .sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) #arrow{color:var(--zluta); font-size:22px}
 .sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) .carinfo .d{font:700 var(--t2)/1.1 -apple-system, system-ui, sans-serif; color:var(--zluta-ink)}
 .sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) .carinfo .d::after{content:' k autu'; font-weight:500}
+
+/* ============================================================
+   v128: NOVÝ VZHLED 2/5 – VYSUNUTÉ MENU
+   Naměřeno ve v127: v menu 6 velikostí písma (11–19 px), 14 textů pod
+   15 px, 5 emoji. Odstavec s vysvětlivkami pod tlačítky zmizel (zůstaly
+   krátké popisky „celá ČR" / „do 15 km"), cíle jsou tabulky rozcestníku,
+   přepínače a lidé jsou řádky, akce jsou dlaždice s ikonami.
+   ============================================================ */
+.sheet:not(.peek){background:var(--card); border:0; border-radius:22px 22px 0 0; box-shadow:0 -6px 22px rgba(40,34,20,.16); color:var(--ink)}
+.sheet:not(.peek) .grab{background:var(--line); width:40px; height:5px}
+.sheet:not(.peek) .hlavniradek .lens{background:var(--ink); color:var(--card); border-radius:14px; min-height:56px;
+  font:700 var(--t2)/1 -apple-system, system-ui, sans-serif; gap:10px}
+.sheet:not(.peek) .hlavniradek .lens{flex:1 1 auto; min-width:0; width:auto}
+.sheet:not(.peek) .hlavniradek .auto{flex:0 0 auto; width:auto; padding:0 16px; flex-direction:row; gap:8px; min-height:56px; height:56px;
+  background:transparent; color:var(--ink); border-radius:14px; box-shadow:inset 0 0 0 1.5px var(--ink);
+  font:700 var(--t1)/1 -apple-system, system-ui, sans-serif}
+/* auto ve vytaženém menu: žlutá tabulka a pod ní akce */
+.sheet:not(.peek) .carnav{background:var(--zluta); color:var(--zluta-ink); border:0; border-radius:12px; padding:10px 12px}
+.sheet:not(.peek) .carnav .arrowwrap{background:var(--zluta-ink); border:0; width:48px; height:48px; flex-basis:48px}
+.sheet:not(.peek) .carnav #arrow{color:var(--zluta); font-size:24px}
+.sheet:not(.peek) .carinfo .d{font:700 var(--t3)/1.05 -apple-system, system-ui, sans-serif; color:var(--zluta-ink)}
+.sheet:not(.peek) .carinfo .s{font:500 var(--t1)/1.35 -apple-system, system-ui, sans-serif; color:var(--zluta-ink); opacity:.85}
+.carbtn, .carbtn.del{background:var(--card); color:var(--ink); border:0; border-radius:12px; min-height:48px;
+  font:700 var(--t1)/1.2 -apple-system, system-ui, sans-serif}
+.carbtn.ano{background:var(--cervena); color:#fff}
+.carnav-ptam .ot{font:600 var(--t1)/1.4 -apple-system, system-ui, sans-serif}
+/* cíle jako tabulky rozcestníku */
+.sheet-body .bigbtn.kam, .sheet-body .bigbtn.sber{min-height:60px; height:60px; border-radius:12px; margin:12px 0 0; padding:0 16px;
+  justify-content:flex-start; gap:12px; font:700 var(--t2)/1.1 -apple-system, system-ui, sans-serif; box-shadow:none}
+.sheet-body .bigbtn.kam, .sheet-body .bigbtn.sber{min-height:56px; height:56px; margin-top:10px}
+.sheet-body .bigbtn.kam{background:var(--zluta); color:var(--zluta-ink); padding-right:34px; border-radius:12px 0 0 12px;
+  clip-path:polygon(0 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 0 100%)}
+.sheet-body .bigbtn.sber{background:transparent; color:var(--ink); box-shadow:inset 0 0 0 1.5px var(--ink)}
+.bigbtn .popisek{margin-left:auto; font:500 var(--t1)/1 -apple-system, system-ui, sans-serif; opacity:.8}
+.sheet-body .podtitulek{display:none}
+/* rodina: přepínače jako řádky */
+.sheet-body .nadpis{font:700 var(--t1)/1 -apple-system, system-ui, sans-serif; color:var(--muted); margin:18px 0 2px}
+.sheet-body .row{flex-direction:column; gap:0; margin-top:0}
+.sheet-body .toggle{flex-direction:row-reverse; justify-content:space-between; background:transparent; border:0; border-radius:0;
+  border-bottom:1px solid var(--line); padding:0; min-height:52px; gap:12px}
+.sheet-body .toggle.on{background:transparent}
+.sheet-body .toggle .lbl{font:500 var(--t2)/1.2 -apple-system, system-ui, sans-serif; display:flex; align-items:baseline; gap:10px; flex:1}
+.sheet-body .toggle .lbl small{font:500 var(--t1)/1 -apple-system, system-ui, sans-serif; color:var(--muted); margin:0 0 0 auto}
+.sw{width:52px; height:32px; flex:0 0 52px; background:var(--papir2); box-shadow:inset 0 0 0 1.5px var(--line)}
+.sw i{width:26px; height:26px; top:3px; left:3px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.toggle.on .sw{background:#2e7d4f; box-shadow:none}
+.toggle.on .sw i{left:23px}
+.sheet-body .people{flex-direction:column; gap:0; margin-top:0; font-size:var(--t1)}
+.sheet-body .person, .sheet-body .people .person{min-width:0; background:transparent; border:0; border-bottom:1px solid var(--line);
+  border-radius:0; padding:0; min-height:52px; gap:12px}
+.sheet-body .person .pd{width:14px; height:14px; flex-basis:14px}
+.sheet-body .person b{font:600 var(--t2)/1.2 -apple-system, system-ui, sans-serif}
+.sheet-body .person em{font:500 var(--t1)/1.3 -apple-system, system-ui, sans-serif; color:var(--muted)}
+.sheet-body .person.auto{background:transparent}
+.sheet-body .people .none{font:500 var(--t1)/1.35 -apple-system, system-ui, sans-serif; color:var(--muted); justify-content:flex-start;
+  border:0; background:transparent; padding:12px 0}
+/* čtyři akce jako dlaždice */
+.sheet-body .minirow{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:16px}
+.sheet-body .mini{flex-direction:column; justify-content:center; gap:6px; height:64px; border:0; border-radius:12px;
+  background:var(--papir2); color:var(--ink); font:600 var(--t1)/1 -apple-system, system-ui, sans-serif; padding:0}
+.sheet-body .mini b{font:700 var(--t1)/1 -apple-system, system-ui, sans-serif}
 </style>
 </head>
 <body>
@@ -954,6 +1015,8 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
  <symbol id="i-trasa" viewBox="0 0 24 24"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></symbol>
  <symbol id="i-hvezda" viewBox="0 0 24 24"><path d="M11.5 2.3a.5.5 0 0 1 1 0l2.3 4.7a2.1 2.1 0 0 0 1.6 1.1l5.2.8a.5.5 0 0 1 .3.9l-3.7 3.6a2.1 2.1 0 0 0-.6 1.9l.9 5.1a.5.5 0 0 1-.8.6l-4.6-2.4a2.1 2.1 0 0 0-2 0l-4.6 2.4a.5.5 0 0 1-.8-.6l.9-5.1a2.1 2.1 0 0 0-.6-1.9L2.2 9.8a.5.5 0 0 1 .3-.9l5.2-.8a2.1 2.1 0 0 0 1.6-1.1z"/></symbol>
  <symbol id="i-zavrit" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+ <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+ <symbol id="i-stahnout" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
 </svg>
 
 <div id="map"></div>
@@ -1043,12 +1106,10 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
  </div>
 
  <div class="sheet-body">
-  <button class="bigbtn sber" id="btnSber">🌲 &nbsp;Najdi les kolem mě</button>
-  <!-- v119: tlačítko se jmenovalo „Kam vyrazit autem?" a po prvním použití „Kam dnes na houby?"; okno i ostatní texty „Kam dnes na houby" – teď všude stejně -->
-  <button class="bigbtn kam" id="btnKam">🍄 &nbsp;Kam dnes na houby?</button>
-  <p class="podtitulek"><b>Les kolem mě</b> – nejbližší vhodný porost do 15 km od místa,
-  kde právě stojíš. Hned, bez počasí. <b>Kam dnes na houby</b> – projde 7 656 míst v celé ČR,
-  spočítá dojezd od domova a přidá srážky za tři týdny.</p>
+  <!-- v128: cíle jako tabulky rozcestníku; vysvětlivky zůstaly jen jako krátké popisky -->
+  <button class="bigbtn kam" id="btnKam"><svg class="ik"><use href="#i-sipka"/></svg>Kam dnes na houby<span class="popisek">celá ČR</span></button>
+  <button class="bigbtn sber" id="btnSber"><svg class="ik"><use href="#i-les"/></svg>Najdi les kolem mě<span class="popisek">do 15 km</span></button>
+  <div class="nadpis">Rodina</div>
   <div class="row">
     <div class="toggle" id="tgShare" role="switch" tabindex="0" aria-checked="false" aria-label="Sdílím polohu">
       <div class="sw" aria-hidden="true"><i></i></div>
@@ -1063,10 +1124,10 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
   <div class="people" id="people" role="list" aria-label="Kdo sdílí polohu"></div>
 
   <div class="minirow">
-    <div class="mini" id="btnMe" role="button" tabindex="0" aria-label="Posunout mapu na moji polohu"><b aria-hidden="true">◎</b>Na mě</div>
-    <div class="mini" id="btnCar" role="button" tabindex="0" aria-label="Posunout mapu na zaparkované auto"><b aria-hidden="true">🚗</b>Na auto</div>
-    <div class="mini" id="btnFind2" role="button" tabindex="0" aria-label="Zapsat nález houby"><b aria-hidden="true">🍄</b>Nález</div>
-    <div class="mini" id="btnTrasa" role="button" tabindex="0" aria-label="Začít nebo ukončit záznam trasy"><b aria-hidden="true">⏺</b>Trasa</div>
+    <div class="mini" id="btnMe" role="button" tabindex="0" aria-label="Posunout mapu na moji polohu"><svg class="ik" aria-hidden="true"><use href="#i-zamer"/></svg>Na mě</div>
+    <div class="mini" id="btnCar" role="button" tabindex="0" aria-label="Posunout mapu na zaparkované auto"><svg class="ik" aria-hidden="true"><use href="#i-auto"/></svg>Na auto</div>
+    <div class="mini" id="btnFind2" role="button" tabindex="0" aria-label="Zapsat nález houby"><svg class="ik" aria-hidden="true"><use href="#i-spendlik"/></svg>Nález</div>
+    <div class="mini" id="btnTrasa" role="button" tabindex="0" aria-label="Začít nebo ukončit záznam trasy"><svg class="ik" aria-hidden="true"><use href="#i-trasa"/></svg>Trasa</div>
   </div>
   <!-- Audit 16: „capture" natvrdo otevřel fotoaparát a nedalo se vybrat
        fotku, kterou už máš. Bez něj se telefon zeptá sám – na iPhonu
@@ -1361,7 +1422,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v127';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v128';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2295,7 +2356,7 @@ function renderPeopleList(){
     const kdo = state.car.by === state.uid ? 'označil jsi ho ty' : 'označil ' + esc(state.car.byName || 'někdo z vás');
     items.push(`<div class="person auto" id="osobaAuto" role="button" tabindex="0">
       <span class="pd" style="background:var(--car)"></span>
-      <span><b>🚗 Auto</b><em>${kdo} ${fmtAge(state.car.ts)}</em></span></div>`);
+      <span><b>Auto</b><em>${kdo} ${fmtAge(state.car.ts)}</em></span></div>`);
   }
 
   el.innerHTML = items.join('');
@@ -3775,7 +3836,7 @@ function spustZaznam(){
   REC.zaznamenanoMs = 0; REC.poslednitS = Date.now();
   $('recBar').classList.add('show'); bannerOffset();
   $('btnTrasa').classList.add('rec');
-  $('btnTrasa').innerHTML = '<b>⏹</b>Ukončit';
+  $('btnTrasa').innerHTML = '<svg class="ik"><use href="#i-stop"/></svg>Ukončit';
   startWatch();
   banner('Nahrávám. <b>Trasa se zaznamenává jen dokud máš appku na displeji</b> – když telefon zamkneš, vznikne v trase díra a nakreslí se tečkovaně.', false, 12000);
 }
@@ -3784,7 +3845,7 @@ function ukonciZaznam(){
   REC.aktivni = false;
   $('recBar').classList.remove('show'); bannerOffset();
   $('btnTrasa').classList.remove('rec');
-  $('btnTrasa').innerHTML = '<b>⏺</b>Trasa';
+  $('btnTrasa').innerHTML = '<svg class="ik"><use href="#i-trasa"/></svg>Trasa';
   if (!state.sharing) stopWatch();
 
   const celkem = Date.now() - REC.start;
@@ -7077,7 +7138,7 @@ async function najdiLesTady(){
   const b = $('btnSber');
   b.disabled = true;
   const puvodni = b.innerHTML;
-  b.innerHTML = '⏳ &nbsp;Hledám porost…';
+  b.innerHTML = '<svg class="ik"><use href="#i-les"/></svg>Hledám porost…';
   try {
     /* Na GPS se čeká nejvýš tři vteřiny. V lese trvá fix klidně půl
        minuty a člověk by koukal na „Hledám porost…" a myslel si, že
@@ -7209,7 +7270,7 @@ async function kamDnes(){
   const muj = ++kamBehu;
   const zastaraly = () => muj !== kamBehu;
   const b = $('btnKam');
-  b.disabled = true; b.innerHTML = '⏳ &nbsp;Hledám v celé ČR…';
+  b.disabled = true; b.innerHTML = '<svg class="ik"><use href="#i-sipka"/></svg>Hledám v celé ČR…';
   try {
     /* v111: když se nenačetla místa, lišta dřív hlásila „nepodařilo se
        načíst srážky" – člověk hledal chybu v počasí. */
@@ -7341,7 +7402,7 @@ async function kamDnes(){
                                     : '<b>Nepodařilo se načíst srážky.</b> Bez nich') + ' doporučit nic neumím – ' +
            'zkus to, až budeš mít signál. (' + esc(e.message) + ')', true, 10000);
   } finally {
-    if (!zastaraly()){ b.disabled = false; b.innerHTML = '🍄 &nbsp;Kam dnes na houby?'; }
+    if (!zastaraly()){ b.disabled = false; b.innerHTML = '<svg class="ik"><use href="#i-sipka"/></svg>Kam dnes na houby<span class="popisek">celá ČR</span>'; }
   }
 }
 
@@ -8150,10 +8211,10 @@ async function stahniVyrez(){
   for (const u of list){
     try { await fetch(u, {mode:'no-cors', cache:'reload'}); done++; }
     catch(e){ fail++; }
-    b.innerHTML = '<b>⬇︎</b>' + Math.round(done*100/list.length) + ' %';
+    b.innerHTML = '<svg class="ik"><use href="#i-stahnout"/></svg>' + Math.round(done*100/list.length) + ' %';
     await new Promise(r => setTimeout(r, 60));   // šetrné tempo k OSM serverům
   }
-  b.innerHTML = REC.aktivni ? '<b>⏹</b>Ukončit' : '<b>⏺</b>Trasa';
+  b.innerHTML = REC.aktivni ? '<svg class="ik"><use href="#i-stop"/></svg>Ukončit' : '<svg class="ik"><use href="#i-trasa"/></svg>Trasa';
   const kontrola = await zeptejSeSW({typ:'mam-dlazdice', urls:list}, 10000);
   const mam = kontrola ? kontrola.mam : null;
   banner(
