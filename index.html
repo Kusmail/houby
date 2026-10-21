@@ -1136,6 +1136,57 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
   min-height:48px; font:700 var(--t1)/1.1 -apple-system, system-ui, sans-serif}
 #kamObsah .pozn{font:500 var(--t1)/1.45 -apple-system, system-ui, sans-serif}
 #kamObsah > h3{margin-top:24px}
+
+/* ============================================================
+   v131: NOVÝ VZHLED 5/5 – MAPA
+   Značky bez emoji (dům, auto, houba, hvězda jako kresby), klepnout
+   jde vždy na 44 px. Tři nejlepší porosty ve výřezu jsou tabulky
+   rozcestníku, první žlutá a zakroužkovaná červenou tužkou. Bubliny
+   na papíře, písmo 15 / 19 px, tlačítka tuhou nebo obrysem.
+   ============================================================ */
+.pinobal{display:flex; align-items:center; justify-content:center}
+.pin{border-color:#fff; box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.pin .ik{width:62%; height:62%; flex:none; stroke:currentColor; stroke-width:2.2}
+.pin.home{background:#262522; color:#fff; width:30px; height:30px}
+.pin.car{background:var(--zluta); color:var(--zluta-ink); width:40px; height:40px; box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.pin.find{background:#8a5a2b; color:#fff; width:24px; height:24px}
+.pin.oblibene{background:#c9a227; color:#fff; width:26px; height:26px}
+.pin.oblibene .ik{fill:#fff}
+.cilmapa{position:relative; width:104px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,.35))}
+.cilmapa .tab{display:flex; align-items:center; gap:6px; height:32px; padding:0 20px 0 9px; background:var(--card); color:var(--ink);
+  border-radius:4px 0 0 4px; clip-path:polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+  font:700 var(--t1)/1 -apple-system, system-ui, sans-serif; white-space:nowrap}
+.cilmapa .tab b{display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%;
+  background:var(--ink); color:var(--card); font:700 13px/1 -apple-system, system-ui, sans-serif}
+.cilmapa.prvni .tab{background:var(--zluta); color:var(--zluta-ink)}
+.cilmapa.prvni .tab b{background:var(--zluta-ink); color:var(--zluta)}
+.cilmapa .krouzek{position:absolute; inset:-4px -8px; width:calc(100% + 16px); height:calc(100% + 8px); overflow:visible; pointer-events:none}
+.cilmapa .krouzek path{fill:none; stroke:var(--cervena); stroke-width:2.5; vector-effect:non-scaling-stroke; stroke-linecap:round}
+/* bubliny */
+.leaflet-popup-content-wrapper{background:var(--card); color:var(--ink); border-radius:14px; box-shadow:0 4px 18px rgba(40,34,20,.25)}
+.leaflet-popup-tip{background:var(--card)}
+.leaflet-popup-content{margin:16px 18px 16px; font:500 var(--t1)/1.4 -apple-system, system-ui, sans-serif}
+.pop h3{font:700 var(--t2)/1.2 -apple-system, system-ui, sans-serif; margin:0 0 4px; padding-right:24px; color:var(--ink)}
+.pop .sub, .pop p, .pop .pozn, .pop .fotocek{font:500 var(--t1)/1.4 -apple-system, system-ui, sans-serif; color:var(--muted)}
+.pop td{font:500 var(--t1)/1.35 -apple-system, system-ui, sans-serif; padding:6px 0; border-bottom:1px solid var(--line)}
+.pop td:first-child{width:42%; color:var(--muted)}
+.pop .warn, .pop .ok{font:500 var(--t1)/1.4 -apple-system, system-ui, sans-serif; background:var(--papir2); color:var(--ink); border:0; border-radius:10px; padding:8px 10px}
+.popbtn, #map .pop .oblTlac{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:48px; margin:10px 0 0;
+  border:0; border-radius:12px; background:var(--ink); color:var(--card); font:700 var(--t1)/1.1 -apple-system, system-ui, sans-serif}
+#map .pop .oblTlac{background:transparent; color:var(--ink); box-shadow:inset 0 0 0 1.5px var(--ink)}
+.popbtn .ik, #map .pop .oblTlac .ik{width:20px; height:20px; flex:0 0 20px}
+#map .pop .oblTlac .ik.plna{fill:currentColor}
+.pop .nav a{min-height:44px; display:flex; align-items:center; justify-content:center; border-radius:12px; background:var(--ink); color:var(--card);
+  font:700 var(--t1)/1.1 -apple-system, system-ui, sans-serif; text-decoration:none}
+.pop .nav a.alt{background:transparent; color:var(--ink); box-shadow:inset 0 0 0 1.5px var(--ink)}
+.leaflet-container a.leaflet-popup-close-button{color:var(--muted)}
+@media (prefers-color-scheme: dark){
+  .popbtn{background:var(--ink); color:var(--card)}
+  #map .pop .oblTlac{background:transparent; color:var(--ink)}
+  .pop .warn, .pop .ok{background:var(--papir2); color:var(--ink)}
+}
+.mbox i.bod{display:inline-block; width:11px; height:11px; border-radius:50%; margin:0 6px 0 0; vertical-align:0; box-shadow:0 0 0 1.5px #fff, 0 0 0 2.5px rgba(0,0,0,.2)}
 </style>
 </head>
 <body>
@@ -1154,6 +1205,8 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
  <symbol id="i-zavrit" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
  <symbol id="i-stahnout" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+ <symbol id="i-domov" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9v11.5h13V9"/><path d="M10 20.5v-6h4v6"/></symbol>
+ <symbol id="i-houba" viewBox="0 0 24 24"><path d="M3 12a9 8 0 0 1 18 0Z"/><path d="M9.5 12v6.5a2.5 2.5 0 0 0 5 0V12"/></symbol>
  <symbol id="i-foto" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
 </svg>
 
@@ -1230,7 +1283,7 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
       </div>
     </div>
     <div class="carnav-akce" id="carAkce">
-      <button class="carbtn" id="btnCarAgain">🚗 &nbsp;Přeparkoval jsem</button>
+      <button class="carbtn" id="btnCarAgain">Přeparkoval jsem</button>
       <button class="carbtn del" id="btnCarClear">🗑 &nbsp;Auto mám</button>
     </div>
     <div class="carnav-ptam" id="carPtam" hidden>
@@ -1560,7 +1613,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v130';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v131';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1831,12 +1884,15 @@ tiles.on('tileerror', (e) => {
 });L.control.scale({imperial:false}).addTo(map);
 
 function pinIcon(cls, txt, size){
-  const s = size || 24;
-  return L.divIcon({className:'', html:`<div class="pin ${cls}">${txt||''}</div>`,
-    iconSize:[s,s], iconAnchor:[s/2,s/2], popupAnchor:[0,-s/2-2]});
+  /* v131: kolečko zůstává malé, ale klepnout jde na plochu 44 px –
+     domov (28 px) se dřív trefoval těžko. Body z GBIF (14 px) jsou
+     husté a větší plocha by je přes sebe zakrývala, ty zůstávají. */
+  const s = size || 24, t = /gbif/.test(cls) ? s : Math.max(s, 44);
+  return L.divIcon({className: t > s ? 'pinobal' : '', html:`<div class="pin ${cls}">${txt||''}</div>`,
+    iconSize:[t,t], iconAnchor:[t/2,t/2], popupAnchor:[0,-s/2-2]});
 }
 
-const domovMarker = L.marker(HOME, {icon: pinIcon('home','⌂',28), zIndexOffset:500}).addTo(map);
+const domovMarker = L.marker(HOME, {icon: pinIcon('home','<svg class="ik"><use href="#i-domov"/></svg>',30), zIndexOffset:500}).addTo(map);
 function popisDomova(){
   return domovJeVlastni()
     ? '<div class="pop"><h3>Domov</h3><div class="sub">Místo, kde jsi stál, když jsi ho nastavil.<br>' +
@@ -1872,12 +1928,12 @@ const zacniTadyVrstva = L.layerGroup().addTo(map);
 function popupHTML(d, index){
   const parkBox = d.park_ok === 'ok'
     ? `<div class="ok"><b>Parkování ✓</b> ${d.park_txt}</div>`
-    : `<div class="warn"><b>Parkování ⚠</b> ${d.park_txt}</div>`;
+    : `<div class="warn"><b>Parkování:</b> ${d.park_txt}</div>`;
   const [la, lo] = d.park;
   return `<div class="pop">
     <h3>${d.rank}. ${d.name}</h3>
     <div class="sub"><span class="badge b1">Ověřený tip</span> &nbsp;${d.dist}</div>
-    ${d.top ? `<div class="ok"><b>★</b> ${d.top}</div>` : ''}
+    ${d.top ? `<div class="ok">${d.top}</div>` : ''}
     <table>
       <tr><td>GPS</td><td>${la.toFixed(4)}, ${lo.toFixed(4)}</td></tr>
       <tr><td>Druhy</td><td>${d.druh}</td></tr>
@@ -1888,13 +1944,13 @@ function popupHTML(d, index){
       <tr><td>Konkurence</td><td>${d.konk}</td></tr>
     </table>
     ${parkBox}
-    ${d.warn ? `<div class="warn"><b>Omezení ⚠</b> ${d.warn}</div>` : ''}
+    ${d.warn ? `<div class="warn"><b>Omezení:</b> ${d.warn}</div>` : ''}
     <div class="nav">
       <a target="_blank" rel="noopener" href="https://mapy.cz/turisticka?y=${la}&x=${lo}&z=16&source=coor&id=${lo}%2C${la}">Mapy.cz</a>
       <a class="alt" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${la},${lo}">Navigovat</a>
     </div>
-    <button class="oblTlac" data-plocha-lok="${index}">🌲 &nbsp;Ukázat, kde hledat</button>
-    <button class="oblTlac" data-obl-lok="${index}">${jeOblibene('lok:'+index) ? '★ Oblíbené' : '☆ Přidat do oblíbených'}</button>
+    <button class="oblTlac" data-plocha-lok="${index}"><svg class="ik"><use href="#i-les"/></svg>Ukázat, kde hledat</button>
+    <button class="oblTlac" data-obl-lok="${index}">${oblTlac(jeOblibene('lok:'+index))}</button>
   </div>`;
 }
 
@@ -2363,12 +2419,12 @@ function renderCar(){
   }
   const ll = [c.lat, c.lng];
   if (!carMarker){
-    carMarker = L.marker(ll, {icon: pinIcon('car','🚗',40), zIndexOffset:900}).addTo(map);
+    carMarker = L.marker(ll, {icon: pinIcon('car','<svg class="ik"><use href="#i-auto"/></svg>',40), zIndexOffset:900}).addTo(map);
   } else {
     carMarker.setLatLng(ll);
   }
   const accTxt = (c.acc && c.acc > 20) ? ` · přesnost jen ±${Math.round(c.acc)} m` : '';
-  carMarker.bindPopup(`<div class="pop"><h3>🚗 Zaparkované auto</h3>
+  carMarker.bindPopup(`<div class="pop"><h3>Zaparkované auto</h3>
     <div class="sub">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</div>
     <table><tr><td>Označil</td><td>${esc(c.byName||'–')}</td></tr>
     <tr><td>Kdy</td><td>${fmtTime(c.ts)} (${fmtAge(c.ts)})</td></tr>
@@ -3701,7 +3757,7 @@ function renderFinds(){
     if (findMarkers[id]) return;
     const uid = zive[id].uid, z = zive[id].z;
     const moje = (uid === state.uid) || (uid === 'ja');
-    const m = L.marker([z.lat, z.lng], {icon: pinIcon('find','🍄',22), zIndexOffset:600}).addTo(map);
+    const m = L.marker([z.lat, z.lng], {icon: pinIcon('find','<svg class="ik"><use href="#i-houba"/></svg>',24), zIndexOffset:600}).addTo(map);
     m._nalez = {id, uid, z, moje};
     m.bindPopup(popupNalezu(m._nalez, null), POPOPT);
     findMarkers[id] = m;
@@ -3715,7 +3771,7 @@ function renderFinds(){
 function popupNalezu(n, foto){
   const z = n.z;
   foto = bezpecnaFotka(foto);
-  return '<div class="pop"><h3>🍄 ' + esc(z.druh || 'Nález') + '</h3>' +
+  return '<div class="pop"><h3>' + esc(z.druh || 'Nález') + '</h3>' +
     '<div class="sub">' + esc(z.kdo || '') + ' · ' + fmtTime(z.ts) + '</div>' +
     (foto ? '<img class="nalezfoto" src="' + foto + '" alt="fotka nálezu">'
           : ((z.foto || z.mafoto) ? '<div class="fotocek">načítám fotku…</div>' : '')) +
@@ -3748,7 +3804,7 @@ map.on('popupopen', async e => {
   if (obl) obl.onclick = async () => {
     const i = +obl.dataset.oblLok;
     const je = await prepniOblibene('lok:' + i, LOC[i].name);
-    obl.textContent = je ? '★ Oblíbené' : '☆ Přidat do oblíbených';
+    obl.innerHTML = oblTlac(je);
   };
   const plL = el2 && el2.querySelector('[data-plocha-lok]');
   if (plL) plL.onclick = () => {
@@ -3772,7 +3828,7 @@ map.on('popupopen', async e => {
   if (oblB) oblB.onclick = async () => {
     const je = await prepniOblibene('bod:' + oblB.dataset.oblBod, 'Parkoviště u lesa',
                                     +oblB.dataset.la, +oblB.dataset.ln);
-    oblB.textContent = je ? '★ Oblíbené' : '☆ Přidat do oblíbených';
+    oblB.innerHTML = oblTlac(je);
   };
   const zrus = el2 && el2.querySelector('.smazOblibene');
   if (zrus) zrus.onclick = async () => {
@@ -5277,14 +5333,14 @@ function kresliOblibena(){
     vlastni.forEach(k => {
       const b = o[k];
       if (typeof b.lat !== 'number') return;
-      L.marker([b.lat, b.lng], {icon: pinIcon('oblibene','★',24), zIndexOffset:700})
-        .bindPopup('<div class="pop"><h3>★ ' + esc(b.popis || 'Oblíbené místo') + '</h3>' +
+      L.marker([b.lat, b.lng], {icon: pinIcon('oblibene','<svg class="ik"><use href="#i-hvezda"/></svg>',26), zIndexOffset:700})
+        .bindPopup('<div class="pop"><h3>' + esc(b.popis || 'Oblíbené místo') + '</h3>' +
           '<div class="sub">Vlastní bod · ' + b.lat.toFixed(5) + ', ' + b.lng.toFixed(5) +
           (b.cizi ? ' · přidal ' + esc(b.kdo) : '') + '</div>' +
           '<div class="nav"><a class="alt" target="_blank" rel="noopener" ' +
           'href="https://www.google.com/maps/dir/?api=1&destination=' + b.lat + ',' + b.lng + '">Navigovat sem</a></div>' +
-          '<button class="oblTlac" data-plocha-xy="' + b.lat + ',' + b.lng + '">🌲 &nbsp;Ukázat, kde hledat</button>' +
-          '<button class="oblTlac" data-park="' + b.lat + ',' + b.lng + '">🚗 &nbsp;Kde zaparkovat</button>' +
+          '<button class="oblTlac" data-plocha-xy="' + b.lat + ',' + b.lng + '"><svg class="ik"><use href="#i-les"/></svg>Ukázat, kde hledat</button>' +
+          '<button class="oblTlac" data-park="' + b.lat + ',' + b.lng + '"><svg class="ik"><use href="#i-auto"/></svg>Kde zaparkovat</button>' +
           (b.cizi ? '' : '<button class="smazOblibene" data-k="' + k + '">Zrušit oblíbené</button>') +
           '</div>', POPOPT)
         .addTo(oblibenaVrstva);
@@ -5570,9 +5626,9 @@ function ukazMista(mista){
        '<tr><td>GPS</td><td>' + m.lat.toFixed(5) + ', ' + m.lng.toFixed(5) + '</td></tr></table>' +
        '<div class="nav"><a class="alt" target="_blank" rel="noopener" ' +
        'href="https://www.google.com/maps/dir/?api=1&destination=' + m.lat + ',' + m.lng + '">Navigovat sem</a></div>' +
-       '<button class="oblTlac" data-plocha-bod="' + m.id + '">🌲 &nbsp;Ukázat, kde hledat</button>' +
+       '<button class="oblTlac" data-plocha-bod="' + m.id + '"><svg class="ik"><use href="#i-les"/></svg>Ukázat, kde hledat</button>' +
        '<button class="oblTlac" data-obl-bod="' + m.id + '" data-la="' + m.lat + '" data-ln="' + m.lng + '">' +
-       (jeOblibene('bod:' + m.id) ? '★ Oblíbené' : '☆ Přidat do oblíbených') + '</button>' +
+       oblTlac(jeOblibene('bod:' + m.id)) + '</button>' +
        '</div>', POPOPT);
     zn.addTo(mistaVrstva);
     mistaNaMape.set(idKlic, zn);
@@ -6187,9 +6243,13 @@ async function kresliSber(b){
   vybrani.forEach((k, i) => {
     const vhodnost = Math.round(k.skore * 100);
     const sance = Math.round(Math.max(0, Math.min(1, k.skore * k.pocasi)) * 100);
+    /* v131: odznak je tabulka rozcestníku s pořadím a hektary; ten
+       nejlepší má žlutou a je zakroužkovaný červenou tužkou. */
     L.marker([k.lat, k.lng], {
-      icon: L.divIcon({className:'', iconSize:[46,46], iconAnchor:[23,23],
-        html:'<div class="nejlepsi"><b>' + (i+1) + '</b><i>' + haKratce(k.ha) + ' ha</i></div>'}),
+      icon: L.divIcon({className:'', iconSize:[104,44], iconAnchor:[52,22],
+        html:'<div class="cilmapa' + (i === 0 ? ' prvni' : '') + '">' +
+          (i === 0 ? '<svg class="krouzek" viewBox="0 0 120 60" preserveAspectRatio="none" aria-hidden="true"><path d="M8 32 C 6 12,40 4,80 6 C 106 8,118 18,116 32 C 114 50,70 58,36 54 C 14 52,4 44,10 24"/></svg>' : '') +
+          '<span class="tab"><b>' + (i+1) + '</b>' + haKratce(k.ha) + ' ha</span></div>'}),
       zIndexOffset: 950
     }).bindPopup('<div class="pop"><h3>' + (i+1) + '. nejlepší tady</h3>' +
       '<div class="sub">' + druhSlovy(k.druh) +
@@ -6202,10 +6262,9 @@ async function kresliSber(b){
       '<tr><td>Plocha</td><td>' + haKratce(k.ha) + ' ha' +
         (k.okraj > 0.6 ? ' – skoro celé okraj' : '') + '</td></tr>' +
       '</table>' +
-      '<button class="popbtn" data-park="' + k.lat + ',' + k.lng + '">🚗 Kde zaparkovat</button>' +
-      '<p class="pozn" style="margin:8px 0 0;font-size:11px">Podmínky = vhodnost porostu × počasí ' +
-      'a sezóna. Vhodnost porostu je vlastnost lesa – platí i příští týden; mění se počasí. ' +
-      'Pořadí platí jen pro tenhle výřez a pro houbu z filtru. Posuň mapu a přepočítá se.</p></div>', POPOPT)
+      '<button class="popbtn" data-park="' + k.lat + ',' + k.lng + '"><svg class="ik"><use href="#i-auto"/></svg>Kde zaparkovat</button>' +
+      '<p class="pozn" style="margin:10px 0 0">Podmínky = vhodnost porostu × počasí. ' +
+      'Pořadí platí pro tenhle výřez a houbu z filtru.</p></div>', POPOPT)
       .addTo(zacniTadyVrstva);
   });
 
@@ -6238,7 +6297,7 @@ async function kresliSber(b){
             (a._okraj > 0.6 ? ' – skoro celé okraj' : '') + '</td></tr>' +
           '<tr><td>Počasí tady</td><td>' + Math.round(a._pocasi*100) + ' %</td></tr>' +
           '</table>' +
-          '<button class="popbtn" data-park="' + a._lat + ',' + a._lng + '">🚗 Kde zaparkovat</button>' +
+          '<button class="popbtn" data-park="' + a._lat + ',' + a._lng + '"><svg class="ik"><use href="#i-auto"/></svg>Kde zaparkovat</button>' +
           '<div class="sub">Druh a výška porostu jsou z map ČÚZK, zbytek je houbařská ' +
           'zkušenost – ne měření z tohohle lesa. Zapiš nález nebo prázdnou vycházku ' +
           'a příště to bude vědět líp.</div></div>', POPOPT);
@@ -7959,7 +8018,7 @@ function refreshPomoc(){
        nastavení – a byl rozbalený. Čte se jednou; přepínače nad ním
        každou vycházku. Sbalený jako zbylé dva. */
     '<details class="napoveda"><summary>Jak se v appce hledají místa</summary>' +
-    '<p><b>🌲 Najdi mi les tady</b> je nejrychlejší cesta: appka vezme, kde stojíš, ' +
+    '<p><b>Najdi les kolem mě</b> je nejrychlejší cesta: appka vezme, kde stojíš, ' +
     'zeptá se ČÚZK na porosty v okolí patnácti kilometrů, vybere ten, který nejlíp sedí ' +
     'na houbu z filtru, a skočí na něj.<br><br>' +
     '<b>Obarvené porosty</b> se kreslí od přiblížení, kdy vidíš jednotlivé cesty. ' +
@@ -8013,14 +8072,14 @@ function refreshPomoc(){
     '<details class="napoveda"><summary>Co která barva na mapě znamená</summary>' +
     '<p><b>Obarvený les</b> = mapa růstu. Pět stupňů od cihlové (mizerně) ' +
     'přes okrovou (středně) po tmavě zelenou (výborně). Barvu má jen les.<br><br>' +
-    '🔴 domov (Stodolní 411) · 🟣 parkoviště z map<br><br>' +
-    '🟠 oranžové kolečko = konec čáry „kde zaparkovat", ruší se křížkem vpravo nahoře<br><br>' +
-    '🟤 hnědá tečka = ověřený nález hřibovité houby · 🟡 okrová = bedla<br><br>' +
-    '🟢 <b>zelená plocha = kde hledat</b>, dokreslí se až když si o ni řekneš<br><br>' +
-    '🟠 velký pin = zaparkované auto · modrý bod = ty · fialový bod = ostatní<br><br>' +
-    '🟣 fialová tečka = <b>evidované parkoviště u lesa</b> z map ČÚZK – ne houby, ale místo, ' +
+    '<i class="bod" style="background:#262522"></i>domov · <i class="bod" style="background:#a98fd0"></i>parkoviště z map<br><br>' +
+    '<i class="bod" style="background:#c2701a"></i>konec čáry „kde zaparkovat", ruší se křížkem vpravo nahoře<br><br>' +
+    '<i class="bod" style="background:#8b4513"></i>ověřený nález hřibovité houby · <i class="bod" style="background:#b8860b"></i>bedla<br><br>' +
+    '<i class="bod" style="background:#2e8b45"></i><b>zelená plocha = kde hledat</b>, dokreslí se až když si o ni řekneš<br><br>' +
+    '<i class="bod" style="background:#f2c200"></i>žluté kolečko = zaparkované auto · <i class="bod" style="background:#1d6fd6"></i>ty · <i class="bod" style="background:#8e44ad"></i>ostatní<br><br>' +
+    '<i class="bod" style="background:#a98fd0"></i>fialová tečka = <b>evidované parkoviště u lesa</b> z map ČÚZK – ne houby, ale místo, ' +
     'odkud se do lesa vychází<br><br>' +
-    '🍄 pin = váš nález · šedá čára = tvoje trasa · fialová čára = cizí trasa · žluto‑oranžové čtverce = ' +
+    '<i class="bod" style="background:#8a5a2b"></i>hnědé kolečko = váš nález · <b>žlutá tabulka zakroužkovaná červeně = nejlepší porost ve výřezu</b> · šedá čára = tvoje trasa · fialová čára = cizí trasa · žluto‑oranžové čtverce = ' +
     '<b>nejlepší místa spočítaná z vašich nálezů</b><br><br>' +
     'Zapneš-li <b>Lesy</b>: žlutozelená = listnaté, zelená = smíšené, tmavě modrozelená = jehličnaté, šedá = neurčeno.<br><br>' +
     '<b>Plochy lokalit jsou orientační</b> – kreslené podle typu porostu, ne podle porostních map.</p></details>' +
@@ -8140,7 +8199,7 @@ function refreshOblibene(){
         /* Cizí hvězdičku smí zrušit jen ten, kdo ji dal – tak to mají
            i pravidla databáze. Sobě si ji ale přidat můžu. */
         (r.b.cizi
-          ? '<button class="oblmini" data-obl-prid="' + esc(r.k) + '">☆ I moje</button>'
+          ? '<button class="oblmini" data-obl-prid="' + esc(r.k) + '">I moje</button>'
           : '<button class="oblmini smaz" data-obl-smaz="' + esc(r.k) + '">Smazat</button>') +
       '</div></div>').join('') + '</div>';
 
