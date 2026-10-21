@@ -419,6 +419,7 @@ i.bod{display:inline-block;width:11px;height:11px;border-radius:50%;margin:0 6px
 .pin.other.stale{background:var(--stale)}
 .pin.find{background:#8a5a2b;width:24px;height:24px}
 .pin.oblibene{background:#c9a227;width:26px;height:26px}
+.pin.park{background:#c2701a;color:#fff;width:30px;height:30px;font-weight:800;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 .pin.oblibene .ik{fill:#fff}
 .pin.gbif{background:#8b4513;width:14px;height:14px;border-width:2px;box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .pin.gbif.bedla{background:#b8860b}
@@ -879,7 +880,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'nova-v7a';   // mění se s každým vydáním
+const APP_VERZE = 'nova-v8';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -6791,87 +6792,103 @@ async function kdeZaparkovat(lat, lng, jmenoPorostu, idPorostu){
   }
 }
 
-async function najdiLesTady(){
+async function najdiLesTady(){   // nova-v8: proč takhle, viz komentář pod funkcí
   const b = $('btnSber');
   b.disabled = true;
   const puvodni = b.innerHTML;
-  b.innerHTML = '<svg class="ik"><use href="#i-les"/></svg>Hledám porost…';
+  b.innerHTML = '<svg class="ik"><use href="#i-les"/></svg>Hledám les s cestami…';
   try {
-    /* Na GPS se čeká nejvýš tři vteřiny. V lese trvá fix klidně půl
-       minuty a člověk by koukal na „Hledám porost…" a myslel si, že
-       se to zaseklo. Když se GPS neozve, bere se střed mapy. */
+    /* Na GPS se čeká nejvýš tři vteřiny, pak se bere střed mapy. */
     const zaloha = map.getZoom() >= 10 ? map.getCenter() : L.latLng(HOME[0], HOME[1]);
     const stred = await Promise.race([
       getPositionOnce().then(p => L.latLng(p.lat, p.lng)).catch(() => zaloha),
       new Promise(res => setTimeout(() => res(zaloha), 3000))
     ]);
-    const d = LES_OKOLI_M;
-    const sw = L.CRS.EPSG3857.project(L.latLng(stred.lat - d/111300, stred.lng - d/71300));
-    const ne = L.CRS.EPSG3857.project(L.latLng(stred.lat + d/111300, stred.lng + d/71300));
-    const q = new URLSearchParams({
-      geometry: [sw.x, sw.y, ne.x, ne.y].join(','), geometryType: 'esriGeometryEnvelope',
-      inSR: '3857', outSR: '4326', spatialRel: 'esriSpatialRelIntersects',
-      where: '(' + vyberSql() + ') AND Shape_Area > 20000',
-      outFields: 'OBJECTID,druh_p,vyska_p,Shape_Area,Shape_Length', returnGeometry: 'true',
-      maxAllowableOffset: String(30 / 111320), orderByFields: 'Shape_Area DESC',
-      resultRecordCount: '40', f: 'geojson'
-    });
-    const stopHledani = new AbortController();
-    const casovka = setTimeout(() => stopHledani.abort(), RUST_CEKANI);
-    let features;
-    try {
-      const r = await fetch(CUZK_QUERY + '?' + q.toString(), {signal: stopHledani.signal});
-      if (!r.ok) throw new Error('ČÚZK HTTP ' + r.status);
-      const g = await r.json();
-      features = (g && g.features) || [];
-    } finally { clearTimeout(casovka); }
-
-    let nej = null;
-    for (const f of features){
-      const a = f.properties || {};
-      const g = f.geometry;
-      if (!g) continue;
-      const prvni = g.type === 'Polygon' ? g.coordinates[0] : (g.coordinates[0] || [])[0];
-      if (!prvni || !prvni.length) continue;
-      /* těžiště obrysu, ať se skáče doprostřed porostu, ne na jeho roh */
-      let sx = 0, sy = 0;
-      prvni.forEach(c => { sx += c[0]; sy += c[1]; });
-      const lng = sx / prvni.length, lat = sy / prvni.length;
-      /* Server plochu i obvod posílá; kdyby je někdy vynechal, spočítá
-         se z obrysu – jinak by tlačítko mlčky nenašlo nic. */
-      let plocha = a.Shape_Area || 0, obvod = a.Shape_Length || 0;
-      if (!plocha){ const mm = miryPrvku(g, lat); plocha = mm.plocha; obvod = mm.obvod; }
-      if (plocha < 20000) continue;                 // pod 2 ha nemá cenu nikam jezdit
-      const okraj = Math.max(0, Math.min(1, obvod * 25 / plocha));
-      const skore = Math.min(1, vhodnostPorostu(a.druh_p || 'bez určení', a.vyska_p || 'bez určení') *
-                    vahaOkraje(okraj));
-      /* Blízko má přednost před o chlup lepším porostem na druhém konci okresu. */
-      const km = distM([stred.lat, stred.lng], [lat, lng]) / 1000;
-      const vaha = skore * (1 - Math.min(0.5, km / 30));
-      if (!nej || vaha > nej.vaha)
-        nej = {vaha, skore, lat, lng, ha: plocha/10000,
-               druh: a.druh_p || 'bez určení', vyska: a.vyska_p || 'bez určení', km};
-    }
-
-    if (!nej){
-      banner('<b>V okolí ' + Math.round(LES_OKOLI_M/1000) + ' km nemám evidovaný ' +
-             'porost, kde by to stálo za to.</b> Zkus „Kam dnes na houby" – ta hledá po celé ČR.',
-             false, 10000);
+    const bod = [stred.lat, stred.lng];
+    const vyber = kandidatiNajdi(await nactiMista(), bod);
+    if (!vyber.length){
+      map.setView(stred, 14);
+      banner('<b>Do ' + Math.round(LES_OKOLI_M / 1000) + ' km nemám parkoviště u lesa, který by té houbě seděl.</b> ' +
+             'Podívej se na mapě po tabulkách 1, 2, 3, nebo zkus „Kam dnes na houby" – ta hledá po celé ČR.', false, 12000);
       return;
     }
+    let i = 0;
+    const prac = async () => { while (i < vyber.length){ const x = vyber[i++];
+      try { x.cestyM = await cestyUMista(x.m); } catch(e){ x.cestyM = null; } } };
+    await Promise.all([prac(), prac(), prac()]);
+    for (const x of vyber){
+      const c = x.cestyM == null ? 0.5 : 0.15 + 0.85 * Math.min(x.cestyM, ZACIT_CESTY_STROP_M) / ZACIT_CESTY_STROP_M;
+      x.poradi = x.zaklad * c;
+    }
+    vyber.sort((a, b) => b.poradi - a.poradi);
+    const nej = vyber[0], m = nej.m;
 
-    map.setView([nej.lat, nej.lng], 15);
-    const houba = jmenoFiltru(FILTR.druh) + (FILTR.druh === 'vse' ? ' (filtr máš na „vše")' : '');
-    banner('<b>' + druhSlovy(nej.druh) + ' porost, ' + esc(nej.vyska) + '</b> · ' +
-           (nej.ha < 10 ? nej.ha.toFixed(1).replace('.', ',') : Math.round(nej.ha)) + ' ha · ' +
-           fmtDist(nej.km*1000) + ' odsud. Na ' + houba + ' <b>' + Math.round(nej.skore*100) + ' %</b>. ' +
-           'Choď po kraji porostu – tam je silný obrys.', false, 12000);
+    if (parkVrstva) map.removeLayer(parkVrstva);
+    const cestyTxt = nej.cestyM == null ? 'cesty se nepodařilo načíst'
+                   : nej.cestyM >= ZACIT_CESTY_STROP_M ? '3+ km cest ve vhodném lese'
+                   : (nej.cestyM / 1000).toFixed(1).replace('.', ',') + ' km cest ve vhodném lese';
+    const nalTxt = nej.nalezy.blizko ? ' · vaše nálezy: ' + nej.nalezy.blizko + ' do 300 m' : '';
+    parkVrstva = L.layerGroup([
+      /* špendlík, ne kolečko: kolečko leželo pod fialovou tečkou parkoviště a nebylo vidět */
+      L.marker([m.lat, m.lng], {icon: pinIcon('park', 'P', 30), zIndexOffset: 400})
+        .bindPopup('<div class="pop"><h3>Zaparkuj tady</h3>' +
+          '<div class="sub">Parkoviště u lesa · ' + fmtDist(nej.km * 1000) + ' odsud vzdušnou čarou</div>' +
+          '<table><tr><td>Do 750 m</td><td><b>' + cestyTxt + '</b></td></tr>' +
+          (nej.nalezy.blizko ? '<tr><td>Vaše nálezy</td><td><b>' + nej.nalezy.blizko + '</b> do 300 m</td></tr>' : '') +
+          '</table><div class="sub">Červené čáry jsou cesty ve vhodném lese – tudy jít. Jestli je u parkoviště ' +
+          'zákaz vjezdu nebo závora, appka o něm neví.</div></div>', POPOPT)
+    ]).addTo(map);
+    document.getElementById('btnZrusPark').hidden = false;
+    map.setView([m.lat, m.lng], 15);
+    banner('<b>Zaparkuj u P, ' + fmtDist(nej.km * 1000) + ' odsud.</b> Do 750 m ' + cestyTxt + nalTxt +
+           '. Jdi po červených.', false, 12000);
   } catch(e){
-    banner('<b>Porosty se nepodařilo načíst.</b> ' + e.message + ' Zkus to, až budeš mít signál.', true, 9000);
+    banner('<b>Les se nepodařilo najít.</b> ' + e.message + ' Zkus to, až budeš mít signál.', true, 9000);
   } finally {
     b.disabled = false;
     b.innerHTML = puvodni;
   }
+}
+
+/* ============================================================
+   nova-v8: NAJDI LES KOLEM MĚ – STEJNÉ MĚŘÍTKO JAKO „KDE ZAČÍT"
+
+   Dřív: 40 největších vhodných porostů do 15 km (řazeno podle plochy),
+   z nich ten s nejlepším druhem, výškou a okrajem, a skok doprostřed
+   porostu – často kilometr od silnice, bez ohledu na cesty. Právě
+   druh a výška porostu se na nálezech nepotvrdily (AUC 0,57), cesty
+   ano (2,4×) a vaše dřívější nálezy taky (14× do 100 m).
+
+   Teď: evidovaná parkoviště u lesa do 15 km (stejná jako v Kam dnes),
+   předřazená podle porostu kolem, blízkosti, vašich nálezů a oblíbených;
+   u dvanácti nejlepších se stáhnou cesty ve vhodném lese do 750 m
+   (jedna vycházka) a o pořadí rozhodnou ony. Mapa skočí na parkoviště,
+   kde je auto u lesa a cesty hned vedle; tabulky „kde začít" se
+   dokreslí samy.
+   ============================================================ */
+const NAJDI_KANDIDATU = 12;
+
+/* Hodnota parkoviště bez počasí (počasí je v okolí 15 km stejné). */
+function zakladNajdi(m, stred){
+  const podil = FILTR.druh === 'bedly' ? m.list
+              : FILTR.druh === 'vse' ? Math.max(m.jehl, m.list)
+              : (preferujeListnate(FILTR.druh) ? m.list : m.jehl);
+  const porost = 0.25 + 0.75 * Math.min(1, podil / 85);
+  const km = distM(stred, [m.lat, m.lng]) / 1000;
+  const blizko = 1 - Math.min(0.5, km / 30);
+  const nalezy = bonusNalezu([m.lat, m.lng]);
+  const obl = jeOblibene('bod:' + m.id) ? 0.15 : 0;
+  const v = vychazkyOkolo(m.lat, m.lng, 700);
+  const prazdno = (!nalezy.blizko && v.naprazdno >= 2) ? 1 - Math.min(0.2, (v.naprazdno - 1) * 0.07) : 1;
+  return {m, km, nalezy, zaklad: porost * blizko * (1 + Math.min(0.6, 0.4 * nalezy.bonus) + obl) * prazdno};
+}
+
+/* Kandidáti do LES_OKOLI_M, filtry porostu a houby jako v Kam dnes. */
+function kandidatiNajdi(vse, stred){
+  return vse.filter(m => m.cest >= 1 && sedíPorost(m) && sedíDruh(m) && distM(stred, [m.lat, m.lng]) <= LES_OKOLI_M)
+            .map(m => zakladNajdi(m, stred))
+            .sort((a, b) => b.zaklad * (0.7 + 0.3 * Math.min(1, b.m.cest / 8)) - a.zaklad * (0.7 + 0.3 * Math.min(1, a.m.cest / 8)))
+            .slice(0, NAJDI_KANDIDATU);
 }
 
 /* Když nezbylo nic, je rozdíl mezi „je to daleko" a „ten porost tu není".

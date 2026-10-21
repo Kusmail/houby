@@ -100,7 +100,9 @@ Menu → žlutá tabulka **Kam dnes na houby**. Appka projde **7 656 parkovišť
 
 ### Najdi les kolem mě
 
-Menu → **Najdi les kolem mě**. Vezme tvou polohu (nebo střed mapy) a ze **40 největších vhodných porostů do 15 km** vybere ten nejvhodnější, s mírnou předností bližších. **Tahle funkce zatím nebyla přestavěná** — pořád vybírá podle druhu, výšky a velikosti porostu, ne podle cest. Lepší je dívat se na tabulky „kde začít".
+Menu → **Najdi les kolem mě**. Vezme tvou polohu (nebo střed mapy) a projde **parkoviště u lesa do 15 km**. Předřadí je podle porostu kolem, vzdálenosti, vašich nálezů a oblíbených; u dvanácti nejlepších stáhne **cesty ve vhodném lese do 750 m** a podle nich vybere. Mapa skočí na parkoviště (oranžové **P**), kolem se dokreslí červené cesty a tabulky „kde začít". Velikost lesa nerozhoduje.
+
+Na 16 zkušebních místech: cíl u silnice (do 100 m) dřív 1×, teď 16×; vždy aspoň 2,7 km cest ve vhodném lese od místa, kde zaparkuješ. Cenou je, že parkoviště bývá dál (medián 4,8 km vzdušnou čarou místo 1 km) — dřív appka posílala doprostřed lesa, kam autem nedojedeš.
 
 ### Lišta nahoře (podmínky)
 
