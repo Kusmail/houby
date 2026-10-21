@@ -1,0 +1,127 @@
+<div id="map"></div>
+
+<!-- Nahoře: lišta podmínek (otevírá „Co hledáme"), vedle ní dlaždice
+     Vrstvy – to je ovladač vrstev Leafletu, styl ho jen převléká. -->
+<div class="recbar" id="recBar" role="status" aria-live="polite"><span class="tecka"></span><span id="recTxt">Zaznamenávám trasu</span></div>
+
+<div class="mistabar" id="mistaBar" role="button" tabindex="0" aria-live="polite"
+     aria-label="Podmínky pro sběr – klepnutím otevřeš filtry">
+  <span class="sanceTecka" id="sanceTecka" aria-hidden="true"></span>
+  <div class="txt" id="stavTxt">
+    <span class="t" id="rustLegenda"></span>
+    <span class="t2" id="mistaTxt"></span>
+  </div>
+  <span class="sipka" aria-hidden="true">›</span>
+</div>
+
+<button class="vrstvyBtn leaflet-control" id="btnVrstvy" aria-controls="vrstvyModal" aria-expanded="false"><svg class="ik"><use href="#i-vrstvy"/></svg>Vrstvy</button>
+<button class="mapbtn leaflet-control" id="btnZrusPark" hidden aria-label="Zrušit čáru k parkovišti" title="Zrušit čáru k parkovišti"><svg class="ik"><use href="#i-zavrit"/></svg></button>
+
+<div class="banner" id="banner" role="status" aria-live="polite"><span class="close" id="bannerClose" role="button" tabindex="0" aria-label="Zavřít hlášku"><svg class="ik"><use href="#i-zavrit"/></svg></span><span id="bannerTxt"></span></div>
+
+<div class="updbar" id="updBar" role="status" aria-live="polite">
+  <span><b>Je připravená nová verze.</b> Načte se za sekundu, o nic nepřijdeš.</span>
+  <button id="btnUpdate">Načíst</button>
+</div>
+
+<!-- Dole: dok. Pořadí podle důležitosti – Menu, Auto, Určit houbu. -->
+<div class="dok" id="dok">
+  <button class="pilulka" id="grab" aria-expanded="false" aria-controls="menuModal"><svg class="ik"><use href="#i-menu"/></svg>Menu</button>
+  <button class="pilulka svetla" id="btnPark" aria-label="Označit, kde stojí auto"><svg class="ik"><use href="#i-auto"/></svg>Auto</button>
+  <button class="autotab" id="btnAutoTab" hidden aria-label="Navigace k autu"><span class="sipka" id="arrowDok"><svg class="ik"><use href="#i-nahoru"/></svg></span><span id="carDistDok">Auto</span></button>
+  <button class="maly" id="btnLupa" aria-label="Určit houbu – vyfotit nebo vybrat fotku a poslat ji do Google Lens"><svg class="ik"><use href="#i-hledej"/></svg></button>
+</div>
+<input type="file" id="lupaInput" accept="image/*" capture="environment" hidden>
+<input type="file" id="lupaGalerie" accept="image/*" hidden>
+
+<!-- Menu: list zespodu. Je v HTML před ostatními okny, aby okna
+     otevřená z menu ležela nad ním. -->
+<div class="modal" role="dialog" aria-modal="true" aria-label="Menu" id="menuModal">
+  <div class="mbox">
+    <button class="uchyt zavira" aria-label="Zavřít menu"></button>
+    <button class="tabule zavira" id="btnKam"><svg class="ik"><use href="#i-sipka"/></svg>Kam dnes na houby<span class="popisek">celá ČR</span></button>
+    <button class="obrys zavira" id="btnSber"><svg class="ik"><use href="#i-les"/></svg>Najdi les kolem mě<span class="popisek">do 15 km</span></button>
+    <div class="nadpis">Rodina</div>
+    <div class="toggle" id="tgShare" role="switch" tabindex="0" aria-checked="false" aria-label="Sdílím polohu">
+      <div class="sw" aria-hidden="true"><i></i></div>
+      <div class="lbl">Sdílím polohu<small id="shareSub">vypnuto</small></div>
+    </div>
+    <div class="toggle" id="tgWake" role="switch" tabindex="0" aria-checked="false" aria-label="Displej svítí">
+      <div class="sw" aria-hidden="true"><i></i></div>
+      <div class="lbl">Displej svítí<small id="wakeSub">vypnuto</small></div>
+    </div>
+    <div class="people" id="people" role="list" aria-label="Kdo sdílí polohu"></div>
+    <div class="minirow">
+      <div class="mini zavira" id="btnMe" role="button" tabindex="0" aria-label="Posunout mapu na moji polohu"><svg class="ik" aria-hidden="true"><use href="#i-zamer"/></svg>Na mě</div>
+      <div class="mini zavira" id="btnFind2" role="button" tabindex="0" aria-label="Zapsat nález houby"><svg class="ik" aria-hidden="true"><use href="#i-houba"/></svg>Nález</div>
+      <div class="mini zavira" id="btnTrasa" role="button" tabindex="0" aria-label="Začít nebo ukončit záznam trasy"><svg class="ik" aria-hidden="true"><use href="#i-trasa"/></svg>Trasa</div>
+      <div class="mini zavira" id="btnLegend" role="button" tabindex="0" aria-label="Nastavení"><svg class="ik" aria-hidden="true"><use href="#i-nastaveni"/></svg>Nastavení</div>
+    </div>
+  </div>
+</div>
+
+<!-- Vrstvy: stejná karta pod lištou jako „Co hledáme" – podklad jako
+     segment, vrstvy jako přepínače. -->
+<div class="modal karta" role="dialog" aria-modal="true" aria-label="Vrstvy mapy" id="vrstvyModal">
+  <div class="mbox">
+    <div class="filtry">
+      <div class="fr"><span>Podklad</span><div class="dva">
+        <button class="fchip" id="vrPodkladMapa">Mapa</button>
+        <button class="fchip" id="vrPodkladLetecka">Letecká (ČÚZK)</button>
+      </div></div>
+    </div>
+    <h3>Na mapě</h3>
+    <div class="toggle" id="vr_rust" role="switch" tabindex="0" aria-checked="true">
+      <div class="sw" aria-hidden="true"><i></i></div>
+      <div class="lbl">Kde sbírat<small>porosty obarvené podle houby z filtru</small></div>
+    </div>
+    <div class="toggle" id="vr_gbif" role="switch" tabindex="0" aria-checked="true">
+      <div class="sw" aria-hidden="true"><i></i></div>
+      <div class="lbl">Ověřené nálezy<small>1 802 pozorování z GBIF</small></div>
+    </div>
+    <div class="toggle" id="vr_mista" role="switch" tabindex="0" aria-checked="true" style="border-bottom:0">
+      <div class="sw" aria-hidden="true"><i></i></div>
+      <div class="lbl">Parkoviště u lesa<small>7 656 míst v celé ČR</small></div>
+    </div>
+  </div>
+</div>
+
+<!-- Označit auto: nejdřív otázka, ať se auto neoznačí omylem klepnutím. -->
+<div class="modal" role="dialog" aria-modal="true" aria-label="Označit auto" id="autoOtazka">
+  <div class="mbox">
+    <h2>Označit auto tady?</h2>
+    <p>Uloží se místo, kde teď stojíš. Uvidí ho celá rodina.</p>
+    <button id="btnOznacit"><svg class="ik"><use href="#i-auto"/></svg>Označit auto</button>
+    <button class="ghost" id="btnOznacitNe">Zrušit</button>
+  </div>
+</div>
+
+<!-- Navigace k autu: žlutý list s velkou šipkou. -->
+<div class="modal" role="dialog" aria-modal="true" aria-label="Navigace k autu" id="autoModal">
+  <div class="mbox">
+    <button class="uchyt" id="autoZavrit" aria-label="Zavřít"></button>
+    <div class="carnav" id="carNav" role="group" aria-label="Navigace k autu">
+      <div class="carnav-top">
+        <div class="arrowwrap" role="button" tabindex="0" aria-label="Zapnout kompas"><div id="arrow"><svg class="ik"><use href="#i-nahoru"/></svg></div></div>
+        <div class="carinfo">
+          <div class="d" id="carDist">Auto</div>
+          <div class="s" id="carMeta"></div>
+        </div>
+      </div>
+      <a class="tl" id="carNavOdkaz" target="_blank" rel="noopener" href="#" style="margin-top:22px">Navigovat v Mapách</a>
+      <button class="ghost" id="btnCar">Ukázat auto na mapě</button>
+      <div class="carnav-akce" id="carAkce">
+        <button class="carbtn" id="btnCarAgain">Přeparkoval jsem</button>
+        <button class="carbtn del" id="btnCarClear">Auto mám</button>
+      </div>
+      <div class="carnav-ptam" id="carPtam" hidden>
+        <div class="ot" id="carPtamTxt">Vyzvedl jsi auto? Značka zmizí i tomu druhému.</div>
+        <div class="carnav-akce">
+          <button class="carbtn ano" id="btnCarYes">Ano, smazat</button>
+          <button class="carbtn" id="btnCarNo">Ne, nech to být</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

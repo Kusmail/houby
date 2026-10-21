@@ -2,9 +2,8 @@
 
 Rodinná mapa na houby po celé ČR: **kde hledat, kudy jít, kde zaparkovat**, zaparkované **auto** a **poloha** rodiny. Otevírá se v prohlížeči a přidá se na plochu telefonu jako ikona. Žádný App Store, žádné poplatky.
 
-> **Dvě verze vedle sebe (říjen 2026).**
-> **Nová appka** běží na zkušební adrese **`…/houby/nova/`** (na ploše jako **„Houbař N"**). Tenhle návod popisuje ji.
-> **Stará appka** na **`…/houby/`** zůstává beze změny, dokud novou neodsouhlasíme. Obě sdílejí stejná data (jméno, rodinný kód, auto, nálezy, oblíbená, stažené mapy).
+> **Nová podoba (od verze houby-v135, říjen 2026).** Na hlavní adrese **`…/houby/`** běží nová appka; tenhle návod popisuje ji. Ikona na ploše zůstává stejná, appka nabídne „Je připravená nová verze → Načíst".
+> **Stará appka** zůstala jako záloha na **`…/houby/stara/`** (Menu → Nastavení → Stará verze). Obě sdílejí stejná data (jméno, rodinný kód, auto, nálezy, oblíbená, stažené mapy). Zkušební adresa `…/houby/nova/` přesměruje na hlavní.
 
 ---
 
@@ -191,10 +190,10 @@ const FIREBASE_CONFIG = {
 ## Krok 3 — Nahrát na web (10 min)
 
 1. Účet na **https://github.com**, vpravo nahoře **+ → New repository**, název `houby`, **Public**.
-2. Nahraj **všechny soubory z repozitáře** včetně složky `nova/` (nová appka), `mista.json` (parkoviště) a `nalezy-gbif.json` (ověřené nálezy).
+2. Nahraj **všechny soubory z repozitáře** včetně `mista.json` (parkoviště), `nalezy-gbif.json` (ověřené nálezy) a složky `stara/` (záloha staré appky). Složka `zdroj/` jsou zdrojáky, ze kterých se appka sestavuje (`python3 zdroj/sestav.py houby-vNNN`); na web ji nahrávat netřeba, ale nevadí.
 3. **Settings → Pages → Deploy from a branch → main → / (root) → Save.**
 
-> ✅ Za 1–2 minuty je appka na `https://tvojejmeno.github.io/houby/` (stará) a `https://tvojejmeno.github.io/houby/nova/` (nová).
+> ✅ Za 1–2 minuty je appka na `https://tvojejmeno.github.io/houby/`, záloha na `https://tvojejmeno.github.io/houby/stara/`.
 
 ## Krok 4 — Pravidla databáze (5 min)
 

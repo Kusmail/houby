@@ -1,0 +1,413 @@
+/* ============================================================
+   HOUBAŘ – NOVÁ APPKA (od houby-v135 na hlavní adrese, dřív zkušebně na /nova/)
+   Vzhled „Zápisník a rozcestník" podle klikacího návrhu v Claude
+   Design. Jeden soubor stylů napsaný znovu, bez vrstev záplat:
+   co se tu nenajde, to appka nemá.
+
+   Pořadí: barvy → základ → mapa → nahoře (lišta, vrstvy, hlášky)
+   → dole (dok) → listy zespodu → obsah listů → mapa uvnitř
+   (bubliny, značky) → široký displej.
+   Písmo jen 15 / 19 / 28 px.
+   ============================================================ */
+
+/* ---------- barvy ---------- */
+:root{
+  --card:#f6f2e9; --ink:#262522; --muted:#5c574e; --line:#d9d1c0; --papir2:#ece6d8; --zem:#efe9da;
+  --cervena:#b83a26; --zluta:#f2c200; --zluta-ink:#1c1a14;
+  --dobre:#2e7d4f; --prumer:#8f6210; --slabe:#a85a2a; --mizive:#8a3b1c;
+  /* barvy, které logika appky dává přímo do značek a řádků */
+  --green:#2e7d4f; --area:#2e8b45; --park:#1d6fd6; --home:#262522; --car:#f2c200;
+  --me:#1d6fd6; --other:#8e44ad; --stale:#9a948d; --danger:#b83a26; --route:#7a4b18;
+  --t1:15px; --t2:19px; --t3:28px; --tap:48px;
+  --stin:0 2px 10px rgba(40,34,20,.22);
+  --pismo:-apple-system, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --card:#1f1d1a; --ink:#ece6d8; --muted:#a8a196; --line:#3a362f; --papir2:#2b2824; --zem:#141310;
+    --cervena:#e07a62; --zluta:#e0b400; --home:#ece6d8; --stale:#7a746c;
+    --stin:0 2px 12px rgba(0,0,0,.5);
+  }
+  .leaflet-tile-pane{filter:brightness(.62) saturate(.85) contrast(1.08)}
+  #map.letecka .leaflet-tile-pane{filter:brightness(.85)}
+}
+
+/* ---------- základ ---------- */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none;
+  font-family:var(--pismo);font-size:var(--t1);line-height:1.4;color:var(--ink);background:var(--zem);
+  -webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
+button,input,select{font-family:inherit;color:inherit}
+button,[role="button"],[role="switch"]{touch-action:manipulation;cursor:pointer}
+button{margin:0}
+[hidden]{display:none !important}
+a{color:inherit}
+code{font-size:var(--t1);background:var(--papir2);padding:1px 5px;border-radius:5px}
+.ik{width:22px;height:22px;flex:0 0 22px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ik.plna{fill:currentColor}
+.karticka{background:var(--card);color:var(--ink);border-radius:14px;box-shadow:var(--stin)}
+
+/* ---------- mapa ----------
+   --dno: o kolik je plocha stránky kratší než displej (starší instalace
+   z ikonky, viz zmerDno). Mapa se o to protáhne dolů. */
+#map{position:absolute;top:0;left:0;right:0;bottom:calc(-1 * var(--dno, 0px));background:var(--zem)}
+.leaflet-container{font-family:var(--pismo);background:var(--zem)}
+.leaflet-control-zoom{display:none}
+.leaflet-bottom{bottom:var(--dok, 96px)}
+.leaflet-control-attribution, .leaflet-control-scale-line{font-size:13px}
+.leaflet-container .leaflet-control-attribution{background:rgba(246,242,233,.85);border-radius:6px 0 0 0}
+#map.letecka .leaflet-overlay-pane{filter:drop-shadow(0 0 2px rgba(0,0,0,.65))}
+
+/* ---------- nahoře: lišta podmínek ----------
+   Celá lišta otevírá „Co hledáme". Vpravo vedle ní je dlaždice Vrstvy
+   (ovladač Leafletu), proto lišta končí 96 px od pravého okraje. */
+.mistabar{position:fixed;z-index:1230;left:12px;right:96px;
+  top:calc(var(--safe-t) + var(--nad, 8px) + var(--updH,0px) + var(--bannerOnlyH,0px) + var(--recH,0px));
+  min-height:76px;padding:12px 14px;display:none;align-items:center;gap:10px;cursor:pointer;
+  background:var(--card);color:var(--ink);border-radius:14px;box-shadow:var(--stin)}
+.mistabar.show{display:flex}
+.mistabar .sanceTecka{width:14px;height:14px;flex:0 0 14px;border-radius:50%;background:var(--stale);box-shadow:0 0 0 3px var(--papir2)}
+.mistabar:has(.cislo) .sanceTecka{display:none}
+.mistabar .sipka{display:none}
+.mistabar .txt{flex:1;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;row-gap:3px;align-items:center}
+.mistabar .t{grid-column:1 / -1;min-width:0;font-size:var(--t2);line-height:1.2;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mistabar .t b{font-weight:700}
+.mistabar .t small{font-size:var(--t1);font-weight:500;color:var(--muted)}
+.mistabar .t:has(.cislo){display:contents}
+.mistabar .nazev{grid-column:1;grid-row:1;min-width:0;font-size:var(--t2);line-height:1.2;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mistabar .cislo{grid-column:2;grid-row:1 / span 2;position:relative;padding:2px 6px;margin-right:2px;
+  font-size:var(--t3);line-height:1;font-weight:700;letter-spacing:-.02em;color:var(--c, var(--ink));white-space:nowrap}
+.mistabar .cislo::after{content:'';position:absolute;inset:-7px -7px -6px -6px;border:2.5px solid var(--cervena);border-radius:50%;transform:rotate(-5deg);
+  border-top-color:transparent;border-image:none;box-shadow:inset 0 0 0 0 transparent}
+.mistabar .cislo::before{content:'';position:absolute;inset:-6px -8px -7px -7px;border:2.5px solid var(--cervena);border-radius:50%;transform:rotate(4deg);
+  border-bottom-color:transparent;border-left-color:transparent}
+@media (prefers-color-scheme: dark){ .mistabar .cislo{color:color-mix(in srgb, var(--c, #fff), #fff 48%)} }
+.mistabar .t2{grid-column:1;grid-row:2;min-width:0;font-size:var(--t1);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mistabar .t:not(:has(.cislo)) + .t2{grid-column:1 / -1}
+.mistabar .t2:empty{display:none}
+.mistabar .t2 b{color:var(--ink)}
+
+/* ---------- nahoře: dlaždice Vrstvy ----------
+   Vlastní ovladač (Leaflet control), otevírá kartu #vrstvyModal. */
+.leaflet-top.leaflet-right{margin-top:calc(var(--safe-t) + var(--nad, 8px) + var(--nadListou, 0px));transition:margin-top .2s}
+.leaflet-right .leaflet-control{margin-right:12px;margin-top:0;margin-bottom:8px}
+.vrstvyBtn{width:76px;height:76px;border:0;border-radius:14px;background:var(--card);color:var(--ink);box-shadow:var(--stin);padding:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:var(--t1);font-weight:700}
+.vrstvyBtn .ik{width:26px;height:26px;flex-basis:26px}
+.vrstvyBtn[aria-expanded="true"]{background:var(--ink);color:var(--card)}
+/* kulaté tlačítko pod vrstvami: zrušit čáru k parkovišti */
+.mapbtn{width:52px;height:52px;border:0;border-radius:50%;background:var(--card);color:var(--ink);box-shadow:var(--stin);
+  display:flex;align-items:center;justify-content:center;font-size:var(--t2);font-weight:700;padding:0}
+
+/* ---------- nahoře: hlášky ---------- */
+.banner, .updbar, .recbar{position:fixed;left:12px;right:12px;background:var(--card);color:var(--ink);border-radius:14px;box-shadow:var(--stin);
+  font-size:var(--t1);line-height:1.4;display:none}
+.updbar{top:calc(var(--safe-t) + var(--nad, 8px));z-index:2100;padding:10px 10px 10px 16px;align-items:center;gap:12px;background:var(--ink);color:var(--card)}
+.updbar.show{display:flex}
+.updbar span{flex:1;min-width:0}
+.updbar b{display:block}
+.updbar button{flex:none;min-height:44px;padding:0 16px;border:0;border-radius:10px;background:var(--card);color:var(--ink);font-size:var(--t1);font-weight:700}
+.updbar button[disabled]{opacity:.6}
+.banner{top:calc(var(--safe-t) + var(--nad, 8px) + var(--updH,0px));z-index:1250;padding:12px 48px 12px 16px}
+.banner.show{display:block}
+.banner.err{box-shadow:var(--stin), inset 0 0 0 2px var(--cervena)}
+.banner b{font-weight:700}
+.banner:not(.rozbaleno) #bannerTxt{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.banner .close{position:absolute;top:2px;right:2px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:var(--t2);cursor:pointer}
+.banner button{min-height:44px;padding:0 16px;border:0;border-radius:10px;background:var(--ink) !important;color:var(--card) !important;font-size:var(--t1) !important;font-weight:700}
+.recbar{top:calc(var(--safe-t) + var(--nad, 8px) + var(--updH,0px) + var(--bannerOnlyH,0px));z-index:1240;
+  min-height:52px;padding:8px 16px;align-items:center;gap:12px;font-weight:600}
+.recbar.show{display:flex}
+.recbar .tecka{width:12px;height:12px;border-radius:50%;background:var(--cervena);flex:none;animation:blik 1.6s ease-in-out infinite}
+@keyframes blik{50%{opacity:.35}}
+
+/* ---------- dole: dok ----------
+   Pořadí podle důležitosti: Menu (největší), Auto, Určit houbu (malé). */
+.dok{position:fixed;z-index:1200;left:12px;right:12px;bottom:calc(var(--safe-b) + 12px);display:flex;align-items:center;gap:8px}
+.pilulka{flex:1.15 1 0;min-width:0;height:64px;border-radius:32px;border:0;background:var(--ink);color:var(--card);padding:0 16px;
+  display:flex;align-items:center;justify-content:center;gap:10px;font-size:var(--t2);font-weight:700;box-shadow:var(--stin)}
+.pilulka.svetla{flex:1 1 0;background:var(--card);color:var(--ink)}
+.pilulka[disabled]{opacity:.7}
+.autotab{flex:1 1 0;min-width:0;height:64px;border-radius:14px;border:0;background:var(--zluta);color:var(--zluta-ink);
+  display:flex;align-items:center;gap:8px;padding:0 10px;box-shadow:var(--stin);font-size:var(--t2);font-weight:700;text-align:left;white-space:nowrap;overflow:hidden}
+.autotab .sipka{width:38px;height:38px;flex:none;border-radius:50%;background:var(--zluta-ink);color:var(--zluta);display:flex;align-items:center;justify-content:center;transition:transform .3s}
+.autotab .sipka .ik{width:20px;height:20px;flex-basis:20px}
+.maly{width:52px;height:52px;flex:none;border-radius:50%;border:0;background:var(--card);color:var(--ink);box-shadow:var(--stin);
+  display:flex;align-items:center;justify-content:center;padding:0}
+
+/* ---------- listy zespodu (všechna okna) ---------- */
+.modal{position:fixed;inset:0;z-index:2000;background:rgba(28,26,20,.38);display:none;align-items:flex-end;justify-content:center;
+  padding:calc(var(--safe-t) + 20px) 0 0}
+.modal.show{display:flex}
+.mbox{position:relative;width:100%;max-width:560px;max-height:100%;overflow:auto;-webkit-overflow-scrolling:touch;
+  background:var(--card);color:var(--ink);border-radius:22px 22px 0 0;box-shadow:0 -6px 24px rgba(40,34,20,.2);
+  padding:22px 20px calc(24px + var(--safe-b));animation:vyjed .24s cubic-bezier(.2,.7,.3,1)}
+@keyframes vyjed{from{transform:translateY(48px);opacity:.3}to{transform:none;opacity:1}}
+#nameModal{align-items:center;padding:18px}
+#nameModal .mbox{border-radius:16px;padding-bottom:22px}
+.mbox .dole{position:sticky;bottom:calc(-24px - var(--safe-b));z-index:5;margin:16px -20px calc(-24px - var(--safe-b));
+  padding:12px 20px calc(16px + var(--safe-b));background:var(--card);border-top:1px solid var(--line)}
+.mbox .dole button{margin-top:0}
+.uchyt, .mbox button.uchyt{display:block;width:100%;height:44px;min-height:44px;border:0;border-radius:0;background:transparent;box-shadow:none;padding:0;margin:-22px 0 0;position:relative}
+.uchyt::after{content:'';position:absolute;left:50%;top:12px;width:40px;height:5px;margin-left:-20px;border-radius:3px;background:var(--line)}
+
+/* písmo v listech */
+.mbox h2, .nadpis28{margin:0 0 14px;font-size:var(--t3);line-height:1.1;font-weight:700;letter-spacing:-.02em}
+.mbox p, .mbox .pozn{margin:0 0 12px;font-size:var(--t1);line-height:1.45;color:var(--muted)}
+.mbox p b, .mbox .pozn b{color:var(--ink)}
+.mbox small{font-size:inherit}
+.mbox h3, .mbox .nadpis{margin:20px 0 8px;font-size:var(--t1);line-height:1.2;font-weight:700;color:var(--muted);text-transform:none;letter-spacing:0}
+.mbox .sekce{margin:0;padding:0 0 18px;border-bottom:1px solid var(--line)}
+.mbox .sekce:first-of-type h3{margin-top:4px}
+.mbox input[type=text], .mbox input:not([type]){width:100%;min-height:52px;padding:12px 14px;margin:0 0 12px;border:1.5px solid var(--line);border-radius:12px;
+  background:var(--card);color:var(--ink);font-size:17px}
+
+/* tlačítka: hlavní tuhou, vedlejší obrysem */
+.mbox button, .tl{width:100%;min-height:52px;border:0;border-radius:12px;background:var(--ink);color:var(--card);padding:10px 16px;
+  display:flex;align-items:center;justify-content:center;gap:10px;font-size:var(--t2);font-weight:700;box-shadow:none;text-decoration:none}
+.mbox button.ghost, .mbox .ghost, .tl2, .mbox .tl2, .mbox a.tlac2{width:100%;min-height:52px;border:0;border-radius:12px;background:transparent;color:var(--ink);
+  box-shadow:inset 0 0 0 1.5px var(--ink);padding:10px 16px;display:flex;align-items:center;justify-content:center;gap:10px;
+  font-size:var(--t1);font-weight:700;text-decoration:none;margin:8px 0 0}
+.mbox a.tlac2{margin:0 0 14px}
+.mbox button.no, .mbox .ghost.no{box-shadow:inset 0 0 0 1.5px var(--cervena);color:var(--cervena)}
+.mbox button[disabled]{opacity:.6}
+.mbox button .ik, .mbox a .ik{width:20px;height:20px;flex-basis:20px}
+
+/* cíle v menu jako tabulky rozcestníku */
+.mbox .tabule, .mbox button.tabule{height:56px;min-height:56px;justify-content:flex-start;gap:12px;padding:0 38px 0 16px;border-radius:12px 0 0 12px;
+  background:var(--zluta);color:var(--zluta-ink);font-size:var(--t2);text-align:left;
+  clip-path:polygon(0 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 0 100%)}
+.mbox button.obrys{height:56px;min-height:56px;justify-content:flex-start;gap:12px;padding:0 16px;margin-top:10px;
+  background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink);font-size:var(--t2);text-align:left}
+.popisek, .mbox .tabule small, .mbox .obrys small{margin-left:auto;font-size:var(--t1);font-weight:500;opacity:.8}
+
+/* přepínače jako řádky */
+.toggle{display:flex;flex-direction:row-reverse;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:8px 0;
+  border-bottom:1px solid var(--line);cursor:pointer}
+.toggle .lbl{flex:1;min-width:0;font-size:var(--t2);font-weight:500;line-height:1.25;display:flex;align-items:baseline;gap:10px}
+.toggle .lbl small{margin-left:auto;font-size:var(--t1);font-weight:500;color:var(--muted)}
+.mbox .sekce .toggle .lbl, #legendModal .toggle .lbl, #trackModal .toggle .lbl{display:block;font-size:var(--t1);font-weight:600}
+.mbox .sekce .toggle .lbl small, #legendModal .toggle .lbl small, #trackModal .toggle .lbl small{display:block;margin:2px 0 0;font-weight:500}
+.sw{width:52px;height:32px;flex:0 0 52px;border-radius:16px;background:var(--papir2);box-shadow:inset 0 0 0 1.5px var(--line);position:relative;transition:background .18s}
+.sw i{position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .18s}
+.toggle.on .sw{background:var(--dobre);box-shadow:none}
+.toggle.on .sw i{left:23px}
+
+/* lidé v menu */
+.people{display:flex;flex-direction:column}
+.person{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 0;border-bottom:1px solid var(--line)}
+.person .pd{width:14px;height:14px;flex:0 0 14px;border-radius:50%}
+.person span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.25}
+.person b{display:block;font-size:var(--t2);font-weight:600}
+.person em{font-style:normal;font-size:var(--t1);color:var(--muted)}
+.person.auto{cursor:pointer}
+.person.none{justify-content:center;color:var(--muted);border-bottom:0;font-size:var(--t1)}
+
+/* čtyři akce v menu */
+.minirow{display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:8px;margin-top:16px}
+.mini{height:68px;border:0;border-radius:12px;background:var(--papir2);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;font-size:var(--t1);font-weight:600;padding:0;cursor:pointer;text-align:center}
+.mini.rec{background:var(--cervena);color:#fff}
+
+/* auto */
+#autoModal .mbox{background:var(--zluta);color:var(--zluta-ink)}
+#autoModal .mbox .uchyt::after{background:rgba(28,26,20,.25)}
+#autoModal .mbox button.uchyt{background:transparent;box-shadow:none}
+.carnav-top{display:flex;align-items:center;gap:18px}
+.arrowwrap{width:92px;height:92px;flex:none;border-radius:50%;background:var(--zluta-ink);color:var(--zluta);display:flex;align-items:center;justify-content:center;cursor:pointer}
+#arrow{display:flex;transition:transform .3s}
+#arrow .ik{width:46px;height:46px;flex-basis:46px;stroke-width:2.4}
+.carinfo{min-width:0}
+.carinfo .d{font-size:var(--t3);line-height:1.1;font-weight:700;letter-spacing:-.02em}
+.carinfo .d::after{content:' k autu'}
+.carinfo .d[data-bez]::after{content:none}
+.carinfo .s{margin-top:4px;font-size:var(--t1);line-height:1.4}
+#autoModal .mbox button, #autoModal .mbox a.tl{background:var(--zluta-ink);color:var(--zluta)}
+#autoModal .mbox button.tl2, #autoModal .mbox button.ghost, #autoModal .mbox .carbtn{background:transparent;color:var(--zluta-ink);box-shadow:inset 0 0 0 1.5px var(--zluta-ink);font-size:var(--t1)}
+#autoModal .mbox .carbtn.ano{background:var(--cervena);color:#fff;box-shadow:none}
+.carnav-akce{display:flex;gap:8px;margin-top:8px}
+.carnav-akce button{margin:0 !important}
+.carnav-ptam .ot{margin-top:16px;font-size:var(--t1);font-weight:600;line-height:1.4}
+
+/* filtry: každá volba je segment se stejně širokými políčky, jako
+   v panelu vrstev – žádné rozsypané čipy přes několik řádků */
+.filtry{margin-bottom:4px}
+.filtry .fr{margin:0 0 14px}
+.filtry .fr > span{display:block;margin:0 0 6px;font-size:var(--t1);font-weight:700;color:var(--muted)}
+.filtry .fr > div{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:4px;background:var(--papir2);border-radius:12px;padding:4px}
+.filtry .fr:nth-child(2) > div{grid-template-columns:repeat(4, minmax(0,1fr))}
+.filtry .fr:nth-child(3) > div{grid-template-columns:repeat(5, minmax(0,1fr))}
+.filtry .fr:nth-child(4) > div{grid-template-columns:repeat(2, minmax(0,1fr))}
+.filtry .fr > div > :not(.fchip){grid-column:1 / -1}
+.filtry .popisHouby{margin:8px 0 0}
+.mbox .filtry #btnKdeNejbliz{margin:8px 0 0}
+.mbox .filtry .fr > div > button.ghost{margin:4px 0 0;background:var(--card)}
+.mbox .fchip{width:auto;min-height:44px;margin:0;padding:0 4px;border-radius:9px;background:transparent;color:var(--ink);box-shadow:none;
+  font-size:var(--t1);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mbox .fchip.on{background:var(--ink);color:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+/* Co hledáme a Vrstvy: obě jsou stejná karta pod lištou podmínek,
+   ne list zespodu. Stejné nadpisy, segmenty i přepínače. */
+.modal.karta{align-items:flex-start;background:transparent;
+  padding:calc(var(--safe-t) + var(--nad, 8px) + var(--bannerH, 84px) + 6px) 12px 0}
+.modal.karta .mbox{border-radius:14px;box-shadow:0 4px 18px rgba(40,34,20,.28);padding:14px 16px 6px;
+  max-height:calc(100% - 96px - var(--safe-b));animation:vyjedShora .18s ease-out}
+@keyframes vyjedShora{from{transform:translateY(-12px);opacity:.3}to{transform:none;opacity:1}}
+.modal.karta h2, .modal.karta .dole{display:none}
+.modal.karta h3{margin:0 0 2px;font-size:var(--t1);font-weight:700;color:var(--muted)}
+.modal.karta details.napoveda{margin-bottom:10px}
+.modal.karta .toggle{min-height:60px}
+.modal.karta .toggle .lbl{display:block;font-size:var(--t1);font-weight:700}
+.modal.karta .toggle .lbl small{display:block;margin:2px 0 0;font-weight:500}
+.filtry .fr > div.dva{grid-template-columns:repeat(2, minmax(0,1fr))}
+
+/* nález */
+.druhy{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:8px;margin-bottom:14px}
+.mbox .druhy button{min-height:56px;padding:6px 4px;border-radius:12px;background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line);
+  font-size:var(--t1);font-weight:600;flex-direction:column;gap:2px;line-height:1.15}
+.mbox .druhy button small{font-size:var(--t1);font-weight:500;color:var(--muted)}
+.mbox .druhy button.on{background:var(--ink);color:var(--card);box-shadow:none}
+.mbox .druhy button.on small{color:inherit;opacity:.8}
+.fotobtn{display:flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 16px;margin-bottom:10px;border:1.5px dashed var(--line);
+  border-radius:12px;font-size:var(--t1);font-weight:700;color:var(--ink);cursor:pointer;text-decoration:none}
+#fotoNahled{display:none;margin-bottom:10px}
+#fotoNahled.show{display:block}
+#fotoNahled img{width:100%;border-radius:12px;display:block;margin-bottom:8px}
+
+/* seznamy v nastavení */
+.jmenoradek{display:flex;align-items:center;gap:12px;min-height:56px}
+.jmenoradek .jm{flex:1;min-width:0;font-size:var(--t2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mbox .jmenoradek .ghost.uzky, .mbox .ghost.uzky{width:auto;min-height:44px;padding:0 18px;margin:0}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--stale);flex:0 0 12px;display:inline-block}
+.dot.on{background:var(--dobre)}
+.dot.err{background:var(--cervena)}
+.plist{margin:0 0 12px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.plist .r{display:flex;align-items:center;gap:10px;min-height:52px;padding:4px 12px;border-bottom:1px solid var(--line);font-size:var(--t1)}
+.plist .r:last-child{border-bottom:0}
+.plist .r b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.mbox .plist .r button{width:auto;min-height:44px;padding:0 14px;font-size:var(--t1);border-radius:10px}
+.mbox .plist .r .no{background:transparent;color:var(--cervena);box-shadow:inset 0 0 0 1.5px var(--cervena)}
+.trasy{margin:0 0 12px}
+.trasy .r{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:52px;padding:4px 4px 4px 12px;margin-bottom:6px;
+  border:1px solid var(--line);border-radius:12px;font-size:var(--t1)}
+.mbox .trasy .x{width:44px;min-height:44px;padding:0;border-radius:10px;background:transparent;color:var(--cervena);font-size:var(--t2)}
+.oblist{margin:0 0 10px}
+.oblpol{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.obljm b{display:block;font-size:var(--t1)}
+.obljm em{font-style:normal;color:var(--muted);font-size:var(--t1)}
+.oblakce{display:flex;gap:8px;margin-top:8px}
+.oblmini, .mbox .oblmini{flex:1;width:auto;min-height:44px;border-radius:10px;border:0;background:transparent;color:var(--ink);
+  box-shadow:inset 0 0 0 1.5px var(--line);font-size:var(--t1);font-weight:600;padding:0 8px;margin:0}
+.oblmini.smaz{color:var(--cervena)}
+details.napoveda{border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+details.napoveda summary{min-height:52px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-size:var(--t1);font-weight:600;cursor:pointer;list-style:none;color:var(--ink)}
+details.napoveda summary::-webkit-details-marker{display:none}
+details.napoveda summary::after{content:'›';transform:rotate(90deg);color:var(--muted)}
+details.napoveda[open] summary::after{transform:rotate(-90deg)}
+details.napoveda p{padding:0 14px 14px;margin:0}
+i.bod{display:inline-block;width:11px;height:11px;border-radius:50%;margin:0 6px 0 0;vertical-align:0;box-shadow:0 0 0 1.5px #fff, 0 0 0 2.5px rgba(0,0,0,.2)}
+.uid{font-size:var(--t1);line-height:1.5;background:var(--papir2);border-radius:10px;padding:8px 10px;word-break:break-word}
+#trackSouhrn{font-size:var(--t1);line-height:1.5;margin-bottom:16px}
+#trackSouhrn .cislo{display:block;font-size:var(--t3);font-weight:700;letter-spacing:-.02em}
+#trackSouhrn .warn{background:var(--papir2);border-radius:10px;padding:8px 10px;margin-top:8px}
+.zdrojrad{display:flex;gap:6px;align-items:baseline;line-height:1.35}
+.zdrojrad em{font-style:normal;color:var(--muted)}
+.badge{display:inline-block;padding:1px 8px;border-radius:20px;font-size:13px;font-weight:700;background:var(--papir2)}
+
+/* Kde je nejblíž: řádky */
+#kdeObsah .kamlok{border:0;border-bottom:1px solid var(--line);padding:12px 0;margin:0}
+#kdeObsah .kamlok .jmenoradek{gap:12px;min-height:0}
+#kdeObsah .kamlok .jm{font-size:var(--t2);font-weight:500;white-space:normal;overflow:visible}
+#kdeObsah .kamlok .pozn{margin:4px 0 0}
+#kdeObsah .oblmini{flex:none;box-shadow:inset 0 0 0 1.5px var(--ink);font-weight:700;padding:0 14px}
+
+/* Kam dnes: každý cíl je tabulka rozcestníku */
+#kamObsah .kampod{margin:-6px 0 16px}
+#kamObsah .kamlok{position:relative;padding:0 0 18px;margin:0 0 18px;border-bottom:1px solid var(--line)}
+#kamObsah .tabule{display:flex;align-items:center;gap:10px;height:52px;padding:0 34px 0 14px;background:var(--zluta);color:var(--zluta-ink);
+  border-radius:6px 0 0 6px;clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%)}
+#kamObsah .tabule b{font-size:var(--t2);font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#kamObsah .tabule small{margin-left:auto;flex:none;font-size:var(--t1);font-weight:600}
+#kamObsah .tabule .zn{flex:0 0 22px;height:14px;background:linear-gradient(#fff 33%, var(--z) 33% 67%, #fff 67%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.krouzek{position:absolute;left:-3px;top:-8px;width:calc(100% + 6px);height:68px;overflow:visible;pointer-events:none;z-index:1}
+.krouzek path{fill:none;stroke:var(--cervena);stroke-width:2.5;vector-effect:non-scaling-stroke;stroke-linecap:round}
+.fakta{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;padding:12px 2px 4px;font-size:var(--t1);line-height:1.3}
+.fakta span{color:var(--muted)}
+.fakta b{font-weight:700;text-align:right;color:var(--ink)}
+.fakta .tecka{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:0}
+#kamObsah details.vic summary{min-height:44px;display:flex;align-items:center;font-size:var(--t1);font-weight:600;color:var(--muted);list-style:none;cursor:pointer}
+#kamObsah details.vic summary::-webkit-details-marker{display:none}
+#kamObsah details.vic summary::after{content:'›';margin-left:8px;transform:rotate(90deg)}
+#kamObsah details.vic[open] summary::after{transform:rotate(-90deg)}
+#kamObsah details.vic .fakta{padding-top:0}
+#kamObsah .kamlok .akce{display:flex;gap:8px;margin-top:6px}
+#kamObsah .kamlok .akce button{flex:1;width:auto;margin:0;min-height:48px;padding:0 10px;font-size:var(--t1)}
+#kamObsah .prohledano .tabule, #kamObsah .prohledano .fakta{opacity:.6}
+#kamObsah .prohledano .tabule b{text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:var(--cervena)}
+#kamObsah > h3{margin-top:24px}
+.kamsucho{background:var(--papir2);border-radius:12px;padding:14px;margin:0 0 18px;font-size:var(--t1);line-height:1.45;color:var(--ink)}
+.mbox .kamsucho button{margin-top:12px;min-height:48px;font-size:var(--t1)}
+
+/* ---------- bubliny na mapě ---------- */
+.leaflet-popup-content-wrapper{background:var(--card);color:var(--ink);border-radius:14px;box-shadow:0 4px 18px rgba(40,34,20,.25)}
+.leaflet-popup-tip{background:var(--card)}
+.leaflet-popup-content{margin:16px 18px;width:250px !important;max-height:52vh;overflow-y:auto;font-size:var(--t1);line-height:1.4}
+.leaflet-container a.leaflet-popup-close-button{width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)}
+.pop h3{margin:0 0 4px;padding-right:24px;font-size:var(--t2);line-height:1.2;font-weight:700;color:var(--ink)}
+.pop .sub, .pop p, .pop .pozn, .pop .fotocek{margin:0 0 8px;font-size:var(--t1);line-height:1.4;color:var(--muted)}
+.pop table{width:100%;border-collapse:collapse;margin:6px 0}
+.pop td{padding:6px 0;vertical-align:top;font-size:var(--t1);line-height:1.35;border-bottom:1px solid var(--line)}
+.pop td:first-child{width:42%;padding-right:8px;color:var(--muted)}
+.pop .warn, .pop .ok{margin:8px 0;padding:8px 10px;border-radius:10px;background:var(--papir2);color:var(--ink);font-size:var(--t1)}
+.pop .nalezfoto{width:100%;border-radius:10px;margin:6px 0;display:block}
+.popbtn, #map .pop .oblTlac, #map .pop .smazOblibene, #map .pop .smazNalez{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  min-height:48px;margin:10px 0 0;border:0;border-radius:12px;background:var(--ink);color:var(--card);font-size:var(--t1);font-weight:700;cursor:pointer}
+#map .pop .oblTlac{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+#map .pop .smazOblibene, #map .pop .smazNalez{background:transparent;color:var(--cervena);box-shadow:inset 0 0 0 1.5px var(--cervena)}
+.popbtn .ik, #map .pop .oblTlac .ik{width:20px;height:20px;flex-basis:20px}
+.pop .nav{display:flex;gap:8px;margin-top:10px}
+.pop .nav a{flex:1;min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:var(--ink);color:var(--card);
+  font-size:var(--t1);font-weight:700;text-decoration:none;text-align:center}
+.pop .nav a.alt{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+
+/* ---------- značky ---------- */
+.pinobal{display:flex;align-items:center;justify-content:center}
+.pin{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:2.5px solid #fff;
+  box-shadow:0 1px 4px rgba(0,0,0,.4);color:#fff;font-size:13px;font-weight:700}
+.pin .ik{width:62%;height:62%;flex:none;stroke-width:2.2}
+.pin.home{background:#262522;width:30px;height:30px}
+.pin.car{background:#f2c200;color:#1c1a14;width:40px;height:40px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.pin.me{background:var(--me);width:20px;height:20px;border-width:3px}
+.pin.other{background:var(--other);width:20px;height:20px;border-width:3px}
+.pin.other.stale{background:var(--stale)}
+.pin.find{background:#8a5a2b;width:24px;height:24px}
+.pin.oblibene{background:#c9a227;width:26px;height:26px}
+.pin.park{background:#c2701a;color:#fff;width:30px;height:30px;font-weight:800;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.pin.oblibene .ik{fill:#fff}
+.pin.gbif{background:#8b4513;width:14px;height:14px;border-width:2px;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.pin.gbif.bedla{background:#b8860b}
+.plabel{background:var(--card);color:var(--ink);border:0;border-radius:6px;padding:2px 7px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.plabel::before{display:none}
+.prehled .pk{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:var(--t1);
+  border:2.5px solid rgba(255,255,255,.9);box-shadow:0 2px 8px rgba(0,0,0,.3);text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.prehled .pk::after{content:'%';font-size:13px;margin-left:1px;opacity:.85}
+/* tři nejlepší porosty ve výřezu: tabulky, první zakroužkovaná */
+.cilmapa{position:relative;width:104px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;filter:drop-shadow(0 1px 3px rgba(0,0,0,.35))}
+.cilmapa .tab{display:flex;align-items:center;gap:6px;height:32px;padding:0 20px 0 9px;background:var(--card);color:var(--ink);border-radius:4px 0 0 4px;
+  clip-path:polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);font-size:var(--t1);font-weight:700;white-space:nowrap}
+.cilmapa .tab b{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--card);font-size:13px}
+.cilmapa.prvni .tab{background:#f2c200;color:#1c1a14}
+.cilmapa.prvni .tab b{background:#1c1a14;color:#f2c200}
+.cilmapa .krouzek{inset:-4px -8px;left:-8px;top:-4px;width:calc(100% + 16px);height:calc(100% + 8px)}
+
+/* ---------- široký displej (počítač, tablet) ---------- */
+@media (min-width:820px) and (min-height:600px){
+  .leaflet-control-zoom{display:block}
+  .mistabar{right:auto;width:420px}
+  .banner, .updbar, .recbar{right:auto;width:508px}
+  .dok{right:auto;width:508px}
+  .modal{justify-content:flex-start;padding-left:12px}
+  .mbox{max-width:508px;border-radius:22px 22px 0 0}
+}
