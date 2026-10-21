@@ -1095,6 +1095,47 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
   .mbox .trasy .r, .mbox details.napoveda, .mbox .toggle, .mbox .toggle.on{background:transparent}
   .mbox .trasy .x{background:transparent; color:#f3a594}
 }
+
+/* ============================================================
+   v130: NOVÝ VZHLED 4/5 – KAM DNES JAKO ROZCESTNÍK
+   Každý cíl je žlutá tabulka se jménem a dojezdem, pod ní čtyři
+   fakta, podle kterých se rozhoduje. Nejlepší je zakroužkovaný
+   červenou tužkou, prohledaný naprázdno je přeškrtnutý. Statistika
+   výpočtu a rozklad hodnocení jsou sbalené.
+   ============================================================ */
+#kamObsah .kampod{margin:-6px 0 16px}
+#kamObsah .kamlok{position:relative; background:transparent; border:0; border-radius:0; padding:0 0 18px; margin:0 0 18px;
+  border-bottom:1px solid var(--line); box-shadow:none}
+#kamObsah .kamlok.prvni{background:transparent; border-width:0 0 1px}
+#kamObsah .tabule{display:flex; align-items:center; gap:10px; height:52px; padding:0 34px 0 14px; background:var(--zluta); color:var(--zluta-ink);
+  border-radius:6px 0 0 6px; clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%)}
+#kamObsah .tabule b{font:700 var(--t2)/1.1 -apple-system, system-ui, sans-serif; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+#kamObsah .tabule small{margin-left:auto; flex:none; font:600 var(--t1)/1 -apple-system, system-ui, sans-serif}
+#kamObsah .tabule .zn{flex:0 0 22px; height:14px; background:linear-gradient(#fff 33%, var(--z) 33% 67%, #fff 67%);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+#kamObsah .krouzek{position:absolute; left:-3px; top:-8px; width:calc(100% + 6px); height:68px; overflow:visible; pointer-events:none; z-index:1}
+#kamObsah .krouzek path{fill:none; stroke:var(--cervena); stroke-width:2.5; vector-effect:non-scaling-stroke; stroke-linecap:round}
+#kamObsah .fakta{display:grid; grid-template-columns:auto 1fr; gap:8px 14px; padding:12px 2px 4px; font:500 var(--t1)/1.3 -apple-system, system-ui, sans-serif}
+#kamObsah .fakta span{color:var(--muted)}
+#kamObsah .fakta b{font-weight:700; text-align:right; color:var(--ink)}
+#kamObsah .fakta .tecka{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:0}
+#kamObsah details.vic summary{font:600 var(--t1)/1 -apple-system, system-ui, sans-serif; color:var(--muted); min-height:44px; display:flex; align-items:center;
+  list-style:none; cursor:pointer}
+#kamObsah details.vic summary::-webkit-details-marker{display:none}
+#kamObsah details.vic summary::after{content:'›'; margin-left:8px; transform:rotate(90deg)}
+#kamObsah details.vic[open] summary::after{transform:rotate(-90deg)}
+#kamObsah details.vic .fakta{padding-top:0}
+#kamObsah .kamlok .akce{display:flex; gap:8px; margin-top:6px}
+#kamObsah .kamlok .akce button{flex:1; width:auto; margin:0; min-height:48px; padding:0 10px; font:700 var(--t1)/1.1 -apple-system, system-ui, sans-serif}
+#kamObsah .ik.plna{fill:currentColor}
+#kamObsah .prohledano .tabule, #kamObsah .prohledano .fakta{opacity:.6}
+#kamObsah .prohledano .tabule b{text-decoration:line-through; text-decoration-thickness:2px; text-decoration-color:var(--cervena)}
+#kamObsah .kamsucho, .mbox .kamsucho{background:var(--papir2); border:0; border-radius:12px; padding:14px; margin:0 0 18px;
+  font:500 var(--t1)/1.45 -apple-system, system-ui, sans-serif; color:var(--ink)}
+.mbox .kamsucho button{display:flex; width:100%; margin-top:12px; background:var(--ink); color:var(--card); border:0; border-radius:12px;
+  min-height:48px; font:700 var(--t1)/1.1 -apple-system, system-ui, sans-serif}
+#kamObsah .pozn{font:500 var(--t1)/1.45 -apple-system, system-ui, sans-serif}
+#kamObsah > h3{margin-top:24px}
 </style>
 </head>
 <body>
@@ -1519,7 +1560,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v129';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v130';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -5280,6 +5321,10 @@ function slovniSance(s){
 }
 
 
+function oblTlac(je){
+  return '<svg class="ik' + (je ? ' plna' : '') + '"><use href="#i-hvezda"/></svg>' + (je ? 'Oblíbené' : 'Do oblíbených');
+}
+
 function kdyMaCenu(nej){
   /* v107: v zimě appka radila „po dešti zkus vyrazit kolem 15 dnů od
      dneška" – v lednu, o Vánocích i v březnu. Sezónu jako důvod
@@ -5338,39 +5383,40 @@ async function nactiPocasiPro(mista){
 }
 
 function duvodMista(x){
+  /* v130: karta ukazuje čtyři fakta, podle kterých se člověk rozhodne
+     (podmínky, déšť, porost, naše nálezy). Zbytek – odkud čísla jsou
+     a z čeho se skládá hodnocení – je sbalený pod „Víc o místě". */
   const p = x.p, m = x.m;
+  const proc = (v) => Math.round(v * 100) + ' %';
+  const s = slovniSance(x.sance);
+  const r = (a, b) => '<span>' + a + '</span><b>' + b + '</b>';
   const k = [];
-  // v114: součet zahrnuje 21 dní zpět I dnešek (22 hodnot) – popisek to teď říká
-  k.push('<tr><td>Déšť za 3 týdny a dnešek</td><td><b>' + Math.round(p.celkem21) + ' mm</b></td></tr>');
-  k.push('<tr><td>Poslední vydatný déšť</td><td>' +
-    (p.poslednivetsi === null ? '<b>žádný</b> za 21 dní' :
-     (p.poslednivetsi === 0 ? '<b>dnes</b>' : '<b>před ' + sklonuj(p.poslednivetsi,'dnem','dny','dny') + '</b>')) + '</td></tr>');
-  k.push('<tr><td>Porost do 400 m</td><td>' + popisPorostu(m) + '</td></tr>');
-  if (!m.overene) k.push('<tr><td>Lesních cest</td><td>' + m.cest + ' v okolí</td></tr>');
-  k.push('<tr><td>Naše nálezy</td><td>' + (x.n.pocet
-    ? '<b>' + sklonuj(x.n.pocet,'nález','nálezy','nálezů') + '</b>' +
-      (x.n.kusy >= x.n.pocet * 1.6 ? ' <small>(a byly vydatné)</small>' : '') +
-      ', naposledy ' + fmtTime(x.n.posledni)
-    : 'zatím žádné') + '</td></tr>');
+  k.push(r('Podmínky', '<i class="tecka" style="background:' + s.c + '"></i>' + s.t + ' · ' + proc(x.sance)));
+  // v114: součet zahrnuje 21 dní zpět I dnešek (22 hodnot)
+  k.push(r('Déšť za 3 týdny', Math.round(p.celkem21) + ' mm'));
+  k.push(r('Porost', !m.jehl && !m.list ? 'neurčený' : (m.jehl >= m.list ? 'spíš jehličnatý' : 'spíš listnatý')));
+  k.push(r('Naše nálezy', x.n.pocet
+    ? sklonuj(x.n.pocet,'nález','nálezy','nálezů') + ', naposledy ' + fmtTime(x.n.posledni)
+    : 'zatím žádné'));
   /* Nulová vycházka je stejně cenná zpráva jako plný košík – ať je vidět. */
   if (x.v && x.v.prosli){
-    k.push('<tr><td>Byli jsme tam</td><td>' +
-      sklonuj(x.v.prosli, 'vycházka', 'vycházky', 'vycházek').replace(/^(\d+)/, '<b>$1</b>') +
-      (x.v.naprazdno
-        ? ', z toho <b>' + x.v.naprazdno + '×</b> naprázdno' +
-          (x.v.posledniPrazdna ? ' (naposledy ' + fmtTime(x.v.posledniPrazdna) + ')' : '')
-        : '') + '</td></tr>');
+    k.push(r('Byli jsme tam', sklonuj(x.v.prosli, 'vycházka', 'vycházky', 'vycházek') +
+      (x.v.naprazdno ? ', ' + x.v.naprazdno + '× naprázdno' : '')));
   }
-  k.push('<tr><td>Dojezd</td><td>' + (m.minuty != null ? m.minuty + ' min' : '?') +
-    (m.km ? ' · ' + m.km + ' km' : '') + (m.presnyDojezd ? '' : ' <i>(odhad)</i>') + '</td></tr>');
-  const proc = (v) => Math.round(v * 100) + ' %';
-  k.push('<tr><td>Hodnocení místa</td><td><b>' + proc(x.sMisto) + '</b> ' +
-    '<small>porost, nálezy, dojezd – mění se v letech</small></td></tr>');
-  k.push('<tr><td>Podmínky teď</td><td><b>' + proc(x.sPocasi) + '</b> ' +
-    '<small>déšť, sezóna, teplota – mění se ve dnech</small></td></tr>');
-  k.push('<tr class="oblRadek"' + (x.obl ? '' : ' style="display:none"') + '><td>Oblíbené</td><td>★ ano</td></tr>');
-  if (m.chranene) k.push('<tr><td>Pozor</td><td>' + esc(m.chranene) + '</td></tr>');
-  return '<table>' + k.join('') + '</table>';
+  if (m.chranene) k.push(r('Pozor', esc(m.chranene)));
+  const d = [];
+  d.push(r('Poslední vydatný déšť', p.poslednivetsi === null ? 'žádný za 21 dní' :
+     (p.poslednivetsi === 0 ? 'dnes' : 'před ' + sklonuj(p.poslednivetsi,'dnem','dny','dny'))));
+  d.push(r('Porost do 400 m', popisPorostu(m)));
+  if (!m.overene) d.push(r('Lesních cest v okolí', m.cest));
+  if (x.n.pocet && x.n.kusy >= x.n.pocet * 1.6) d.push(r('Nálezy', 'byly vydatné'));
+  if (x.v && x.v.posledniPrazdna) d.push(r('Naposledy naprázdno', fmtTime(x.v.posledniPrazdna)));
+  d.push(r('Místo', proc(x.sMisto) + ' · porost, nálezy, dojezd'));
+  d.push(r('Počasí', proc(x.sPocasi) + ' · déšť, sezóna, teplota'));
+  d.push(r('Zdroj', m.overene ? 'ověřený tip' + ((m.loc.druh || '') ? ' · ' + (m.loc.druh || '').replace(/<[^>]+>/g,'') : '')
+                              : 'z map, nikdy jsme tam nebyli'));
+  return '<div class="fakta">' + k.join('') + '</div>' +
+    '<details class="vic"><summary>Víc o místě</summary><div class="fakta">' + d.join('') + '</div></details>';
 }
 
 /* ---------- filtry v dialogu ---------- */
@@ -7427,15 +7473,16 @@ async function kamDnes(){
        stálo „filtry prošlo 200", což byl jen počet míst, kterým jsem stihl
        spočítat dojezd – ne kolik jich filtrům vyhovuje. */
     const zOdkud = odkud();
-    let html = '<div class="kamstat">' +
-      (zOdkud.doma ? 'Počítám dojezd <b>z domova</b>. '
-                   : 'Počítám dojezd <b>od tvojí polohy</b> (' + fmtDist(zOdkud.km*1000) + ' od domova). ') +
+    let html = '<p class="kampod">' + (zOdkud.doma ? 'Z domova' : 'Od tvojí polohy') +
+      ' · do ' + FILTR.minuty + ' min · ' + Math.min(4, poradi.length) + ' nejlepší z ' + celkem.toLocaleString('cs-CZ') + '</p>';
+    let jakPocitam = (zOdkud.doma ? 'Dojezd počítám <b>z domova</b>. '
+                   : 'Dojezd počítám <b>od tvojí polohy</b> (' + fmtDist(zOdkud.km*1000) + ' od domova). ') +
       'Z <b>' + vsech + '</b> míst v ČR vyhovuje filtrům <b>' + celkem + '</b>. ' +
       (orezano
         ? 'Dojezd jsem ověřil u <b>' + strop + '</b> nejbližších (dál nesahám), do limitu se z nich vešlo <b>' + poDojezdu + '</b>'
         : 'Do limitu dojezdu se vešlo <b>' + poDojezdu + '</b>') +
       ', počasí jsem spočítal pro <b>' + doZobrazeni.length + '</b> nejlepších' +
-      (rezervaciSkryto ? ' (rezervace skryly ' + rezervaciSkryto + ')' : '') + '.</div>';
+      (rezervaciSkryto ? ' (rezervace skryly ' + rezervaciSkryto + ')' : '') + '.';
     if (sucho){
       html += '<div class="kamsucho"><b>Dnes nikam.</b> Ani na nejlepším z našich míst nejsou podmínky ' +
               'na to, aby houby rostly. Nebudu ti vymýšlet doporučení, které by nesedělo.<br><br>' +
@@ -7447,27 +7494,31 @@ async function kamDnes(){
       /* „Místo u parkoviště 50.196, 14.508" člověku nic neřekne. Směr
          a vzdálenost od místa, odkud počítáme dojezd, řekne všechno. */
       const odk = odkud().bod;
-      const jmeno = m.overene ? m.loc.name
-        : ('Les ' + fmtDist(distM(odk, [m.lat, m.lng])) + ' na ' +
-           smerSlovy(odk, [m.lat, m.lng]));
-      html += '<div class="kamlok' + (poradi_i === 0 && !sucho ? ' prvni' : '') + '">' +
-        '<div class="hl"><b>' + jmeno + '</b>' +
-        '<span class="sance" style="background:' + s.c + '">' + s.t + '</span></div>' +
-        '<div class="sub">' + (m.overene
-          ? '<span class="znacka over">ověřený tip</span> ' + (m.loc.druh || '').replace(/<[^>]+>/g,'')
-          : '<span class="znacka mapa">z map, nikdy jsme tam nebyli</span>') + '</div>' +
+      const jmeno = m.overene ? esc(m.loc.name)
+        : ('Les ' + fmtDist(distM(odk, [m.lat, m.lng])) + ' ' + smerSlovy(odk, [m.lat, m.lng]));
+      /* v130: prohledané naprázdno v posledních 14 dnech (a od té doby
+         nic nenalezeno) se přeškrtne – stejně jako na rozcestníku
+         přelepená trasa. */
+      const prohledano = x.v && x.v.posledniPrazdna && Date.now() - x.v.posledniPrazdna < 14 * 864e5 &&
+        !(x.n.posledni && x.n.posledni > x.v.posledniPrazdna);
+      const nejlepsi = poradi_i === 0 && !sucho;
+      html += '<div class="kamlok' + (nejlepsi ? ' prvni' : '') + (prohledano ? ' prohledano' : '') + '">' +
+        (nejlepsi ? '<svg class="krouzek" viewBox="0 0 400 68" preserveAspectRatio="none" aria-hidden="true"><path d="M10 38 C 6 14,110 4,300 5 C 372 6,398 20,394 38 C 390 60,210 66,70 62 C 22 60,2 50,14 26"/></svg>' : '') +
+        '<div class="tabule"><i class="zn" style="--z:' + s.c + '"></i><b>' + jmeno + '</b>' +
+        '<small>' + (m.minuty != null ? (m.presnyDojezd ? '' : '~') + m.minuty + ' min' : '') + '</small></div>' +
         duvodMista(x) +
         '<div class="akce">' +
         '<button data-jed="' + poradi_i + '">Ukázat na mapě</button>' +
-        '<button class="ghost" data-obl="' + poradi_i + '">' + (x.obl ? '★ Oblíbené' : '☆ Do oblíbených') + '</button>' +
+        '<button class="ghost" data-obl="' + poradi_i + '">' + oblTlac(x.obl) + '</button>' +
         '</div></div>';
     });
 
-    html += '<p class="pozn"><b>Tohle není jistota, je to počasí a statistika.</b> ' +
+    html += '<details class="napoveda"><summary>Jak jsem počítal</summary><p>' + jakPocitam + '<br><br>' +
+            '<b>Tohle není jistota, je to počasí a statistika.</b> ' +
             'Počítá se hlavně déšť z okna před 6 až 18 dny – tou dobou po dešti plodnice vylézají. ' +
-            'Místa označená <b>„z map"</b> vznikla strojově z evidovaných parkovišť a porostních dat – ' +
-            'nikdo z nás tam nikdy nebyl. Do lesa se odsud nevidím.</p>';
-    html += filtryHTML();
+            'Místa <b>„z map"</b> vznikla strojově z evidovaných parkovišť a porostních dat – ' +
+            'nikdo z nás tam nikdy nebyl.</p></details>';
+    html += '<h3>Upravit hledání</h3>' + filtryHTML();
 
     $('kamObsah').innerHTML = html;
     $('kamModal').classList.add('show');
@@ -7486,7 +7537,7 @@ async function kamDnes(){
       const x = poradi[+bt.dataset.obl];
       const klic = x.m.overene ? ('lok:' + x.m.locIndex) : ('bod:' + x.m.id);
       const je = await prepniOblibene(klic, x.m.overene ? x.m.loc.name : 'Parkoviště u lesa', x.m.lat, x.m.lng);
-      bt.textContent = je ? '★ Oblíbené' : '☆ Do oblíbených';
+      bt.innerHTML = oblTlac(je);
       x.obl = je;
       const karta = bt.closest('.kamlok');
       const radek = karta && karta.querySelector('.oblRadek');
