@@ -124,23 +124,14 @@ code{font-size:var(--t1);background:var(--papir2);padding:1px 5px;border-radius:
 .mistabar .t2:empty{display:none}
 .mistabar .t2 b{color:var(--ink)}
 
-/* ---------- nahoře: dlaždice Vrstvy (ovladač vrstev Leafletu) ---------- */
-.leaflet-top.leaflet-right{z-index:1236;margin-top:calc(var(--safe-t) + var(--nad, 8px) + var(--nadListou, 0px));transition:margin-top .2s}
+/* ---------- nahoře: dlaždice Vrstvy ----------
+   Vlastní ovladač (Leaflet control), otevírá kartu #vrstvyModal. */
+.leaflet-top.leaflet-right{margin-top:calc(var(--safe-t) + var(--nad, 8px) + var(--nadListou, 0px));transition:margin-top .2s}
 .leaflet-right .leaflet-control{margin-right:12px;margin-top:0;margin-bottom:8px}
-.leaflet-control-layers, .leaflet-touch .leaflet-control-layers{border:0 !important;border-radius:14px !important;background:var(--card) !important;color:var(--ink);box-shadow:var(--stin) !important}
-.leaflet-control-layers:not(.leaflet-control-layers-expanded) .leaflet-control-layers-toggle,
-.leaflet-touch .leaflet-control-layers:not(.leaflet-control-layers-expanded) .leaflet-control-layers-toggle{
-  width:76px;height:76px;background:none !important;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-  color:var(--ink);text-decoration:none;font-size:var(--t1);font-weight:700}
-.leaflet-control-layers-toggle::before{content:'';width:26px;height:26px;background:currentColor;
-  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 3 8l9 5 9-5-9-5Z'/%3E%3Cpath d='m3 12.5 9 5 9-5'/%3E%3Cpath d='m3 17 9 5 9-5'/%3E%3C/svg%3E") center/contain no-repeat;
-          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 3 8l9 5 9-5-9-5Z'/%3E%3Cpath d='m3 12.5 9 5 9-5'/%3E%3Cpath d='m3 17 9 5 9-5'/%3E%3C/svg%3E") center/contain no-repeat}
-.leaflet-control-layers-toggle::after{content:'Vrstvy'}
-.leaflet-control-layers-expanded{padding:8px 14px !important;width:min(320px, calc(100vw - 24px));font-size:var(--t1);line-height:1.3;color:var(--ink)}
-.leaflet-control-layers-expanded label{display:flex;align-items:center;gap:10px;min-height:44px;margin:0;font-size:var(--t1)}
-.leaflet-control-layers-expanded label > span, .leaflet-control-layers-expanded label > div{display:flex;align-items:center;gap:10px}
-.leaflet-control-layers-selector{width:20px;height:20px;margin:0 !important;top:0 !important;accent-color:var(--ink);flex:none}
-.leaflet-control-layers-separator{border-top:1px solid var(--line) !important;margin:6px -14px !important}
+.vrstvyBtn{width:76px;height:76px;border:0;border-radius:14px;background:var(--card);color:var(--ink);box-shadow:var(--stin);padding:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:var(--t1);font-weight:700}
+.vrstvyBtn .ik{width:26px;height:26px;flex-basis:26px}
+.vrstvyBtn[aria-expanded="true"]{background:var(--ink);color:var(--card)}
 /* kulaté tlačítko pod vrstvami: zrušit čáru k parkovišti */
 .mapbtn{width:52px;height:52px;border:0;border-radius:50%;background:var(--card);color:var(--ink);box-shadow:var(--stin);
   display:flex;align-items:center;justify-content:center;font-size:var(--t2);font-weight:700;padding:0}
@@ -291,15 +282,20 @@ code{font-size:var(--t1);background:var(--papir2);padding:1px 5px;border-radius:
 .mbox .fchip{width:auto;min-height:44px;margin:0;padding:0 4px;border-radius:9px;background:transparent;color:var(--ink);box-shadow:none;
   font-size:var(--t1);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mbox .fchip.on{background:var(--ink);color:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.2)}
-/* Co hledáme: karta pod lištou podmínek, ne list zespodu */
-#filtrModal{align-items:flex-start;background:transparent;
+/* Co hledáme a Vrstvy: obě jsou stejná karta pod lištou podmínek,
+   ne list zespodu. Stejné nadpisy, segmenty i přepínače. */
+.modal.karta{align-items:flex-start;background:transparent;
   padding:calc(var(--safe-t) + var(--nad, 8px) + var(--bannerH, 84px) + 6px) 12px 0}
-#filtrModal .mbox{border-radius:14px;box-shadow:0 4px 18px rgba(40,34,20,.28);padding:14px 16px 6px;
+.modal.karta .mbox{border-radius:14px;box-shadow:0 4px 18px rgba(40,34,20,.28);padding:14px 16px 6px;
   max-height:calc(100% - 96px - var(--safe-b));animation:vyjedShora .18s ease-out}
 @keyframes vyjedShora{from{transform:translateY(-12px);opacity:.3}to{transform:none;opacity:1}}
-#filtrModal h2{display:none}
-#filtrModal .dole{display:none}
-#filtrModal details.napoveda{margin-bottom:10px}
+.modal.karta h2, .modal.karta .dole{display:none}
+.modal.karta h3{margin:0 0 2px;font-size:var(--t1);font-weight:700;color:var(--muted)}
+.modal.karta details.napoveda{margin-bottom:10px}
+.modal.karta .toggle{min-height:60px}
+.modal.karta .toggle .lbl{display:block;font-size:var(--t1);font-weight:700}
+.modal.karta .toggle .lbl small{display:block;margin:2px 0 0;font-weight:500}
+.filtry .fr > div.dva{grid-template-columns:repeat(2, minmax(0,1fr))}
 
 /* nález */
 .druhy{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:8px;margin-bottom:14px}
@@ -469,6 +465,7 @@ i.bod{display:inline-block;width:11px;height:11px;border-radius:50%;margin:0 6px
  <symbol id="i-stahnout" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
  <symbol id="i-domov" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9v11.5h13V9"/><path d="M10 20.5v-6h4v6"/></symbol>
  <symbol id="i-houba" viewBox="0 0 24 24"><path d="M3 12a9 8 0 0 1 18 0Z"/><path d="M9.5 12v6.5a2.5 2.5 0 0 0 5 0V12"/></symbol>
+ <symbol id="i-vrstvy" viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 12.5 9 5 9-5"/><path d="m3 17 9 5 9-5"/></symbol>
  <symbol id="i-nahoru" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
  <symbol id="i-foto" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
 </svg>
@@ -489,6 +486,7 @@ i.bod{display:inline-block;width:11px;height:11px;border-radius:50%;margin:0 6px
   <span class="sipka" aria-hidden="true">›</span>
 </div>
 
+<button class="vrstvyBtn leaflet-control" id="btnVrstvy" aria-controls="vrstvyModal" aria-expanded="false"><svg class="ik"><use href="#i-vrstvy"/></svg>Vrstvy</button>
 <button class="mapbtn leaflet-control" id="btnZrusPark" hidden aria-label="Zrušit čáru k parkovišti" title="Zrušit čáru k parkovišti"><svg class="ik"><use href="#i-zavrit"/></svg></button>
 
 <div class="banner" id="banner" role="status" aria-live="polite"><span class="close" id="bannerClose" role="button" tabindex="0" aria-label="Zavřít hlášku"><svg class="ik"><use href="#i-zavrit"/></svg></span><span id="bannerTxt"></span></div>
@@ -530,6 +528,32 @@ i.bod{display:inline-block;width:11px;height:11px;border-radius:50%;margin:0 6px
       <div class="mini zavira" id="btnFind2" role="button" tabindex="0" aria-label="Zapsat nález houby"><svg class="ik" aria-hidden="true"><use href="#i-houba"/></svg>Nález</div>
       <div class="mini zavira" id="btnTrasa" role="button" tabindex="0" aria-label="Začít nebo ukončit záznam trasy"><svg class="ik" aria-hidden="true"><use href="#i-trasa"/></svg>Trasa</div>
       <div class="mini zavira" id="btnLegend" role="button" tabindex="0" aria-label="Nastavení"><svg class="ik" aria-hidden="true"><use href="#i-nastaveni"/></svg>Nastavení</div>
+    </div>
+  </div>
+</div>
+
+<!-- Vrstvy: stejná karta pod lištou jako „Co hledáme" – podklad jako
+     segment, vrstvy jako přepínače. -->
+<div class="modal karta" role="dialog" aria-modal="true" aria-label="Vrstvy mapy" id="vrstvyModal">
+  <div class="mbox">
+    <div class="filtry">
+      <div class="fr"><span>Podklad</span><div class="dva">
+        <button class="fchip" id="vrPodkladMapa">Mapa</button>
+        <button class="fchip" id="vrPodkladLetecka">Letecká (ČÚZK)</button>
+      </div></div>
+    </div>
+    <h3>Na mapě</h3>
+    <div class="toggle" id="vr_rust" role="switch" tabindex="0" aria-checked="true">
+      <div class="sw" aria-hidden="true"><i></i></div>
+      <div class="lbl">Kde sbírat<small>porosty obarvené podle houby z filtru</small></div>
+    </div>
+    <div class="toggle" id="vr_gbif" role="switch" tabindex="0" aria-checked="true">
+      <div class="sw" aria-hidden="true"><i></i></div>
+      <div class="lbl">Ověřené nálezy<small>1 802 pozorování z GBIF</small></div>
+    </div>
+    <div class="toggle" id="vr_mista" role="switch" tabindex="0" aria-checked="true" style="border-bottom:0">
+      <div class="sw" aria-hidden="true"><i></i></div>
+      <div class="lbl">Parkoviště u lesa<small>7 656 míst v celé ČR</small></div>
     </div>
   </div>
 </div>
@@ -701,7 +725,7 @@ i.bod{display:inline-block;width:11px;height:11px;border-radius:50%;margin:0 6px
      Filtry se mění před každou vycházkou a musí být na jedno klepnutí
      z lišty. Nastavení se otevře jednou za čas. Proto dvě okna:
      lišta → tohle, kolo → Nastavení. -->
-<div class="modal" role="dialog" aria-modal="true" id="filtrModal">
+<div class="modal karta" role="dialog" aria-modal="true" id="filtrModal">
   <div class="mbox">
     <h2>Co hledáme</h2>
     <div id="filtrObsah"></div>
@@ -855,7 +879,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'nova-v1';   // mění se s každým vydáním
+const APP_VERZE = 'nova-v2';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1530,17 +1554,58 @@ function obnovVrstvy(){
   }
 }
 
-L.control.layers({
-  'Mapa': tiles,
-  'Letecká (ČÚZK)': ortofoto
-}, {
-  '<b>Kde sbírat</b> – porosty podle tvojí houby': rustVrstva,
-  '<b>Ověřené nálezy</b> – 1 802 pozorování (GBIF)': gbifVrstva,   // v108: doplněn podzim 2026
-  '<b>Parkoviště</b> – 7 656 míst u lesa v celé ČR': mistaVrstva
-}, {collapsed:true}).addTo(map);
+/* Nová appka: vrstvy nejsou rozbalovací seznam Leafletu, ale stejná
+   karta jako „Co hledáme". Události overlayadd / overlayremove /
+   baselayerchange se posílají stejně, jako je posílal ovladač Leafletu,
+   takže zbytek appky (ukládání, překreslení, nálezy GBIF) se nemění. */
+const PREKRYVY = {rust: rustVrstva, gbif: gbifVrstva, mista: mistaVrstva};
+function vykresliVrstvy(){
+  const let_ = map.hasLayer(ortofoto);
+  $('vrPodkladMapa').classList.toggle('on', !let_);
+  $('vrPodkladLetecka').classList.toggle('on', let_);
+  Object.keys(PREKRYVY).forEach(k => {
+    const t = $('vr_' + k), on = map.hasLayer(PREKRYVY[k]);
+    t.classList.toggle('on', on); t.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
+function dejPodklad(letecka){
+  const novy = letecka ? ortofoto : tiles, stary = letecka ? tiles : ortofoto;
+  if (!map.hasLayer(novy)){
+    map.removeLayer(stary); map.addLayer(novy);
+    if (novy.bringToBack) novy.bringToBack();
+    map.fire('baselayerchange', {layer: novy, name: letecka ? 'Letecká (ČÚZK)' : 'Mapa'});
+  }
+  vykresliVrstvy();
+}
+function prepniVrstvu(k){
+  const vr = PREKRYVY[k];
+  if (map.hasLayer(vr)){ map.removeLayer(vr); map.fire('overlayremove', {layer: vr, name: k}); }
+  else { map.addLayer(vr); map.fire('overlayadd', {layer: vr, name: k}); }
+  vykresliVrstvy();
+}
+$('vrPodkladMapa').onclick = () => dejPodklad(false);
+$('vrPodkladLetecka').onclick = () => dejPodklad(true);
+Object.keys(PREKRYVY).forEach(k => $('vr_' + k).onclick = () => prepniVrstvu(k));
+const OvladacVrstvy = L.Control.extend({
+  options: {position:'topright'},
+  onAdd(){ const el = document.getElementById('btnVrstvy');
+           L.DomEvent.disableClickPropagation(el);
+           return el; }
+});
+map.addControl(new OvladacVrstvy());
+$('btnVrstvy').onclick = () => {
+  const m = $('vrstvyModal'), otevrit = !m.classList.contains('show');
+  m.classList.toggle('show', otevrit);
+  $('btnVrstvy').setAttribute('aria-expanded', otevrit ? 'true' : 'false');
+  if (otevrit) vykresliVrstvy();
+};
+new MutationObserver(() => {
+  if (!$('vrstvyModal').classList.contains('show')) $('btnVrstvy').setAttribute('aria-expanded', 'false');
+}).observe($('vrstvyModal'), {attributes: true, attributeFilter: ['class']});
 
 map.on('overlayadd overlayremove', ulozVrstvy);
 obnovVrstvy();
+vykresliVrstvy();
 
 /* Na letecké mapě jsou tmavé polygony porostů špatně vidět – zesvětlí se. */
 map.on('baselayerchange', (e) => {
