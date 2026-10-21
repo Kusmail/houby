@@ -1177,7 +1177,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v122';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v123';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -6735,15 +6735,25 @@ const LES_OKOLI_M = 15000;     // okolí, ve kterém hledáme
    aspoň 70 % nejlepší hodnoty daného druhu. Pořadí pak dál určuje
    vhodnostPorostu(), tohle je jen síto. */
 const PATRA = ['do 2,5 m', 'od 2,5 m do 8 m', 'od 8 m do 20 m', 'nad 20 m'];
+/* v123: u „Vše" se síto skládalo ze všech osmi druhů stejně, takže do
+   čtyřiceti největších porostů, které ČÚZK vrátí, se v říjnu cpaly
+   i porosty dobré jen pro červnový hřib dubový. Hodnocení už od v122
+   bere váhu sezóny (vahaSezonyDruhu) – síto teď také: kombinace musí mít
+   aspoň 70 % nejlepší VÁŽENÉ hodnoty ze všech hub ve filtru. Pro jednu
+   houbu je váha 1 a nic se nemění. */
 function vyberSql(){
   const podminky = new Set();
-  for (const k of clenoveFiltru(FILTR.druh)){
-    const h = HOUBY[k]; if (!h) continue;
-    const typy = Object.keys(h.v).filter(t => t !== 'bez určení');
-    let max = 0;
-    typy.forEach(t => PATRA.forEach(p => { max = Math.max(max, h.v[t][p] || 0); }));
-    typy.forEach(t => PATRA.forEach(p => {
-      if ((h.v[t][p] || 0) >= 0.7 * max) podminky.add("(druh_p = '" + t + "' AND vyska_p = '" + p + "')");
+  const clenove = clenoveFiltru(FILTR.druh).filter(k => HOUBY[k]);
+  const typyDruhu = k => Object.keys(HOUBY[k].v).filter(t => t !== 'bez určení');
+  let max = 0;
+  for (const k of clenove){
+    const w = vahaSezonyDruhu(k), h = HOUBY[k];
+    typyDruhu(k).forEach(t => PATRA.forEach(p => { max = Math.max(max, w * (h.v[t][p] || 0)); }));
+  }
+  for (const k of clenove){
+    const w = vahaSezonyDruhu(k), h = HOUBY[k];
+    typyDruhu(k).forEach(t => PATRA.forEach(p => {
+      if (w * (h.v[t][p] || 0) >= 0.7 * max) podminky.add("(druh_p = '" + t + "' AND vyska_p = '" + p + "')");
     }));
   }
   return podminky.size ? [...podminky].join(' OR ') : VYBER_SQL.vse;
