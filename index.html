@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#2e5c3a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- v126: black-translucent odebráno – iOS 26 přes průhledný stavový řádek kreslil matný pás
+     a rozmazával horní okraj appky. Platí pro ikonu přidanou na plochu od v126 (iOS to čte
+     jen při přidání). Starší instalace běží dál s průhledným řádkem, viz HB_LISTA_PRUHLEDNA. -->
 <meta name="apple-mobile-web-app-title" content="Houbař">
 <title>Houbař</title>
 <link rel="manifest" href="manifest.json">
@@ -1133,6 +1135,36 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
 
    Meze: nahoře 59 px (nejvyšší ostrůvek), dole 34 px (čárka pro
    domovskou obrazovku). Nic víc iOS nikdy nepotřebuje. */
+/* v126: V JAKÉM REŽIMU BĚŽÍ STAVOVÝ ŘÁDEK
+   Typ stavového řádku čte iOS jen ve chvíli, kdy se ikona přidá na
+   plochu. Instalace z doby s black-translucent (do v125) mají řádek
+   průhledný: stránka se kreslí pod hodiny, iOS hlásí horní odsazení 0
+   a okno o 59 px kratší než displej (bílý pruh, v95). Instalace od v126
+   mají řádek neprůhledný: stránka začíná až pod hodinami, takže žádné
+   z těch dopočtů nepatří. Smazáním ikony zmizí i data appky – nová
+   instalace tedy začíná s prázdným úložištěm. Podle toho se režim určí
+   při prvním spuštění a zapamatuje. Ověřit se to dá v Diagnostice. */
+(function rezimLisy(){
+  var pruhledna = true;
+  try {
+    var vs = window.navigator.standalone === true ||
+             (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    if (vs){
+      var ulozeno = localStorage.getItem('hb_lista');
+      if (ulozeno) pruhledna = JSON.parse(ulozeno) !== 'nepruhledna';
+      else {
+        var maData = false;
+        for (var i = 0; i < localStorage.length; i++){
+          if ((localStorage.key(i) || '').indexOf('hb_') === 0){ maData = true; break; }
+        }
+        pruhledna = maData;
+        localStorage.setItem('hb_lista', JSON.stringify(pruhledna ? 'pruhledna' : 'nepruhledna'));
+      }
+    }
+  } catch(e){}
+  window.HB_LISTA_PRUHLEDNA = pruhledna;
+})();
+
 (function safeAreaPojistka(){
   var STROP_T = 59, STROP_B = 34;
   function uprav(){
@@ -1146,7 +1178,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
     var vyrez  = (delsi / kratsi) > 1.9;      // iPhone s výřezem nebo ostrůvkem
 
     /* dolní mez: jen v appce z ikonky, kde iOS hlásí nulu i pod hodinami */
-    if (vs && t < 1) { t = vyrez ? 47 : 20; document.documentElement.style.setProperty('--safe-t', t + 'px'); }
+    if (vs && t < 1 && window.HB_LISTA_PRUHLEDNA) { t = vyrez ? 47 : 20; document.documentElement.style.setProperty('--safe-t', t + 'px'); }
     if (vs && b < 1 && vyrez) { b = 34; document.documentElement.style.setProperty('--safe-b', '34px'); }
     /* v125: iOS 26 v appce z ikonky (stavový řádek black-translucent) kreslí
        přes horní okraj stránky matný pás – zasahuje kus pod hodiny a lišty
@@ -1154,7 +1186,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
        odebráním black-translucent, což chce smazat a znovu přidat ikonu
        a mění výšku okna, na které stojí oprava bílého pruhu (v95). Lišty
        proto začínají pod pásem. Jen v appce z ikonky na telefonu s výřezem. */
-    if (vs && vyrez) document.documentElement.style.setProperty('--nad', '44px');
+    if (vs && vyrez && window.HB_LISTA_PRUHLEDNA) document.documentElement.style.setProperty('--nad', '44px');
 
     /* horní strop: platí vždycky, i v Safari – nafouknutá hodnota je chyba
        měření, ne bezpečná zóna, a ukusuje z mapy */
@@ -1210,7 +1242,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v125';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v126';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2556,8 +2588,22 @@ function jeZIkonky(){
        nedaval smysl),
      - jen kdyz klasicke merilo hlasi nulu,
      - strop 160 px jako driv. */
+/* v126: surová hodnota env(safe-area-inset-*) – bez pojistek, jen do Diagnostiky */
+function envSurove(strana){
+  try {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding-' + strana + ':env(safe-area-inset-' + strana + ',0px)';
+    document.body.appendChild(d);
+    const v = parseFloat(getComputedStyle(d)['padding' + strana[0].toUpperCase() + strana.slice(1)]) || 0;
+    d.remove();
+    return Math.round(v) + 'px';
+  } catch(e){ return '?'; }
+}
+
 function dnoZDispleje(){
   if (!jeZIkonky()) return 0;
+  // v126: s neprůhledným stavovým řádkem začíná stránka pod hodinami – rozdíl displej − okno je řádek, ne pruh
+  if (window.HB_LISTA_PRUHLEDNA === false) return 0;
   const s = window.screen;
   if (!s || !s.height || !s.width) return 0;
   if (Math.abs(s.width - window.innerWidth) > 2) return 0;
@@ -7299,6 +7345,11 @@ function diagnostika(){
       'verze <b>' + APP_VERZE + '</b><br>' +
       'okno ' + window.innerWidth + '×' + window.innerHeight +
       ' · displej ' + screen.width + '×' + screen.height + '<br>' +
+      'stavový řádek: <b>' + (window.HB_LISTA_PRUHLEDNA === false ? 'neprůhledný (instalace od v126)' : 'průhledný (starší instalace)') + '</b><br>' +
+      'surově: env nahoře ' + envSurove('top') + ' · dole ' + envSurove('bottom') +
+      ' · html ' + document.documentElement.clientHeight + ' · vv ' + Math.round(window.visualViewport ? visualViewport.height : 0) +
+      '/' + Math.round(window.visualViewport ? visualViewport.offsetTop : 0) +
+      ' · screenY ' + (window.screenY || 0) + ' · outer ' + (window.outerHeight || 0) + '<br>' +
       'bezpečná zóna: nahoře ' + st.getPropertyValue('--safe-t').trim() +
       ' · dole ' + st.getPropertyValue('--safe-b').trim() + '<br>' +
       'panel: výška ' + Math.round(r.height) + ' · složený pruh <b>' + vidno + '</b>' +
