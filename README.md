@@ -3,7 +3,7 @@
 Rodinná mapa na houby po celé ČR: **kde hledat, kudy jít, kde zaparkovat**, zaparkované **auto** a **poloha** rodiny. Otevírá se v prohlížeči a přidá se na plochu telefonu jako ikona. Žádný App Store, žádné poplatky.
 
 > **Nová podoba (od verze houby-v135, říjen 2026).** Na hlavní adrese **`…/houby/`** běží nová appka; tenhle návod popisuje ji. Ikona na ploše zůstává stejná, appka nabídne „Je připravená nová verze → Načíst".
-> **Stará appka** zůstala jako záloha na **`…/houby/stara/`** (Menu → Nastavení → Stará verze). Obě sdílejí stejná data (jméno, rodinný kód, auto, nálezy, oblíbená, stažené mapy). Zkušební adresa `…/houby/nova/` přesměruje na hlavní.
+> **Stará appka** zůstala jako záloha na **`…/houby/stara/`** (Menu → Nastavení → Stará verze). Obě sdílejí stejná data (jméno, rodinný kód, auto, nálezy, oblíbená, stažené mapy). Na zkušební adrese `…/houby/nova/` (ikona „Houbař N") běží stejná nová appka; ikonu stačí mít jednu.
 
 ---
 
