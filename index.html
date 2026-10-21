@@ -467,7 +467,7 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 
 /* bannery */
 .banner{
-  position:absolute;top:calc(var(--safe-t) + 8px + var(--updH,0px));left:8px;right:8px;z-index:1250;
+  position:absolute;top:calc(var(--safe-t) + var(--nad, 8px) + var(--updH,0px));left:8px;right:8px;z-index:1250;
   background:#fdf3e3;border:1px solid #e6bd7a;border-left:4px solid #d99327;
   border-radius:10px;padding:9px 11px;font-size:12px;line-height:1.45;
   box-shadow:0 3px 12px rgba(0,0,0,.14);display:none
@@ -476,14 +476,14 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .banner.show{display:block}
 .banner b{display:block;margin-bottom:2px}
 .updbar{
-  position:absolute;top:calc(var(--safe-t) + 8px);left:8px;right:8px;z-index:2100;
+  position:absolute;top:calc(var(--safe-t) + var(--nad, 8px));left:8px;right:8px;z-index:2100;
   background:var(--green);color:#fff;border-radius:10px;padding:10px 12px;
   box-shadow:0 3px 14px rgba(0,0,0,.25);font-size:12.5px;line-height:1.4;
   display:none;align-items:center;gap:10px
 }
 .updbar.show{display:flex}
 .recbar{
-  position:absolute;top:calc(var(--safe-t) + 8px + var(--updH,0px) + var(--bannerOnlyH,0px));
+  position:absolute;top:calc(var(--safe-t) + var(--nad, 8px) + var(--updH,0px) + var(--bannerOnlyH,0px));
   left:8px;right:8px;z-index:1240;
   background:#fdece9;border:1px solid #e8a9a3;border-left:4px solid var(--danger);
   border-radius:10px;padding:8px 11px;font-size:12.5px;font-weight:600;display:none;align-items:center;gap:8px
@@ -491,7 +491,7 @@ details.napoveda p{padding:0 12px 12px;font-size:12px;line-height:1.5;margin:0;c
 .recbar.show{display:flex}
 .mistabar{
   position:absolute;
-  top:calc(var(--safe-t) + 8px + var(--updH,0px) + var(--bannerOnlyH,0px) + var(--recH,0px));
+  top:calc(var(--safe-t) + var(--nad, 8px) + var(--updH,0px) + var(--bannerOnlyH,0px) + var(--recH,0px));
   left:8px;right:56px;z-index:1230;
   background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 10px;
   font-size:12px;line-height:1.35;display:none;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(0,0,0,.10)
@@ -649,7 +649,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
   padding:1px 5px;font-size:10.5px;font-weight:650;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 
 .leaflet-control-layers{font-size:12.5px}
-.leaflet-top.leaflet-right{margin-top:calc(var(--safe-t) + 8px + var(--bannerH,0px));transition:margin-top .2s}
+.leaflet-top.leaflet-right{margin-top:calc(var(--safe-t) + var(--nad, 8px) + var(--bannerH,0px));transition:margin-top .2s}
 .leaflet-control-zoom{display:none}
 /* Audit 7: na počítači se všechny lišty roztahovaly přes celou šířku
    monitoru, takže dvě slova plavala ve 1400 px prázdna a mapy bylo
@@ -808,6 +808,29 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
 /* měřítko a tiráž mapy nad dokem, ať je prst netrefí místo mapy */
 /* mapa sahá v appce z ikonky o --dno pod okno (v95), dok sedí na spodku okna */
 .leaflet-bottom{bottom:calc(var(--dok, 0px) + var(--dno, 0px))}
+
+/* ============================================================
+   v125: SPODNÍ LIŠTY JEŠTĚ MENŠÍ
+
+   Snímek z iPhonu (21. 10.): ve složeném menu široké „Určit houbu"
+   a pod ním přes celou šířku pruh k autu s „–". Mapa nebyla vidět.
+   Teď je složené menu jedna řada čtverců: Menu vlevo, Určit a Auto
+   vpravo. S označeným autem sedí mezi nimi malý štítek se šipkou
+   a vzdáleností (Přeparkoval / Auto mám jsou ve vyjetém menu). Když
+   appka položí otázku „Vyzvedl jsi auto?", ukáže se celý panel.
+   ============================================================ */
+.lensKratky{display:none}
+.sheet.peek .hlavniradek{justify-content:flex-end}
+.sheet.peek .hlavniradek .lens{flex:0 0 58px; width:58px; height:54px; min-height:54px; padding:2px;
+  flex-direction:column; gap:0; justify-content:center; font-size:17px; line-height:1; background:rgba(66,58,50,.92)}
+.sheet.peek .hlavniradek .auto{flex:0 0 58px; width:58px}
+.sheet.peek .lensDlouhy{display:none}
+.sheet.peek .lensKratky{display:block; font-size:10px; font-weight:700; line-height:1.12; margin-top:3px}
+.sheet.peek .carnav:not(:has(#carPtam:not([hidden]))){
+  position:absolute; left:78px; right:78px; top:6px; height:54px; padding:6px 10px; border-radius:14px}
+.sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) .carnav-top{gap:10px; width:100%}
+.sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) .arrowwrap{width:40px; height:40px; flex-basis:40px}
+.sheet.peek .carnav:not(:has(#carPtam:not([hidden]))) .carinfo .d{font-size:19px}
 </style>
 </head>
 <body>
@@ -868,7 +891,7 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
        v jedné ruce a houbou v druhé: auto a určení houby. Hledání lesa
        a plánování výjezdu se dělá vsedě, s vytaženým panelem. -->
   <div class="hlavniradek">
-    <button class="bigbtn lens" id="btnLupa" aria-label="Vyfotit houbu nebo vybrat fotku z galerie a poslat ji do Google Lens">🔍 &nbsp;Určit houbu</button>
+    <button class="bigbtn lens" id="btnLupa" aria-label="Vyfotit houbu nebo vybrat fotku z galerie a poslat ji do Google Lens">🔍<span class="lensDlouhy">&nbsp;Určit houbu</span><span class="pop2 lensKratky">Určit</span></button>
     <button class="bigbtn auto" id="btnPark" aria-label="Označit, kde stojí auto">🚗<span class="pop2">Označit<br>auto</span></button>
   </div>
 
@@ -1125,6 +1148,13 @@ button, [role=button], [role=switch], .mini, .toggle, .fchip, .druhy button,
     /* dolní mez: jen v appce z ikonky, kde iOS hlásí nulu i pod hodinami */
     if (vs && t < 1) { t = vyrez ? 47 : 20; document.documentElement.style.setProperty('--safe-t', t + 'px'); }
     if (vs && b < 1 && vyrez) { b = 34; document.documentElement.style.setProperty('--safe-b', '34px'); }
+    /* v125: iOS 26 v appce z ikonky (stavový řádek black-translucent) kreslí
+       přes horní okraj stránky matný pás – zasahuje kus pod hodiny a lišty
+       v něm byly rozmazané (snímek z iPhonu 21. 10.). Vypnout ho jde jen
+       odebráním black-translucent, což chce smazat a znovu přidat ikonu
+       a mění výšku okna, na které stojí oprava bílého pruhu (v95). Lišty
+       proto začínají pod pásem. Jen v appce z ikonky na telefonu s výřezem. */
+    if (vs && vyrez) document.documentElement.style.setProperty('--nad', '44px');
 
     /* horní strop: platí vždycky, i v Safari – nafouknutá hodnota je chyba
        měření, ne bezpečná zóna, a ukusuje z mapy */
@@ -1180,7 +1210,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v124';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v125';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -1343,7 +1373,7 @@ const map = L.map('map', {zoomControl:false, tap:false}).setView(HOME, 10);
 const POPOPT = {maxWidth:280, autoPanPaddingTopLeft:L.point(16,110), autoPanPaddingBottomRight:L.point(16,240)};
 function odsazeniBublin(){
   const cti = (n) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n)) || 0;
-  const nahore = cti('--safe-t') + 8 + cti('--bannerH') + 16;
+  const nahore = cti('--safe-t') + (cti('--nad') || 8) + cti('--bannerH') + 16;
   POPOPT.autoPanPaddingTopLeft = L.point(16, Math.round(nahore));
   const sh = document.querySelector('.sheet');
   const dole = sh ? Math.min(360, Math.round(sh.getBoundingClientRect().height -
