@@ -1622,7 +1622,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v132';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v133';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -6651,8 +6651,13 @@ async function prekresliRust(){
          výřezu – „nejlepší porost 100 % × počasí a sezóna 100 %".
          Dvě čísla o téže věci na jedné liště, a to nesouhlasná.
          Prázdný řetězec starý řádek smaže. */
-      zpravaRustu('<b>Dnes nejlíp ' + Math.round(nej.index*100) + ' %</b> – ' + nej.jmeno +
-                  ' <small>· čísla jsou odhad z počasí · přibliž se na porosty</small>', '');
+      /* v133: celé to byl jeden nadpis (useknutý v půlce jména kraje). */
+      const sp = slovniSance(nej.index);
+      const tp = $('sanceTecka');
+      if (tp) tp.style.background = sp.c;
+      zpravaRustu('<span class="nazev">Dnes nejlíp</span>' +
+                  '<span class="cislo" style="--c:' + sp.c + '">' + Math.round(nej.index*100) + ' %</span>',
+                  nej.jmeno + ' · odhad z počasí');
     } catch(e){
       rustVrstva.clearLayers();
       zpravaRustu('<b>Přibliž</b>, ať vyberu porosty', '');
@@ -6682,12 +6687,12 @@ async function prekresliRust(){
       if (v.prilis){
         rustVrstva.clearLayers();
         rustPokryti = null;
-        zpravaRustu('<b>Výřez ' + v.km + ' km</b> – přibliž, ať vyberu porosty');
+        zpravaRustu('<b>Výřez ' + v.km + ' km</b> – přibliž, ať vyberu porosty', '');
         return;
       }
       if (!v.pocet){
         rustPokryti = null;
-        zpravaRustu('<b>Tady žádný evidovaný porost není</b>');
+        zpravaRustu('<b>Tady žádný evidovaný porost není</b>', '');
         return;
       }
       /* Pokrytí je to, co je opravdu stažené – ne obrazovka. */
@@ -6697,7 +6702,7 @@ async function prekresliRust(){
     } catch(e){
       rustPokryti = null;
       if (e.name !== 'AbortError')
-        zpravaRustu('<b>Porosty se nenačetly</b> – ' + e.message);
+        zpravaRustu('<b>Porosty se nenačetly</b> – ' + e.message, '');
       return;
     } finally { rustProbiha = false; }
   }
@@ -6710,7 +6715,7 @@ async function prekresliRust(){
     if (m.prilis){
       rustVrstva.clearLayers();
       rustPokryti = null;
-      zpravaRustu('<b>Výřez ' + m.km + ' km</b> – přibliž, ať obarvím les');
+      zpravaRustu('<b>Výřez ' + m.km + ' km</b> – přibliž, ať obarvím les', '');
       return;
     }
     const mr = await pocasiMrizka(m.sw, m.ne);
@@ -6747,7 +6752,7 @@ async function prekresliRust(){
     if (!meze.contains(map.getBounds())) prekresliRustBrzy();
   } catch(e){
     rustPokryti = null;
-    zpravaRustu('<b>Nespočítal jsem to</b> – ' + e.message);
+    zpravaRustu('<b>Nespočítal jsem to</b> – ' + e.message, '');
   } finally {
     rustProbiha = false;
   }
@@ -6782,16 +6787,24 @@ function ukazLegenduRustu(mr, podilLesa){
   const prum = mr.hodnoty.reduce((a,b)=>a+b,0) / mr.hodnoty.length;
   const nej  = Math.max.apply(null, mr.hodnoty);
   if (!podilLesa){
-    zpravaRustu('<b>Tady žádný les není</b>');
+    zpravaRustu('<b>Tady žádný les není</b>', '');
     return;
   }
   /* Audit 5: na iPhonu 390x844 zabíraly lišty i s touhle legendou 272 px,
      tedy 32 % obrazovky – z mapy zbýval pruh 234 px. Vysvětlení patří
      do ℹ️, nad mapu jen čísla a škála. */
-  zpravaRustu('<b>Okolí ' + Math.round(prum*100) + ' %</b>, nejlíp ' + Math.round(nej*100) + ' % ' +
-    '<span class="skala">' + BARVY_RUSTU.map((c,i) =>
-      '<i style="background:rgb('+c.join(',')+')" title="' + (i+1) + ' z 5"></i>').join('') + '</span> ' +
-    '<small>odhad z počasí, ne jistota</small>');
+  /* v133: snímek z iPhonu – po roztažení prsty mezi přiblížením 12 a 13
+     stálo nahoře „Okolí 40 %, nejlíp 54 % …" useknuté za škálou a pod
+     tím zůstal řádek z přiblížené mapy („1958 ha vhodného lesa"), který
+     k obarvené ploše nepatří. Teď stejný zápis jako u porostů: stupeň,
+     zakroužkované číslo a vlastní druhý řádek. */
+  const s = slovniSance(prum);
+  const t = $('sanceTecka');
+  if (t) t.style.background = s.c;
+  zpravaRustu(
+    '<span class="nazev">' + s.t.charAt(0).toUpperCase() + s.t.slice(1) + ' podmínky</span>' +
+    '<span class="cislo" style="--c:' + s.c + '">' + Math.round(prum*100) + ' %</span>',
+    'v okolí · nejlíp ' + Math.round(nej*100) + ' % · odhad z počasí');
 }
 
 /* ============================================================
