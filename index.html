@@ -999,6 +999,102 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
 .sheet-body .mini{flex-direction:column; justify-content:center; gap:6px; height:64px; border:0; border-radius:12px;
   background:var(--papir2); color:var(--ink); font:600 var(--t1)/1 -apple-system, system-ui, sans-serif; padding:0}
 .sheet-body .mini b{font:700 var(--t1)/1 -apple-system, system-ui, sans-serif}
+
+/* ============================================================
+   v129: NOVÝ VZHLED 3/5 – OKNA
+   Okna dosud: karta 340 px uprostřed, šest velikostí písma od 10
+   do 18 px, nadpisy částí verzálkami, zelené tlačítko „Hotovo",
+   emoji v tlačítkách. Teď jsou to listy zespodu přes celou šířku
+   (o 53 px víc na řádek a palec dosáhne na všechno), písmo jen
+   15 / 19 / 28 px, nadpisy částí jako v menu, hlavní tlačítko
+   tuhou, vedlejší obrysem, čipy filtru jako štítky.
+   Okno se jménem zůstává uprostřed – má pole pro psaní a list
+   u spodní hrany by na iPhonu zajela klávesnice.
+   ============================================================ */
+@media (max-width:600px){
+  .modal{align-items:flex-end; padding:calc(var(--safe-t, 0px) + 20px) 0 0}
+  .mbox{max-width:none; max-height:100%; border-radius:22px 22px 0 0;
+    padding:22px 20px calc(20px + var(--safe-b, 0px))}
+  .mbox:has(> .dole){padding-bottom:20px}
+  .mbox .dole{border-radius:0}
+  #nameModal{align-items:center; padding:18px}
+  #nameModal .mbox{border-radius:16px; padding-bottom:20px}
+}
+.mbox{background:var(--card); box-shadow:0 -6px 24px rgba(40,34,20,.18)}
+.mbox h2{font:700 var(--t3)/1.1 -apple-system, system-ui, sans-serif; letter-spacing:-.02em; margin:0 0 14px; color:var(--ink)}
+.mbox p, .mbox .pozn, .mbox p.pozn, .mbox details.napoveda p, .mbox .filtry .popisHouby{
+  font:500 var(--t1)/1.45 -apple-system, system-ui, sans-serif; color:var(--muted)}
+.mbox p small{font-size:inherit}
+.mbox h3, .mbox .sekce h3{font:700 var(--t1)/1.2 -apple-system, system-ui, sans-serif; text-transform:none; letter-spacing:0; color:var(--muted); margin:20px 0 8px}
+.mbox .sekce{margin:0; padding:0 0 18px}
+.mbox .sekce:first-of-type h3{margin-top:4px}
+.mbox input{font:500 17px/1.2 -apple-system, system-ui, sans-serif; border-radius:12px; min-height:52px; background:var(--card); color:var(--ink)}
+/* tlačítka: hlavní tuhou, vedlejší obrysem */
+.mbox button{min-height:52px; border-radius:12px; background:var(--ink); color:var(--card); padding:12px 16px;
+  font:700 var(--t2)/1.2 -apple-system, system-ui, sans-serif; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow:none}
+.mbox button.ghost, .mbox .ghost, .mbox a.tlac2{background:transparent; color:var(--ink); box-shadow:inset 0 0 0 1.5px var(--ink);
+  font:700 var(--t1)/1.2 -apple-system, system-ui, sans-serif}
+.mbox a.tlac2{display:flex; align-items:center; justify-content:center; min-height:52px; border-radius:12px; text-decoration:none; margin:0 0 14px}
+.mbox button .ik, .mbox .fotobtn .ik, .mbox a .ik{width:20px; height:20px; flex:0 0 20px}
+.mbox [hidden]{display:none !important}
+.mbox .dole{background:var(--card)}
+.mbox .dole button{min-height:56px}
+.mbox button.no, .mbox .ghost.no{box-shadow:inset 0 0 0 1.5px var(--cervena); color:var(--cervena)}
+/* jméno a domov */
+.mbox .jmenoradek .jm{font:600 var(--t2)/1.2 -apple-system, system-ui, sans-serif}
+.mbox .jmenoradek .ghost.uzky{width:auto; padding:0 18px; margin:0}
+/* čipy filtru: obrysové štítky, vybraný tuhou */
+.mbox .filtry{border-top:0; padding-top:0; margin-bottom:8px}
+.mbox .filtry .fr{display:block; margin:0 0 18px}
+.mbox .filtry .fr > span{display:block; width:auto; padding:0; margin:0 0 8px; font:700 var(--t1)/1.2 -apple-system, system-ui, sans-serif; color:var(--muted)}
+.mbox .filtry .fr > div{gap:8px}
+.mbox .filtry .popisHouby{margin:10px 0 0}
+.mbox .fchip{min-height:44px; padding:0 14px; border:0; border-radius:22px; background:transparent; color:var(--ink);
+  box-shadow:inset 0 0 0 1.5px var(--line); font:600 var(--t1)/1 -apple-system, system-ui, sans-serif}
+.mbox .fchip.on{background:var(--ink); color:var(--card); box-shadow:none}
+/* nález: druhy a množství */
+.mbox .druhy{gap:8px}
+.mbox .druhy button{min-height:52px; padding:6px 4px; border:0; border-radius:12px; background:transparent; color:var(--ink);
+  box-shadow:inset 0 0 0 1.5px var(--line); font:600 var(--t1)/1.15 -apple-system, system-ui, sans-serif}
+.mbox .druhy button small{font:500 var(--t1)/1.15 -apple-system, system-ui, sans-serif; color:var(--muted)}
+.mbox .druhy button.on{background:var(--ink); color:var(--card); box-shadow:none}
+.mbox .druhy button.on small{color:inherit; opacity:.8}
+.mbox .fotobtn{display:flex; align-items:center; justify-content:center; gap:10px; min-height:52px; padding:0 16px; border-radius:12px;
+  border:1.5px dashed var(--line); font:600 var(--t1)/1.2 -apple-system, system-ui, sans-serif; color:var(--ink)}
+/* přepínače jako řádky (trasa, historie) */
+.mbox .toggle{flex-direction:row-reverse; justify-content:space-between; background:transparent; border:0; border-radius:0;
+  border-bottom:1px solid var(--line); padding:10px 0; min-height:56px; gap:12px}
+.mbox .toggle.on{background:transparent}
+.mbox .toggle .lbl{flex:1; font:600 var(--t1)/1.3 -apple-system, system-ui, sans-serif}
+.mbox .toggle .lbl small{display:block; margin-top:2px; font:500 var(--t1)/1.35 -apple-system, system-ui, sans-serif; color:var(--muted)}
+/* seznamy: lidé, trasy, nápověda */
+.mbox .plist{border-radius:12px}
+.mbox .plist .r{font:500 var(--t1)/1.3 -apple-system, system-ui, sans-serif; min-height:52px; padding:4px 12px}
+.mbox .plist .r button{min-height:44px; padding:0 14px; font:700 var(--t1)/1 -apple-system, system-ui, sans-serif; border-radius:10px}
+.mbox .plist .r .no{background:transparent; color:var(--cervena); box-shadow:inset 0 0 0 1.5px var(--cervena)}
+.mbox .trasy .r{font:500 var(--t1)/1.3 -apple-system, system-ui, sans-serif; background:transparent; border-radius:12px; padding:4px 4px 4px 12px; min-height:52px}
+.mbox .trasy .x{min-height:44px; min-width:44px; padding:0; border-radius:10px; background:transparent; color:var(--cervena); font:700 var(--t2)/1 -apple-system, system-ui, sans-serif}
+.mbox details.napoveda{background:transparent; border-radius:12px}
+.mbox details.napoveda summary{font:600 var(--t1)/1.3 -apple-system, system-ui, sans-serif; min-height:52px; padding:0 14px; justify-content:space-between; gap:12px}
+.mbox details.napoveda p{padding:0 14px 14px}
+.mbox .uid{font:500 var(--t1)/1.5 -apple-system, system-ui, sans-serif; background:var(--papir2); border-radius:10px; padding:8px 10px}
+.mbox #trackSouhrn{font:500 var(--t1)/1.5 -apple-system, system-ui, sans-serif}
+.mbox #trackSouhrn .cislo{font:700 var(--t3)/1.1 -apple-system, system-ui, sans-serif}
+.mbox code{font-size:var(--t1)}
+/* Kde je nejblíž: řádky seznamu místo karet */
+#kdeObsah .kamlok{background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0; padding:12px 0; margin:0; box-shadow:none}
+#kdeObsah .kamlok .jmenoradek{gap:12px}
+#kdeObsah .kamlok .jm{font:500 var(--t2)/1.25 -apple-system, system-ui, sans-serif; white-space:normal; overflow:visible}
+#kdeObsah .kamlok .pozn{margin:4px 0 0}
+#kdeObsah .oblmini{width:auto; flex:none; min-height:44px; padding:0 14px; border-radius:10px; background:transparent; color:var(--ink);
+  box-shadow:inset 0 0 0 1.5px var(--ink); font:700 var(--t1)/1 -apple-system, system-ui, sans-serif}
+@media (prefers-color-scheme: dark){
+  .mbox .fchip, .mbox .druhy button{background:transparent; color:var(--ink)}
+  .mbox .fchip.on, .mbox .druhy button.on{background:var(--ink); color:var(--card)}
+  .mbox .ghost, .mbox button.ghost{background:transparent; color:var(--ink)}
+  .mbox .trasy .r, .mbox details.napoveda, .mbox .toggle, .mbox .toggle.on{background:transparent}
+  .mbox .trasy .x{background:transparent; color:#f3a594}
+}
 </style>
 </head>
 <body>
@@ -1017,6 +1113,7 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
  <symbol id="i-zavrit" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
  <symbol id="i-stahnout" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+ <symbol id="i-foto" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
 </svg>
 
 <div id="map"></div>
@@ -1171,7 +1268,7 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
       <button data-q="40">žně <small>víc než 20</small></button>
     </div>
 
-    <label class="fotobtn">📷 &nbsp;Vyfotit (nepovinné)
+    <label class="fotobtn"><svg class="ik"><use href="#i-foto"/></svg>Vyfotit (nepovinné)
       <input type="file" id="fotoInput" accept="image/*" capture="environment" hidden>
     </label>
     <div id="fotoNahled"></div>
@@ -1234,8 +1331,8 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
     <section class="sekce" id="sekceDomov">
       <h3>Domov</h3>
       <p class="pozn" id="domovKde"></p>
-      <button class="ghost" id="btnDomovTady">📍 &nbsp;Domov je tam, kde teď stojím</button>
-      <button class="ghost" id="btnDomovZpet" hidden>↺ &nbsp;Vrátit na Stodolní 411</button>
+      <button class="ghost" id="btnDomovTady"><svg class="ik"><use href="#i-spendlik"/></svg>Domov je tam, kde teď stojím</button>
+      <button class="ghost" id="btnDomovZpet" hidden>Vrátit na Stodolní 411</button>
     </section>
 
     <section class="sekce" id="sekceJa">
@@ -1422,7 +1519,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v128';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v129';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -3235,7 +3332,7 @@ function navodLens(voSchrance){
         '(podrž prst a dej Vložit).</p>'
       : '<p class="pozn">Otevři Lens, klepni na ikonu obrázku a vyber fotku z galerie ' +
         '– tu, kterou jsi právě vybral nebo vyfotil.</p>') +
-    '<a class="fotobtn" style="border-style:solid;color:var(--ink)" target="_blank" rel="noopener" href="' + LENS_WEB + '">🔍 &nbsp;Otevřít Google Lens</a>' +
+    '<a class="fotobtn" style="border-style:solid;color:var(--ink)" target="_blank" rel="noopener" href="' + LENS_WEB + '"><svg class="ik"><use href="#i-hledej"/></svg>Otevřít Google Lens</a>' +
     '<p class="pozn"><b>Ani Lens, ani tahle appka nerozhoduje, co je jedlé.</b> ' +
     'Lens řekne, co si myslí, že na fotce je. Houbu držíš v ruce ty – ' +
     'pochvu, prstenec a barvu na řezu na fotce nikdo neuvidí.</p>';
@@ -3272,13 +3369,13 @@ async function lupaZFotky(e){
      do jiné appky bez klepnutí člověka, takže tenhle jeden krok zůstat
      musí; může ale být okamžitý a na ráně. */
   $('lupaObsah').innerHTML =
-    '<button id="btnPosliLens" style="margin-bottom:10px">📤 &nbsp;Poslat do Google Lens</button>' +
+    '<button id="btnPosliLens" style="margin-bottom:10px">Poslat do Google Lens</button>' +
     '<p class="pozn" style="margin-bottom:10px">V nabídce vyber <b>Google</b> → ' +
     '<b>Hledat pomocí Lens</b>. Podržením ikony Google v nabídce si ji přesuneš dopředu ' +
     'a příště je to jedno klepnutí.</p>' +
     nahled +
-    '<button class="ghost" id="btnLupaZnovu" style="margin-bottom:6px">📷 &nbsp;Vyfotit znovu</button>' +
-    '<button class="ghost" id="btnLupaGal" style="margin-bottom:10px">🖼 &nbsp;Vybrat z galerie</button>' +
+    '<button class="ghost" id="btnLupaZnovu" style="margin-bottom:6px"><svg class="ik"><use href="#i-foto"/></svg>Vyfotit znovu</button>' +
+    '<button class="ghost" id="btnLupaGal" style="margin-bottom:10px">Vybrat z galerie</button>' +
     '<p class="pozn"><b>Ani Lens, ani tahle appka nerozhoduje, co je jedlé.</b> ' +
     'Pochvu, prstenec a barvu na řezu na fotce nikdo neuvidí.</p>';
   $('lupaModal').classList.add('show');
@@ -3292,7 +3389,7 @@ async function lupaZFotky(e){
       if (jak === 'share') $('lupaModal').classList.remove('show');
     } catch(err){
       banner('Fotku se nepodařilo poslat dál. Zkus to znovu, nebo otevři Lens ručně.', true);
-    } finally { b.disabled = false; b.innerHTML = '📤 &nbsp;Poslat do Google Lens'; }
+    } finally { b.disabled = false; b.innerHTML = 'Poslat do Google Lens'; }
   };
 }
 $('lupaInput').onchange   = lupaZFotky;
@@ -3309,7 +3406,7 @@ $('fotoInput').onchange = async e => {
        nezmizí – jen vede na návod, jak fotku do Lens dostat ručně. */
     $('fotoNahled').innerHTML =
       '<img src="' + fotoNahledData + '" alt="náhled">' +
-      '<button class="urcit" id="btnUrcit">🔍 &nbsp;Určit v Google Lens</button>';
+      '<button class="urcit" id="btnUrcit"><svg class="ik"><use href="#i-hledej"/></svg>Určit v Google Lens</button>';
     $('fotoNahled').classList.add('show');
     $('findPozn').innerHTML = 'Náhled ' + kb + ' kB se uloží k nálezu. ' +
       '<b>Tahle appka neurčuje, co je jedlé</b> – od toho jsi tu ty a tvoje oči.';
@@ -4810,11 +4907,11 @@ function kdeHTML(klic, v){
     '<button class="oblmini" data-kde-skok="' + lat + ',' + lng + '">Na mapu</button></div>' +
     '<p class="pozn" style="margin:2px 0 0">' + vedlejsi + '</p></div>';
 
-  let h = '<div class="fr" style="margin-bottom:10px"><span>Houba</span><div>' +
+  let h = '<div class="filtry"><div class="fr"><span>Houba</span><div>' +
     ['bedly','hrib_smrkovy','hrib_dubovy','hrib_zlutomasy','kremenac','kozak','klouzky','masak']
       .map(k => '<button class="fchip' + (k === klic ? ' on' : '') + '" data-kde-druh="' + k + '">' +
                 HOUBY[k].kratkyChip + '</button>').join('') +
-    '</div></div>';
+    '</div></div></div>';
 
   h += '<h3>Nahlášené nálezy</h3>';
   if (v.chybaZdroje){
@@ -4823,8 +4920,8 @@ function kdeHTML(klic, v){
     h += '<p class="pozn">Pro <b>' + v.jm + '</b> nemám ve zdroji ani jeden bod. ' +
          'Neznamená to, že u nás neroste – znamená to, že ji nikdo nenahlásil se souřadnicí.</p>';
   } else {
-    h += '<p class="pozn">Někdo tam tu houbu vyfotil a určil. Říká to, že tam <b>někdy rostla</b>, ' +
-         'ne že tam je dnes. Vzdálenosti jsou vzdušnou čarou ' + v.odkud + '.</p>';
+    h += '<p class="pozn">Někdo ji tam vyfotil a určil: <b>někdy tam rostla</b>, ne že tam je dnes. ' +
+         'Vzdušnou čarou ' + v.odkud + '.</p>';
     h += v.nalezy.slice(0, 5).map(n => radek(n.lat, n.lng,
       '<b>' + fmtDist(n.d) + '</b> · ' + n.jm,
       (n.mes ? MES_CZ[n.mes] + ' ' : '') + (n.rok || 'rok neuveden') +
@@ -4839,8 +4936,8 @@ function kdeHTML(klic, v){
     h += '<p class="pozn">Nic v dosahu dat.</p>';
   } else {
     h += '<p class="pozn"><b>' + v.jm + '</b> chce spíš <b>' + (v.list ? 'listnatý' : 'jehličnatý') +
-         '</b> les. Tohle jsou nejbližší místa, kde takový les převažuje. Říká to, že tam ' +
-         '<b>má smysl hledat</b> – ne že tam někdo něco našel. Počasí a sezóna v tomhle seznamu nejsou.</p>';
+         '</b> les. Nejbližší místa, kde převažuje: <b>má smysl hledat</b>, ' +
+         'počasí ani sezóna v tom nejsou.</p>';
     h += v.mista.slice(0, 5).map(m => radek(m.lat, m.lng,
       '<b>' + fmtDist(m.d) + '</b> · ' + (v.list ? 'listnatý' : 'jehličnatý') + ' ' + m.podil + ' %',
       'lesních cest v okolí: ' + m.cest)).join('');
@@ -5284,9 +5381,8 @@ function popisHouby(){
      do 1,5 km (stejné okolí): s vybraným druhem trefí tabulka porostů
      správný porost s AUC 0,561, s „Vše" jen 0,514 – skoro náhoda. Lepší
      hodnocení přes všechny druhy dá dobrou známku skoro každému lesu. */
-  if (d === 'vse')   return 'Bereš cokoli – platí lepší hodnocení z celé nabídky. ' +
-                            'Mapa porostů hodnotí les podle hub, <b>které teď rostou</b>. ' +
-                            'Když vybereš konkrétní houbu, porosty rozliší ještě líp (změřeno na 1 105 nálezech).';
+  if (d === 'vse')   return 'Les se hodnotí podle hub, <b>které teď rostou</b>. ' +
+                            'Konkrétní houba rozliší porosty líp.';
   if (d === 'hriby') return 'Všechny hřibovité dohromady – platí ta nejlepší z nich pro daný porost.';
   const h = HOUBY[d];
   if (!h) return '';
@@ -5325,7 +5421,7 @@ function filtryHTML(){
       ['bedly','hrib_smrkovy','hrib_dubovy','hrib_zlutomasy','kremenac','kozak','klouzky','masak']
         .map(k => chip('druh', k, HOUBY[k].kratkyChip)).join('') +
       '<p class="pozn popisHouby">' + popisHouby() + '</p>' +
-      '<button class="ghost" id="btnKdeNejbliz" style="margin:6px 0 0">🔎 &nbsp;Kde je nejblíž?</button>' +
+      '<button class="ghost" id="btnKdeNejbliz" style="margin:6px 0 0"><svg class="ik"><use href="#i-spendlik"/></svg>Kde je nejblíž?</button>' +
     '</div></div>' +
     '<div class="fr"><span>Porost</span><div>' +
       chip('porost','vse','Vše') + chip('porost','listnate','Listnatý') +
@@ -7419,7 +7515,7 @@ function refreshOdchod(){
   }
   el.innerHTML =
     '<h3>Rodinná mapa</h3>' +
-    '<p style="font-size:11.5px;color:var(--muted);margin:0 0 8px">Odejdeš-li, přestaneš vidět polohy ostatních, auto i nálezy. ' +
+    '<p style="color:var(--muted);margin:0 0 8px">Odejdeš-li, přestaneš vidět polohy ostatních, auto i nálezy. ' +
     'Trasy a nálezy, které jsi sdílel, se přitom smažou – v telefonu ti zůstanou.</p>' +
     '<button class="ghost" id="btnOdejit" style="margin-bottom:14px">Odejít z rodinné mapy</button>';
   $('btnOdejit').onclick = () => odejit();
@@ -7485,7 +7581,7 @@ function blokOdkaz(){
      ============================================================ */
   if (!odkaz){
     return '<h3>Rodinný odkaz</h3>' +
-      '<p style="font-size:12px;color:var(--muted);margin:0 0 8px">' +
+      '<p style="color:var(--muted);margin:0 0 8px">' +
       'Appka spuštěná z ikonky má vlastní úložiště a se Safari ho nesdílí – ' +
       'kód z rodinného odkazu se sem proto sám nedostane. ' +
       '<b>Vlož ho jednou sem a bude pokoj.</b> Odkaz najdeš tam, kam ti přišel; ' +
@@ -7503,11 +7599,11 @@ function blokOdkaz(){
           'může ti smazat kód, trasy i stažené mapy.'
         : 'Jestli prohlížeč data udrží, se zatím neví.');
   return '<h3>Rodinný odkaz</h3>' +
-    '<p style="font-size:12px;color:var(--muted);margin:0 0 8px">' + stav +
+    '<p style="color:var(--muted);margin:0 0 8px">' + stav +
     ' <b>Ulož si tenhle odkaz do záložek</b> – je to jediná cesta zpátky, ' +
     'kdyby appka zapomněla, kdo jsi.</p>' +
     '<div class="uid" id="odkazTxt" style="word-break:break-all">' + odkaz + '</div>' +
-    '<button class="ghost" id="btnOdkaz" style="margin:8px 0 14px">📋 &nbsp;Zkopírovat odkaz</button>';
+    '<button class="ghost" id="btnOdkaz" style="margin:8px 0 14px">Zkopírovat odkaz</button>';
 }
 
 /* Audit 42: složený panel se třikrát po sobě spravoval podle odhadu
@@ -7523,7 +7619,7 @@ function diagnostika(){
     const radek = sh.querySelector('.hlavniradek');
     const doRadku = radek ? Math.round(radek.getBoundingClientRect().bottom - r.top) : 0;
     const vidno = Math.round(Math.min(r.bottom, window.innerHeight) - r.top);
-    return '<h3>Diagnostika</h3><div class="uid" style="font-size:11px;line-height:1.6">' +
+    return '<h3>Diagnostika</h3><div class="uid" style="line-height:1.6">' +
       'verze <b>' + APP_VERZE + '</b><br>' +
       'okno ' + window.innerWidth + '×' + window.innerHeight +
       ' · displej ' + screen.width + '×' + screen.height + '<br>' +
@@ -7570,10 +7666,10 @@ function refreshPeopleModal(){
              (own ? '' : '<button class="no" data-remove="' + esc(u) + '">Odebrat</button>') + '</div>';
     }).join('') + '</div>';
   }
-  html += '<p style="font-size:11.5px;color:var(--muted);margin:6px 0 12px">Připojí se každý, komu pošleš rodinný odkaz s kódem. Kdo přijde na holou adresu, uvidí jen mapu lokalit.</p>';
+  html += '<p style="color:var(--muted);margin:6px 0 12px">Připojí se každý, komu pošleš rodinný odkaz s kódem. Kdo přijde na holou adresu, uvidí jen mapu lokalit.</p>';
   html += '<h3>Sledování na pozadí</h3>' +
-    '<p style="font-size:12px;color:var(--muted);margin:0 0 10px">Když má někdo telefon v kapse, tahle appka jeho polohu neaktualizuje — Safari to na iPhonu zastaví. Na průběžné sledování používejte Najít.</p>' +
-    '<a href="findmy://" style="display:block;text-align:center;padding:11px;border-radius:10px;background:#eee9e0;color:var(--ink);text-decoration:none;font-size:13px;font-weight:600;margin-bottom:14px">📡 Otevřít Najít</a>';
+    '<p style="margin:0 0 10px">Z telefonu v kapse Safari polohu neposílá. Na průběžné sledování je Najít.</p>' +
+    '<a class="tlac2" href="findmy://">Otevřít Najít</a>';
 
   el.innerHTML = html;
   el.querySelectorAll('[data-remove]').forEach(b  => b.onclick = () => removeUser(b.dataset.remove));
@@ -7632,11 +7728,11 @@ function lesHTML(){
       DRUHY.map(d => '<button data-d="' + d + '"' + (lesDruh === d ? ' class="on"' : '') + '>' +
         d.charAt(0).toUpperCase() + d.slice(1,4) + '.</button>').join('') +
       '</div>';
-    h += '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">' +
+    h += '<p style="color:var(--muted);margin:0 0 12px">' +
       '<b>Bedly</b> spíš v listnatém a na okrajích luk, <b>hřiby a klouzky</b> v jehličnatém a smíšeném. ' +
       'Porost, který ČÚZK neurčil, je šedozelený.</p>';
   } else if (lesZap){
-    h += '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">' +
+    h += '<p style="color:var(--muted);margin:0 0 12px">' +
       'Zelené plochy jsou lesní půda se stromy podle ZABAGED. ' +
       'Přibližuj dál a lesy se rozliší na listnaté, smíšené a jehličnaté.</p>';
   }
@@ -7645,7 +7741,7 @@ function lesHTML(){
     chranZap + '" aria-label="Chráněná území" style="margin-bottom:10px">' +
     '<div class="sw" aria-hidden="true"><i></i></div><div class="lbl">Chráněná území<small>národní parky, CHKO, rezervace</small></div></div>';
   if (chranZap){
-    h += '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">' +
+    h += '<p style="color:var(--muted);margin:0 0 12px">' +
       'Data AOPK ČR. <b>V rezervacích a v klidových územích národních parků se houby sbírat nesmí</b> ' +
       'a někde se nesmí ani sejít z cesty. V CHKO sbírat lze. Tahle vrstva ti ukáže, kde si to ověřit – ' +
       'není to povolenka.</p>';
@@ -7673,7 +7769,7 @@ function nejlepsiHTML(){
       '<button' + (nejlepsiDruh ? '' : ' class="on"') + '>Vše</button>' +
       DRUHY.map(d => '<button data-d="' + d + '"' + (nejlepsiDruh === d ? ' class="on"' : '') + '>' + d + '</button>').join('') +
       '</div>';
-    h += '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">' +
+    h += '<p style="color:var(--muted);margin:0 0 12px">' +
       (celkem === 0
         ? 'Zatím není z čeho počítat. Každý uložený nález se sem přičte a mapa začne dávat smysl po pár desítkách – <b>tohle je jediná vrstva v appce, která nestojí na odhadu</b>.'
         : (vFiltru < 20
@@ -7710,18 +7806,16 @@ function refreshNastroje(){
     : (cizich ? sklonuj(cizich, 'cizí trasa', 'cizí trasy', 'cizích tras') : 'zatím žádná trasa');
   el.innerHTML =
     '<h3>Mapa</h3>' +
-    '<button class="ghost" id="btnOffline2" style="margin-bottom:8px">⬇︎ &nbsp;Stáhnout tenhle výřez na offline</button>' +
-    '<p style="font-size:11.5px;color:var(--muted);margin:0 0 8px" id="mistoTxt">Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.</p>' +
+    '<button class="ghost" id="btnOffline2" style="margin-bottom:8px"><svg class="ik"><use href="#i-stahnout"/></svg>Stáhnout výřez na offline</button>' +
+    '<p style="color:var(--muted);margin:0 0 8px" id="mistoTxt">Doma na Wi-Fi, ať mapa jde i bez signálu.</p>' +
     '<button class="ghost" id="btnSmazMapy" style="margin-bottom:12px">Smazat uložené mapy</button>' +
     /* Audit 34: „Máš 2 oblíbená místa" bylo všechno, co appka o oblíbených
        řekla – nedalo se zjistit která, ani se na ně dostat. Tady je jejich
        jediný soupis: kde jsou, jak daleko, a co se s nimi dá udělat. */
     '<h3>Oblíbená místa</h3>' +
     '<div id="oblibeneSeznam"></div>' +
-    '<button class="ghost" id="btnOblibeneSem" style="margin-bottom:6px">★ &nbsp;Přidat střed mapy</button>' +
-    '<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">' +
-    'Oblíbené místo přidáš i <b>podržením prstu na mapě</b> – hvězdička sedne přesně tam. ' +
-    'Do doporučování „Kam dnes na houby" se počítají (+0,15 ke skóre).</p>' +
+    '<button class="ghost" id="btnOblibeneSem" style="margin-bottom:6px"><svg class="ik"><use href="#i-hvezda"/></svg>Přidat střed mapy</button>' +
+    '<p style="margin:0 0 12px">Nebo <b>podrž prst na mapě</b>. V „Kam dnes" mají oblíbená přednost.</p>' +
     lesHTML() +
     '<div class="toggle' + (historieZap ? ' on' : '') + '" id="tgHistorie" role="switch" tabindex="0" aria-checked="' +
       historieZap + '" aria-label="Kde jsme už hledali" style="margin-bottom:12px">' +
@@ -7792,12 +7886,10 @@ function refreshNastroje(){
     const el = $('mistoTxt');
     if (!el || !u) return;
     limitDlazdic().then(lim => {
-      el.innerHTML = 'Udělej to doma na Wi-Fi. V lese bez signálu pak mapa funguje.<br>' +
-        'Mapa má u prohlížeče naúčtováno <b>' + fmtMB(u.pouzito) + '</b> z ' + fmtMB(u.kvota) +
+      el.innerHTML = 'Doma na Wi-Fi, ať mapa jde i bez signálu. Uloženo <b>' + fmtMB(u.pouzito) + '</b> z ' + fmtMB(u.kvota) +
         (u.podil > 0.8 ? ' – <b style="color:#b4451f">začíná být plno</b>.' : '.') +
-        '<br><small>Jedna dlaždice má pár desítek kilobajtů. ' +
-        'Teď se sem vejde ještě <b>' + sklonuj(lim, 'dlaždice', 'dlaždice', 'dlaždic') + '</b>' +
-        (lim >= TILE_LIMIT_ABS ? ' na jedno stažení (víc najednou OSM nechce) – větší oblast stáhni po částech' : '') + '.</small>';
+        ' Najednou jde <b>' + sklonuj(lim, 'dlaždice', 'dlaždice', 'dlaždic') + '</b>' +
+        (lim >= TILE_LIMIT_ABS ? ', větší oblast stáhni po částech' : '') + '.';
     });
   });
   $('tgHistorie').onclick = () => {
@@ -7915,7 +8007,7 @@ function otevriNastaveni(kam){
   }
   uidEl.innerHTML = blokOdkaz() + diagnostika() +
     '<b style="color:var(--ink)">Tvoje UID</b> (každý prohlížeč a telefon má vlastní):<br>' +
-    '<code style="font-size:11px;word-break:break-all;background:#f2efe9;padding:4px 6px;border-radius:5px;display:inline-block;margin-top:4px">' +
+    '<code style="word-break:break-all;background:var(--papir2);padding:4px 6px;border-radius:5px;display:inline-block;margin-top:4px">' +
     (state.uid || 'není přihlášeno – Firebase není nastavený') + '</code>';
   const ku = uidEl.querySelector('#btnKodUloz');
   if (ku) ku.onclick = () => {
@@ -7945,7 +8037,7 @@ function otevriNastaveni(kam){
     try {
       await navigator.clipboard.writeText(rodinnyOdkaz());
       bo.textContent = '✓ Zkopírováno';
-      setTimeout(() => { bo.innerHTML = '📋 &nbsp;Zkopírovat odkaz'; }, 3000);
+      setTimeout(() => { bo.innerHTML = 'Zkopírovat odkaz'; }, 3000);
     } catch(e){
       banner('Zkopírovat to nešlo. Odkaz je vypsaný nad tlačítkem, dá se označit prstem.', false, 8000);
     }
@@ -7979,8 +8071,7 @@ function refreshOblibene(){
   const o = oblibenaVsech();
   const klice = Object.keys(o).filter(k => typeof o[k].lat === 'number');
   if (!klice.length){
-    el.innerHTML = '<p style="font-size:12px;color:var(--muted);margin:0 0 10px">' +
-      'Zatím žádné. Hvězdičku najdeš v bublině parkoviště, nebo podrž prst na mapě.</p>';
+    el.innerHTML = '<p style="margin:0 0 10px">Zatím žádné.</p>';
     return;
   }
   const odkud = (state.me && typeof state.me.lat === 'number') ? [state.me.lat, state.me.lng] : HOME;
@@ -8026,15 +8117,13 @@ function refreshOblibene(){
 function refreshDomov(){
   const vlastni = domovJeVlastni();
   $('domovKde').innerHTML = vlastni
-    ? 'Vlastní bod, který jsi nastavil: <b>' + HOME[0].toFixed(5) + ', ' + HOME[1].toFixed(5) + '</b>.<br>' +
-      'Odsud se počítá dojezd v „Kam dnes na houby".'
-    : '<b>Stodolní 411, 250 63 Mratín</b> – adresní bod z RÚIAN (ČÚZK), ' +
-      'ověřený proti OpenStreetMap.<br>Odsud se počítá dojezd v „Kam dnes na houby".';
+    ? 'Vlastní bod <b>' + HOME[0].toFixed(5) + ', ' + HOME[1].toFixed(5) + '</b>.<br>Odsud se počítá dojezd.'
+    : '<b>Stodolní 411, Mratín</b>.<br>Odsud se počítá dojezd.';
   $('btnDomovZpet').hidden = !vlastni;
 }
 $('btnDomovTady').onclick = async () => {
   const b = $('btnDomovTady');
-  b.disabled = true; const puv = b.innerHTML; b.textContent = '📡  Zaměřuju…';
+  b.disabled = true; const puv = b.innerHTML; b.innerHTML = '<svg class="ik"><use href="#i-zamer"/></svg>Zaměřuju…';
   try {
     const p = await getPositionOnce();
     LS.set('domov', {lat:p.lat, lng:p.lng, acc:p.acc, ts:Date.now()});
