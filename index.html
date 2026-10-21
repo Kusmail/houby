@@ -1196,6 +1196,19 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
    ============================================================ */
 .sheet:not(.peek){max-height:min(calc(100dvh - var(--safe-t, 0px) - var(--bannerH, 0px) - 56px), var(--menuStrop, 100dvh));
   box-shadow:0 -6px 22px rgba(40,34,20,.16), 0 var(--dno, 0px) 0 0 var(--card)}
+
+/* ============================================================
+   v134: DOROVNÁNÍ VZHLEDU PODLE SNÍMKŮ Z IPHONU
+   Panel vrstev byl ještě v původní podobě Leafletu (12,5 px, modré
+   přepínače), „Auto mám" mělo emoji koše a štítek auta bez polohy
+   ukazoval pomlčku.
+   ============================================================ */
+.leaflet-control-layers-expanded{padding:8px 14px !important; font:500 var(--t1)/1.3 -apple-system, system-ui, sans-serif; color:var(--ink); box-shadow:0 2px 10px rgba(40,34,20,.2) !important}
+.leaflet-control-layers-expanded label{display:flex; align-items:center; gap:10px; min-height:44px; margin:0; font-size:var(--t1)}
+.leaflet-control-layers-expanded label > span, .leaflet-control-layers-expanded label > div{display:flex; align-items:center; gap:10px}
+.leaflet-control-layers-selector{width:20px; height:20px; margin:0 !important; top:0 !important; accent-color:var(--ink); flex:none}
+.leaflet-control-layers-separator{border-top-color:var(--line) !important; margin:6px -14px !important}
+.carinfo .d[data-bez]::after{content:none !important}
 </style>
 </head>
 <body>
@@ -1293,7 +1306,7 @@ html, body{font-family:-apple-system, "SF Pro Text", system-ui, sans-serif}
     </div>
     <div class="carnav-akce" id="carAkce">
       <button class="carbtn" id="btnCarAgain">Přeparkoval jsem</button>
-      <button class="carbtn del" id="btnCarClear">🗑 &nbsp;Auto mám</button>
+      <button class="carbtn del" id="btnCarClear">Auto mám</button>
     </div>
     <div class="carnav-ptam" id="carPtam" hidden>
       <div class="ot" id="carPtamTxt">Vyzvedl jsi auto? Značka zmizí i tomu druhému.</div>
@@ -1622,7 +1635,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v133';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v134';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -2480,14 +2493,18 @@ function renderCar(){
 function updateCarNav(){
   const c = state.car, m = state.me;
   if (!c) return;
+  /* v134: bez polohy stála na štítku pomlčka („– k autu"), která
+     vypadala jako rozbitá appka. */
   if (!m){
-    $('carDist').textContent = '–';
+    $('carDist').textContent = 'Auto';
+    $('carDist').dataset.bez = '1';
     $('carMeta').innerHTML = 'Zapni sdílení polohy, ať víme, jak daleko jsi.<br>Označil ' + esc(c.byName||'?') + ' ' + fmtAge(c.ts) + '.';
     return;
   }
   const d = distM([m.lat, m.lng], [c.lat, c.lng]);
   const brg = bearingDeg([m.lat, m.lng], [c.lat, c.lng]);
   $('carDist').textContent = fmtDist(d);
+  delete $('carDist').dataset.bez;
   let meta = 'k autu · označil ' + esc(c.byName||'?') + ' ' + fmtAge(c.ts);
   if (state.heading == null) meta += '<br>Azimut ' + Math.round(brg) + '° – klepni na šipku a povol kompas';
   else meta += '<br>Šipka ukazuje směr k autu';
