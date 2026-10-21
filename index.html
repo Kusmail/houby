@@ -1154,9 +1154,12 @@ if (typeof L === 'undefined'){
       '<button style="min-height:48px;padding:0 22px;border:0;border-radius:11px;background:#2e5c3a;' +
       'color:#fff;font-size:15px;font-weight:650">Načíst znovu</button>';
     d.querySelector('button').onclick = function(){
-      if ('caches' in window){
+      /* v124: bez signálu by smazání skořápky z opravitelného stavu udělalo
+         trvalý („Offline a stránka není uložená") – jen načíst znovu.
+         A nikdy nemazat uložené mapy, knihovnu Firebase ani zálohu porostů. */
+      if ('caches' in window && navigator.onLine !== false){
         caches.keys().then(function(k){
-          return Promise.all(k.filter(function(n){ return n.indexOf('houby-tiles') === -1; })
+          return Promise.all(k.filter(function(n){ return ['houby-tiles', 'houby-sdk', 'houby-zaloha'].indexOf(n) === -1; })
                               .map(function(n){ return caches.delete(n); }));
         }).catch(function(){}).then(function(){ location.reload(true); });
       } else location.reload(true);
@@ -1177,7 +1180,7 @@ if (typeof L === 'undefined'){
      OSM Nominatim „Stodolní 411, Mratín" → 50.2094652, 14.5582986
    Souhlasí na šest desetinných míst. Aby tahle chyba nemohla znovu
    tiše ležet, jde domov v Nastavení přepsat na místo, kde stojíš. */
-const APP_VERZE = 'houby-v123';   // mění se s každým vydáním
+const APP_VERZE = 'houby-v124';   // mění se s každým vydáním
 const HOME_RUIAN = [50.209465, 14.558299];
 let HOME = HOME_RUIAN.slice();   // vlastní domov se doplní níž, až existuje LS
 
@@ -8331,7 +8334,12 @@ function nabidniAktualizaci(reg, novy){
      jen záloha pro případ, že přijdeme až později. */
   const cekajici = novy || reg.waiting;
 
-  if ((!uzSeDotkl || Date.now() - OTEVRENO_V < TICHA_VYMENA_DO) && cekajici){
+  /* v124: tichá výměna platí i po dotyku v prvních 15 s (audit 32 – nová
+     verze se má projevit hned při spuštění). Jenže to znamenalo přenačíst
+     stránku třeba uprostřed zapisování nálezu a okno i s textem zmizelo.
+     Když je otevřené okno nebo běží záznam trasy, nabídne se jen pruh. */
+  const neruset = document.querySelector('.modal.show') || (typeof REC !== 'undefined' && REC.aktivni);
+  if ((!uzSeDotkl || Date.now() - OTEVRENO_V < TICHA_VYMENA_DO) && !neruset && cekajici){
     let uzJsemToZkusil = false;
     try { uzJsemToZkusil = sessionStorage.getItem('hb_update_pokus') === '1'; } catch(e){}
     if (!uzJsemToZkusil){
